@@ -316,7 +316,16 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedInput = input.trim();
-    if (!trimmedInput || isLoading) return;
+
+    // Early return if no input - do NOT clear attachment
+    if (!trimmedInput) {
+      return;
+    }
+
+    // Early return if already loading - do NOT clear attachment
+    if (isLoading) {
+      return;
+    }
 
     // Capture attachment before clearing - make a deep copy to preserve it
     const currentAttachment = attachment ? { ...attachment } : null;
@@ -429,20 +438,24 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
               if (data.type === "sources") {
                 streamedSources = data.sources;
                 setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === assistantMessageId
-                      ? { ...msg, sources: streamedSources }
-                      : msg
-                  )
+                  prev.map((msg) => {
+                    if (msg.id === assistantMessageId) {
+                      return { ...msg, sources: streamedSources };
+                    }
+                    // Preserve all properties including attachment
+                    return msg;
+                  })
                 );
               } else if (data.type === "text") {
                 streamedContent += data.text;
                 setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === assistantMessageId
-                      ? { ...msg, content: streamedContent }
-                      : msg
-                  )
+                  prev.map((msg) => {
+                    if (msg.id === assistantMessageId) {
+                      return { ...msg, content: streamedContent };
+                    }
+                    // Preserve all properties including attachment
+                    return msg;
+                  })
                 );
               }
             } catch {
@@ -720,6 +733,19 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault(); // Always prevent default Enter behavior
+                  const currentValue = (e.target as HTMLInputElement).value.trim();
+                  if (currentValue && !isLoading) {
+                    // Manually trigger form submit
+                    const form = e.currentTarget.closest('form');
+                    if (form) {
+                      form.requestSubmit();
+                    }
+                  }
+                }
+              }}
               placeholder={
                 attachment
                   ? "Ask about this document..."
