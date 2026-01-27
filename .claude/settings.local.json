@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(node scripts/test-supabase.mjs:*)",
+      "Bash(lsof:*)",
+      "Bash(curl:*)",
+      "Bash(node scripts/test-full-rag.mjs:*)",
+      "Bash(node -e:*)",
+      "Bash(xxd:*)",
+      "Bash(echo:*)",
+      "Bash(pkill:*)",
+      "Bash(grep:*)",
+      "Bash(node scripts/fetch-ors90.mjs:*)",
+      "Bash(chmod:*)",
+      "Bash(node scripts/fetch-ors90-complete.mjs:*)",
+      "Bash(ls:*)",
+      "Bash(./scripts/ingest-complete-ors90.sh:*)",
+      "Bash(cat:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm ls:*)",
+      "Bash(npx tsc:*)"
+    ]
+  }
+}
