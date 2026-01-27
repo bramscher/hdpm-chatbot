@@ -318,7 +318,8 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
     const trimmedInput = input.trim();
     if (!trimmedInput || isLoading) return;
 
-    const currentAttachment = attachment;
+    // Capture attachment before clearing - make a deep copy to preserve it
+    const currentAttachment = attachment ? { ...attachment } : null;
     let conversationId = activeConversationId;
 
     // If this is the first message, create a new conversation
