@@ -10,15 +10,33 @@ export interface ConversationSummary {
   title: string;
   created_at: string;
   updated_at: string;
+  user_email: string;
+  user_name?: string;
 }
 
 interface ConversationHistoryProps {
   conversations: ConversationSummary[];
   activeConversationId: string | null;
+  currentUserEmail?: string;
   onSelectConversation: (id: string) => void;
   onNewConversation: () => void;
   onDeleteConversation: (id: string) => void;
   isLoading: boolean;
+}
+
+function getInitials(name?: string, email?: string): string {
+  if (name) {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return parts[0].substring(0, 2).toUpperCase();
+  }
+  if (email) {
+    const local = email.split('@')[0];
+    return local.substring(0, 2).toUpperCase();
+  }
+  return '??';
 }
 
 function formatDate(dateString: string): string {
@@ -50,6 +68,7 @@ function formatDate(dateString: string): string {
 export function ConversationHistory({
   conversations,
   activeConversationId,
+  currentUserEmail,
   onSelectConversation,
   onNewConversation,
   onDeleteConversation,
@@ -99,7 +118,7 @@ export function ConversationHistory({
     <div className="w-64 bg-gray-50 border-r border-gray-200 flex flex-col">
       {/* Header */}
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-        <h3 className="font-semibold text-gray-800">History</h3>
+        <h3 className="font-semibold text-gray-800">Team History</h3>
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
@@ -136,50 +155,70 @@ export function ConversationHistory({
           </div>
         ) : (
           <div className="space-y-1">
-            {conversations.map((conversation) => (
-              <div
-                key={conversation.id}
-                onClick={() => onSelectConversation(conversation.id)}
-                className={cn(
-                  "group relative p-3 rounded-lg cursor-pointer transition-colors",
-                  activeConversationId === conversation.id
-                    ? "bg-amber-100 border border-amber-200"
-                    : "hover:bg-gray-100 border border-transparent"
-                )}
-              >
-                <div className="pr-8">
-                  <p className={cn(
-                    "text-sm font-medium truncate",
-                    activeConversationId === conversation.id
-                      ? "text-amber-900"
-                      : "text-gray-800"
-                  )}>
-                    {conversation.title}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {formatDate(conversation.updated_at)}
-                  </p>
-                </div>
+            {conversations.map((conversation) => {
+              const initials = getInitials(conversation.user_name, conversation.user_email);
+              const isOwner = currentUserEmail === conversation.user_email;
 
-                {/* Delete button */}
-                <button
-                  onClick={(e) => handleDelete(e, conversation.id)}
-                  disabled={deletingId === conversation.id}
+              return (
+                <div
+                  key={conversation.id}
+                  onClick={() => onSelectConversation(conversation.id)}
                   className={cn(
-                    "absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity",
-                    "text-gray-400 hover:text-red-500 hover:bg-red-50",
-                    deletingId === conversation.id && "opacity-100"
+                    "group relative p-3 rounded-lg cursor-pointer transition-colors",
+                    activeConversationId === conversation.id
+                      ? "bg-amber-100 border border-amber-200"
+                      : "hover:bg-gray-100 border border-transparent"
                   )}
-                  title="Delete conversation"
                 >
-                  {deletingId === conversation.id ? (
-                    <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <Trash2 className="h-4 w-4" />
+                  <div className="pr-8">
+                    <p className={cn(
+                      "text-sm font-medium truncate",
+                      activeConversationId === conversation.id
+                        ? "text-amber-900"
+                        : "text-gray-800"
+                    )}>
+                      {conversation.title}
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span
+                        className={cn(
+                          "inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold shrink-0",
+                          isOwner
+                            ? "bg-amber-200 text-amber-800"
+                            : "bg-blue-100 text-blue-700"
+                        )}
+                        title={conversation.user_name || conversation.user_email}
+                      >
+                        {initials}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {formatDate(conversation.updated_at)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Delete button - only for conversation creator */}
+                  {isOwner && (
+                    <button
+                      onClick={(e) => handleDelete(e, conversation.id)}
+                      disabled={deletingId === conversation.id}
+                      className={cn(
+                        "absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity",
+                        "text-gray-400 hover:text-red-500 hover:bg-red-50",
+                        deletingId === conversation.id && "opacity-100"
+                      )}
+                      title="Delete conversation"
+                    >
+                      {deletingId === conversation.id ? (
+                        <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </button>
                   )}
-                </button>
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

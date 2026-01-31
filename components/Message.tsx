@@ -31,6 +31,34 @@ interface MessageProps {
   relatedDocument?: AttachmentInfo; // For assistant messages - the document from user's question
   onCitationClick?: (index: number) => void; // Callback when citation is clicked
   showInlineSources?: boolean; // Whether to show inline sources list (default: false when sidebar is used)
+  senderName?: string;
+  senderEmail?: string;
+  createdAt?: string;
+}
+
+function getSenderInitials(name?: string, email?: string): string {
+  if (name && name !== 'AI Assistant') {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return parts[0].substring(0, 2).toUpperCase();
+  }
+  if (email) {
+    const local = email.split('@')[0];
+    return local.substring(0, 2).toUpperCase();
+  }
+  return '';
+}
+
+function formatMessageTime(dateString?: string): string {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
 }
 
 interface CitationTooltipProps {
@@ -142,8 +170,13 @@ export function Message({
   relatedDocument,
   onCitationClick,
   showInlineSources = false,
+  senderName,
+  senderEmail,
+  createdAt,
 }: MessageProps) {
   const isUser = role === "user";
+  const initials = isUser ? getSenderInitials(senderName, senderEmail) : '';
+  const timeStr = formatMessageTime(createdAt);
   const [expandedSources, setExpandedSources] = useState(true); // Default to expanded
   const [copySuccess, setCopySuccess] = useState(false);
   const [exportingPDF, setExportingPDF] = useState(false);
@@ -212,15 +245,21 @@ export function Message({
   return (
     <div className={cn("flex gap-4 p-5", isUser ? "bg-gray-50" : "bg-white")}>
       {/* Avatar */}
-      <div
-        className={cn(
-          "w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium shrink-0",
-          isUser
-            ? "bg-gradient-to-br from-gray-600 to-gray-800"
-            : "bg-gradient-to-br from-amber-500 to-orange-600"
+      <div className="flex flex-col items-center gap-1 shrink-0">
+        <div
+          className={cn(
+            "w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium",
+            isUser
+              ? "bg-gradient-to-br from-gray-600 to-gray-800"
+              : "bg-gradient-to-br from-amber-500 to-orange-600"
+          )}
+          title={senderName || senderEmail || (isUser ? 'User' : 'AI Assistant')}
+        >
+          {isUser ? (initials || "U") : "AI"}
+        </div>
+        {timeStr && (
+          <span className="text-[10px] text-gray-400">{timeStr}</span>
         )}
-      >
-        {isUser ? "U" : "AI"}
       </div>
 
       {/* Content */}

@@ -36,12 +36,17 @@ export async function POST(
       );
     }
 
+    const senderName = role === 'user' ? (session?.user?.name || undefined) : 'AI Assistant';
+    const senderEmail = role === 'user' ? (userEmail || undefined) : undefined;
+
     const message = await addMessage(
       conversationId,
       role,
       content,
       sources as SourceInfo[] | undefined,
-      attachment as AttachmentInfo | undefined
+      attachment as AttachmentInfo | undefined,
+      senderName,
+      senderEmail
     );
 
     return NextResponse.json({ message });

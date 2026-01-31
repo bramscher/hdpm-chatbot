@@ -22,6 +22,9 @@ interface ChatMessage {
     preview: string;
     fullContent?: string;
   };
+  sender_name?: string;
+  sender_email?: string;
+  created_at?: string;
 }
 
 interface Attachment {
@@ -194,12 +197,18 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
           content: string;
           sources?: Source[];
           attachment?: ChatMessage["attachment"];
+          sender_name?: string;
+          sender_email?: string;
+          created_at?: string;
         }) => ({
           id: msg.id,
           role: msg.role,
           content: msg.content,
           sources: msg.sources || undefined,
           attachment: msg.attachment || undefined,
+          sender_name: msg.sender_name,
+          sender_email: msg.sender_email,
+          created_at: msg.created_at,
         }));
 
         // Add welcome message at the start if no messages
@@ -337,7 +346,7 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
         const response = await fetch("/api/conversations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: "New Conversation" }),
+          body: JSON.stringify({ title: "New Conversation", userName: session?.user?.name }),
         });
 
         if (response.ok) {
@@ -512,6 +521,7 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
       <ConversationHistory
         conversations={conversations}
         activeConversationId={activeConversationId}
+        currentUserEmail={session?.user?.email || undefined}
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
         onDeleteConversation={handleDeleteConversation}
@@ -600,6 +610,9 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
                   relatedDocument={relatedDocument}
                   onCitationClick={handleCitationClick}
                   showInlineSources={false}
+                  senderName={message.sender_name}
+                  senderEmail={message.sender_email}
+                  createdAt={message.created_at}
                 />
               );
             })}

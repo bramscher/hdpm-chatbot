@@ -23,7 +23,7 @@ export async function GET(
     }
 
     const { id } = await params;
-    const conversation = await getConversationWithMessages(id, userEmail);
+    const conversation = await getConversationWithMessages(id);
 
     if (!conversation) {
       return NextResponse.json(

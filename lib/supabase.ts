@@ -35,12 +35,15 @@ export interface ConversationMessage {
   content: string;
   sources?: SourceInfo[];
   attachment?: AttachmentInfo;
+  sender_name?: string;
+  sender_email?: string;
   created_at: string;
 }
 
 export interface Conversation {
   id: string;
   user_email: string;
+  user_name?: string;
   title: string;
   created_at: string;
   updated_at: string;
@@ -112,13 +115,14 @@ export async function searchKnowledgeChunks(
  */
 export async function createConversation(
   userEmail: string,
-  title: string = 'New Conversation'
+  title: string = 'New Conversation',
+  userName?: string
 ): Promise<Conversation> {
   const supabase = getSupabaseAdmin();
 
   const { data, error } = await supabase
     .from('conversations')
-    .insert({ user_email: userEmail, title })
+    .insert({ user_email: userEmail, title, user_name: userName || null })
     .select()
     .single();
 
@@ -131,15 +135,14 @@ export async function createConversation(
 }
 
 /**
- * Get all conversations for a user
+ * Get all team conversations (shared across all users)
  */
-export async function getConversations(userEmail: string): Promise<Conversation[]> {
+export async function getConversations(): Promise<Conversation[]> {
   const supabase = getSupabaseAdmin();
 
   const { data, error } = await supabase
     .from('conversations')
     .select('*')
-    .eq('user_email', userEmail)
     .order('updated_at', { ascending: false });
 
   if (error) {
@@ -151,20 +154,18 @@ export async function getConversations(userEmail: string): Promise<Conversation[
 }
 
 /**
- * Get a single conversation with its messages
+ * Get a single conversation with its messages (accessible by any team member)
  */
 export async function getConversationWithMessages(
-  conversationId: string,
-  userEmail: string
+  conversationId: string
 ): Promise<Conversation | null> {
   const supabase = getSupabaseAdmin();
 
-  // First get the conversation
+  // Get the conversation (no user_email filter - shared across team)
   const { data: conversation, error: convError } = await supabase
     .from('conversations')
     .select('*')
     .eq('id', conversationId)
-    .eq('user_email', userEmail)
     .single();
 
   if (convError) {
@@ -201,7 +202,9 @@ export async function addMessage(
   role: 'user' | 'assistant',
   content: string,
   sources?: SourceInfo[],
-  attachment?: AttachmentInfo
+  attachment?: AttachmentInfo,
+  senderName?: string,
+  senderEmail?: string
 ): Promise<ConversationMessage> {
   const supabase = getSupabaseAdmin();
 
@@ -213,6 +216,8 @@ export async function addMessage(
       content,
       sources: sources || null,
       attachment: attachment || null,
+      sender_name: senderName || null,
+      sender_email: senderEmail || null,
     })
     .select()
     .single();

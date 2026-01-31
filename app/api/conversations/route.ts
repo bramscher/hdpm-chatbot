@@ -15,7 +15,7 @@ export async function GET() {
       );
     }
 
-    const conversations = await getConversations(userEmail);
+    const conversations = await getConversations();
 
     return NextResponse.json({ conversations });
   } catch (error) {
@@ -42,9 +42,9 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title } = body;
+    const { title, userName } = body;
 
-    const conversation = await createConversation(userEmail, title || 'New Conversation');
+    const conversation = await createConversation(userEmail, title || 'New Conversation', userName || session?.user?.name);
 
     return NextResponse.json({ conversation });
   } catch (error) {
