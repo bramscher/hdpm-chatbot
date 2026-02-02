@@ -17,7 +17,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className={`${inter.className} antialiased mesh-gradient min-h-screen`}>
         <SessionProvider>{children}</SessionProvider>
       </body>
     </html>

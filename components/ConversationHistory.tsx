@@ -46,7 +46,6 @@ function formatDate(dateString: string): string {
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
   if (days === 0) {
-    // Today - show time
     return date.toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
@@ -91,7 +90,7 @@ export function ConversationHistory({
 
   if (isCollapsed) {
     return (
-      <div className="w-12 bg-gray-50 border-r border-gray-200 flex flex-col items-center py-4">
+      <div className="w-12 border-r border-violet-300/40 flex flex-col items-center py-4 bg-gradient-to-b from-violet-100/90 via-violet-50/70 to-purple-50/80 backdrop-blur-xl shadow-[inset_-8px_0_20px_-6px_rgba(139,92,246,0.15)]">
         <Button
           variant="ghost"
           size="icon"
@@ -105,7 +104,7 @@ export function ConversationHistory({
           variant="ghost"
           size="icon"
           onClick={onNewConversation}
-          className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+          className="text-violet-600 hover:text-violet-700 hover:bg-violet-50/50"
           title="New conversation"
         >
           <MessageSquarePlus className="h-5 w-5" />
@@ -115,16 +114,16 @@ export function ConversationHistory({
   }
 
   return (
-    <div className="w-64 bg-gray-50 border-r border-gray-200 flex flex-col">
+    <div className="w-64 border-r border-violet-300/40 flex flex-col bg-gradient-to-b from-violet-100/90 via-violet-50/70 to-purple-50/80 backdrop-blur-xl shadow-[inset_-8px_0_20px_-6px_rgba(139,92,246,0.15)]">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-        <h3 className="font-semibold text-gray-800">Team History</h3>
+      <div className="p-4 border-b border-violet-200/30 flex items-center justify-between">
+        <h3 className="font-semibold text-violet-900">Team History</h3>
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
             size="icon"
             onClick={onNewConversation}
-            className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+            className="h-8 w-8 text-violet-600 hover:text-violet-700 hover:bg-violet-50/50"
             title="New conversation"
           >
             <MessageSquarePlus className="h-4 w-4" />
@@ -145,7 +144,7 @@ export function ConversationHistory({
       <div className="flex-1 overflow-y-auto p-2">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
-            <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : conversations.length === 0 ? (
           <div className="text-center py-8 px-4">
@@ -164,17 +163,17 @@ export function ConversationHistory({
                   key={conversation.id}
                   onClick={() => onSelectConversation(conversation.id)}
                   className={cn(
-                    "group relative p-3 rounded-lg cursor-pointer transition-colors",
+                    "group relative p-3 rounded-xl cursor-pointer transition-all duration-200 ease-spring",
                     activeConversationId === conversation.id
-                      ? "bg-amber-100 border border-amber-200"
-                      : "hover:bg-gray-100 border border-transparent"
+                      ? "bg-violet-100/60 border border-violet-200/50"
+                      : "hover:bg-white/40 border border-transparent"
                   )}
                 >
                   <div className="pr-8">
                     <p className={cn(
                       "text-sm font-medium truncate",
                       activeConversationId === conversation.id
-                        ? "text-amber-900"
+                        ? "text-violet-900"
                         : "text-gray-800"
                     )}>
                       {conversation.title}
@@ -184,7 +183,7 @@ export function ConversationHistory({
                         className={cn(
                           "inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold shrink-0",
                           isOwner
-                            ? "bg-amber-200 text-amber-800"
+                            ? "bg-violet-200/80 text-violet-700"
                             : "bg-blue-100 text-blue-700"
                         )}
                         title={conversation.user_name || conversation.user_email}
@@ -203,8 +202,8 @@ export function ConversationHistory({
                       onClick={(e) => handleDelete(e, conversation.id)}
                       disabled={deletingId === conversation.id}
                       className={cn(
-                        "absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity",
-                        "text-gray-400 hover:text-red-500 hover:bg-red-50",
+                        "absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200",
+                        "text-gray-400 hover:text-red-500 hover:bg-red-50/80",
                         deletingId === conversation.id && "opacity-100"
                       )}
                       title="Delete conversation"
@@ -224,10 +223,10 @@ export function ConversationHistory({
       </div>
 
       {/* Footer */}
-      <div className="p-3 border-t border-gray-200">
+      <div className="p-3 border-t border-violet-200/30">
         <Button
           onClick={onNewConversation}
-          className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+          className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-glow rounded-xl transition-all duration-300"
         >
           <MessageSquarePlus className="h-4 w-4 mr-2" />
           New Conversation

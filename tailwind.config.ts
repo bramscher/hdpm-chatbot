@@ -48,6 +48,20 @@ const config: Config = {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        "2xl": "1rem",
+        "3xl": "1.5rem",
+      },
+      boxShadow: {
+        glass:
+          "inset 0 1px 0 0 rgba(255,255,255,0.15), 0 1px 3px 0 rgba(0,0,0,0.05), 0 8px 30px -6px rgba(0,0,0,0.08)",
+        "glass-lg":
+          "inset 0 1px 0 0 rgba(255,255,255,0.2), 0 4px 6px -1px rgba(0,0,0,0.05), 0 20px 50px -12px rgba(0,0,0,0.12)",
+        glow: "0 0 20px rgba(139, 92, 246, 0.15)",
+        "glow-lg": "0 0 40px rgba(139, 92, 246, 0.2)",
+      },
+      transitionTimingFunction: {
+        spring: "cubic-bezier(0.22, 1, 0.36, 1)",
+        "out-expo": "cubic-bezier(0.16, 1, 0.3, 1)",
       },
     },
   },

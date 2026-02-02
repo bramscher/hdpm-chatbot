@@ -513,8 +513,8 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
   return (
     <div
       className={cn(
-        "fixed inset-y-4 inset-x-4 bg-white rounded-2xl shadow-2xl border border-gray-200 flex overflow-hidden z-50",
-        "animate-in slide-in-from-right-5 fade-in duration-300"
+        "fixed inset-y-4 inset-x-4 glass-heavy glass-elevated rounded-3xl flex overflow-hidden z-50",
+        "animate-slide-in-right"
       )}
     >
       {/* Conversation History Sidebar */}
@@ -531,14 +531,14 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-amber-600 to-orange-600 text-white">
+        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-violet-600 via-purple-600 to-rose-500 text-white">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
               <span className="text-base font-bold">HD</span>
             </div>
             <div>
               <h3 className="font-semibold text-base">High Desert Property Management</h3>
-              <p className="text-sm text-white/80">Oregon Landlord-Tenant Law Assistant</p>
+              <p className="text-sm text-white/70">Oregon Landlord-Tenant Law Assistant</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -563,20 +563,20 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
 
         {/* User Info Bar */}
         {session?.user && (
-          <div className="px-4 py-2 bg-amber-50 border-b border-amber-100 flex items-center justify-between">
+          <div className="px-4 py-2 bg-violet-50/50 backdrop-blur-sm border-b border-violet-100/50 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-amber-200 flex items-center justify-center">
-                <User className="h-4 w-4 text-amber-700" />
+              <div className="w-7 h-7 rounded-full bg-violet-200/80 flex items-center justify-center">
+                <User className="h-4 w-4 text-violet-700" />
               </div>
               <div className="text-sm">
                 <span className="font-medium text-gray-800">{session.user.name || "User"}</span>
-                <span className="text-gray-500 ml-2">{session.user.email}</span>
+                <span className="text-gray-400 ml-2">{session.user.email}</span>
               </div>
             </div>
             <Button
               variant="ghost"
               size="sm"
-              className="text-amber-700 hover:text-amber-900 hover:bg-amber-100 h-7 px-2 text-xs"
+              className="text-violet-700 hover:text-violet-900 hover:bg-violet-100/50 h-7 px-2 text-xs"
               onClick={() => signOut({ callbackUrl: "/login" })}
             >
               <LogOut className="h-3 w-3 mr-1" />
@@ -587,7 +587,7 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
 
         {/* Messages */}
         <ScrollArea ref={scrollRef} className="flex-1 overflow-y-auto">
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-gray-100/50">
             {messages.map((message, index) => {
               let relatedDocument = undefined;
               if (message.role === "assistant" && index > 0) {
@@ -621,7 +621,7 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
 
         {/* Paste Area Modal */}
         {showPasteArea && (
-          <div className="p-4 border-t border-gray-200 bg-amber-50">
+          <div className="p-4 border-t border-white/15 glass-subtle">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-700">
                 Paste Email or Correspondence
@@ -642,14 +642,14 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
               value={pasteText}
               onChange={(e) => setPasteText(e.target.value)}
               placeholder="Paste email content, tenant letter, or any text you want analyzed..."
-              className="w-full h-32 p-3 text-sm border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="w-full h-32 p-3 text-sm border border-gray-200/50 bg-white/70 backdrop-blur-sm rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-300 transition-all"
             />
             <div className="flex justify-end mt-2">
               <Button
                 onClick={handlePasteSubmit}
                 disabled={!pasteText.trim()}
                 size="sm"
-                className="bg-amber-600 hover:bg-amber-700"
+                className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 rounded-xl"
               >
                 Attach Text
               </Button>
@@ -658,18 +658,18 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
         )}
 
         {/* Input */}
-        <form onSubmit={handleSubmit} className="p-5 border-t border-gray-200 bg-gray-50">
+        <form onSubmit={handleSubmit} className="p-5 border-t border-white/15 glass-subtle">
           {/* Upload Progress */}
           {isUploading && (
-            <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
-                <div className="w-5 h-5 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
+            <div className="mb-3 p-3 bg-violet-50/80 backdrop-blur-sm border border-violet-200/50 rounded-xl flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-violet-100/80 flex items-center justify-center shrink-0">
+                <div className="w-5 h-5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
               </div>
               <div className="flex-1">
-                <span className="text-sm font-medium text-amber-800">
+                <span className="text-sm font-medium text-violet-800">
                   {uploadStatus || "Processing PDF..."}
                 </span>
-                <p className="text-xs text-amber-600 mt-1">
+                <p className="text-xs text-violet-600 mt-1">
                   Scanned PDFs use AI vision to extract text
                 </p>
               </div>
@@ -678,16 +678,16 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
 
           {/* Attachment Preview */}
           {attachment && !isUploading && (
-            <div className="mb-3 p-3 bg-white border border-amber-200 rounded-lg flex items-start gap-3">
-              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
-                <FileText className="h-5 w-5 text-amber-700" />
+            <div className="mb-3 p-3 bg-white/70 backdrop-blur-sm border border-violet-200/50 rounded-xl flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-violet-100/80 flex items-center justify-center shrink-0">
+                <FileText className="h-5 w-5 text-violet-700" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-800 truncate">
                     {attachment.name}
                   </span>
-                  <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full">
+                  <span className="text-xs px-2 py-0.5 bg-violet-100/80 text-violet-700 rounded-full">
                     {attachment.type === "pdf" ? "PDF" : "Text"}
                   </span>
                 </div>
@@ -720,13 +720,13 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
                 size="icon"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isLoading || isUploading}
-                className="h-12 w-12 border-gray-300"
+                className="h-12 w-12 border-gray-200/50 hover:bg-violet-50/50 hover:border-violet-200 rounded-xl transition-all duration-200"
                 title="Upload PDF"
               >
                 {isUploading ? (
-                  <div className="w-5 h-5 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
+                  <div className="w-5 h-5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
                 ) : (
-                  <Paperclip className="h-5 w-5 text-gray-600" />
+                  <Paperclip className="h-5 w-5 text-gray-500" />
                 )}
               </Button>
               <Button
@@ -735,10 +735,10 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
                 size="icon"
                 onClick={() => setShowPasteArea(!showPasteArea)}
                 disabled={isLoading}
-                className="h-12 w-12 border-gray-300"
+                className="h-12 w-12 border-gray-200/50 hover:bg-violet-50/50 hover:border-violet-200 rounded-xl transition-all duration-200"
                 title="Paste email/text"
               >
-                <FileText className="h-5 w-5 text-gray-600" />
+                <FileText className="h-5 w-5 text-gray-500" />
               </Button>
             </div>
 
@@ -765,18 +765,18 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
                   : "Ask about Oregon landlord-tenant law (ORS 90)..."
               }
               disabled={isLoading}
-              className="flex-1 bg-white h-12 text-base px-4"
+              className="flex-1 bg-white/70 backdrop-blur-sm h-12 text-base px-4 rounded-xl border-gray-200/50 focus:ring-2 focus:ring-violet-500/30 focus:border-violet-300 transition-all"
             />
             <Button
               type="submit"
               disabled={!input.trim() || isLoading}
-              className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 h-12 px-6"
+              className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 h-12 px-6 rounded-xl shadow-glow hover:shadow-glow-lg transition-all duration-300"
             >
               <Send className="h-5 w-5" />
             </Button>
           </div>
-          <p className="text-sm text-gray-500 mt-3 text-center">
-            High Desert Property Management • Internal Use Only • 163 ORS 90 Sections Loaded
+          <p className="text-sm text-gray-400 mt-3 text-center">
+            High Desert Property Management &bull; Internal Use Only &bull; 163 ORS 90 Sections Loaded
           </p>
         </form>
       </div>

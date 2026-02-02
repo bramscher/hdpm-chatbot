@@ -21,7 +21,7 @@ export function CitationsSidebar({
 
   if (isCollapsed) {
     return (
-      <div className="w-12 bg-gray-50 border-l border-gray-200 flex flex-col items-center py-4">
+      <div className="w-12 border-l border-purple-300/40 flex flex-col items-center py-4 bg-gradient-to-b from-purple-100/90 via-purple-50/70 to-rose-50/80 backdrop-blur-xl shadow-[inset_8px_0_20px_-6px_rgba(168,85,247,0.15)]">
         <Button
           variant="ghost"
           size="icon"
@@ -33,8 +33,8 @@ export function CitationsSidebar({
         </Button>
         {sources.length > 0 && (
           <div className="flex flex-col items-center gap-2">
-            <BookOpen className="h-5 w-5 text-amber-600" />
-            <span className="text-xs font-bold text-amber-700">{sources.length}</span>
+            <BookOpen className="h-5 w-5 text-violet-600" />
+            <span className="text-xs font-bold text-violet-700">{sources.length}</span>
           </div>
         )}
       </div>
@@ -42,14 +42,14 @@ export function CitationsSidebar({
   }
 
   return (
-    <div className="w-72 bg-gray-50 border-l border-gray-200 flex flex-col">
+    <div className="w-72 border-l border-purple-300/40 flex flex-col bg-gradient-to-b from-purple-100/90 via-purple-50/70 to-rose-50/80 backdrop-blur-xl shadow-[inset_8px_0_20px_-6px_rgba(168,85,247,0.15)]">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+      <div className="p-4 border-b border-purple-200/30 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <BookOpen className="h-5 w-5 text-amber-600" />
-          <h3 className="font-semibold text-gray-800">Legal Sources</h3>
+          <BookOpen className="h-5 w-5 text-purple-600" />
+          <h3 className="font-semibold text-purple-900">Legal Sources</h3>
           {sources.length > 0 && (
-            <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-medium">
+            <span className="text-xs px-2 py-0.5 bg-violet-100/80 text-violet-600 rounded-full font-medium">
               {sources.length}
             </span>
           )}
@@ -83,10 +83,10 @@ export function CitationsSidebar({
                 id={`citation-${index + 1}`}
                 onClick={() => onCitationClick(index)}
                 className={cn(
-                  "p-3 rounded-lg cursor-pointer transition-all duration-200",
+                  "p-3 rounded-xl cursor-pointer transition-all duration-200 ease-spring",
                   highlightedCitation === index
-                    ? "bg-amber-100 border-2 border-amber-400 shadow-md"
-                    : "bg-white border border-gray-200 hover:border-amber-300 hover:shadow-sm"
+                    ? "bg-violet-100/80 border-2 border-violet-400 shadow-md shadow-violet-200/50"
+                    : "bg-white/60 backdrop-blur-sm border border-white/30 hover:border-violet-300/50 hover:shadow-sm"
                 )}
               >
                 <div className="flex items-start gap-3">
@@ -94,8 +94,8 @@ export function CitationsSidebar({
                     className={cn(
                       "flex items-center justify-center w-7 h-7 rounded-lg text-sm font-bold shrink-0",
                       highlightedCitation === index
-                        ? "bg-amber-500 text-white"
-                        : "bg-amber-100 text-amber-800"
+                        ? "bg-violet-500 text-white"
+                        : "bg-violet-100 text-violet-700"
                     )}
                   >
                     {index + 1}
@@ -108,7 +108,7 @@ export function CitationsSidebar({
                       </span>
                     </div>
                     {source.section && (
-                      <p className="text-xs text-amber-600 mt-1 font-medium">
+                      <p className="text-xs text-violet-600 mt-1 font-medium">
                         ORS {source.section}
                       </p>
                     )}
@@ -121,7 +121,7 @@ export function CitationsSidebar({
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  className="mt-2 flex items-center gap-1 text-xs text-gray-500 hover:text-amber-600 transition-colors"
+                  className="mt-2 flex items-center gap-1 text-xs text-gray-500 hover:text-violet-600 transition-colors"
                 >
                   <ExternalLink className="h-3 w-3" />
                   View full text
@@ -134,8 +134,8 @@ export function CitationsSidebar({
 
       {/* Footer */}
       {sources.length > 0 && (
-        <div className="p-3 border-t border-gray-200 bg-amber-50">
-          <p className="text-xs text-amber-700 text-center">
+        <div className="p-3 border-t border-purple-200/30 bg-purple-50/50 backdrop-blur-sm">
+          <p className="text-xs text-violet-700 text-center">
             Click citation numbers in chat to highlight sources
           </p>
         </div>
