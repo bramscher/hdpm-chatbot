@@ -136,7 +136,7 @@ export interface SearchKnowledgeOptions {
  */
 export async function searchKnowledge(
   query: string,
-  threshold: number = 0.55, // Increased from 0.30 for better quality matches
+  threshold: number = 0.30, // Keep DB threshold low to get candidates; app-level minSimilarity handles quality
   count: number = 15,       // Increased from 5 for more candidates
   options?: SearchKnowledgeOptions
 ): Promise<KnowledgeChunk[]> {
@@ -220,7 +220,8 @@ function extractSources(chunks: KnowledgeChunk[]): Source[] {
  */
 export async function askRAG(question: string): Promise<RAGResponse> {
   // Step 1: Search the knowledge base with quality filtering
-  const chunks = await searchKnowledge(question, 0.55, 15, {
+  // DB threshold stays low (0.30) to get candidates; minSimilarity filters in app
+  const chunks = await searchKnowledge(question, 0.30, 15, {
     enableQueryExpansion: false, // Disabled by default - can enable for A/B testing
     minSimilarity: 0.50,
     maxResults: 15
@@ -391,7 +392,8 @@ export async function askRAGStream(
 
   // Step 1: Search the knowledge base using ONLY the question with quality filtering
   // Don't pollute the search with document content - we want relevant ORS sections for the question
-  const chunks = await searchKnowledge(question, 0.55, 15, {
+  // DB threshold stays low (0.30) to get candidates; minSimilarity filters in app
+  const chunks = await searchKnowledge(question, 0.30, 15, {
     enableQueryExpansion: false, // Disabled by default - can enable for A/B testing
     minSimilarity: 0.50,
     maxResults: 15
