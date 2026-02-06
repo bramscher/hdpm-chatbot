@@ -122,39 +122,67 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 }
 
 /**
+ * Options for searchKnowledge function
+ */
+export interface SearchKnowledgeOptions {
+  enableQueryExpansion?: boolean; // Default: false (reduces noise)
+  minSimilarity?: number;         // Default: 0.50 (quality floor)
+  maxResults?: number;            // Default: 15 (more candidates)
+}
+
+/**
  * Search the knowledge base for relevant chunks
+ * Retrieves candidates and applies quality filtering
  */
 export async function searchKnowledge(
   query: string,
-  threshold: number = 0.7,
-  count: number = 5
+  threshold: number = 0.55, // Increased from 0.30 for better quality matches
+  count: number = 15,       // Increased from 5 for more candidates
+  options?: SearchKnowledgeOptions
 ): Promise<KnowledgeChunk[]> {
-  // Expand the query with related legal terms
-  const expandedQuery = expandQuery(query);
-  const wasExpanded = expandedQuery !== query;
-  
-  // Log query expansion for debugging
-  if (wasExpanded) {
-    console.log(`[RAG] Query expanded: "${query}" -> "${expandedQuery}"`);
+  const ENABLE_QUERY_EXPANSION = options?.enableQueryExpansion ?? false;
+  const MIN_SIMILARITY = options?.minSimilarity ?? 0.50;
+  const MAX_RESULTS = options?.maxResults ?? count;
+
+  let searchQuery = query;
+
+  // Only expand query if explicitly enabled (disabled by default to reduce noise)
+  if (ENABLE_QUERY_EXPANSION) {
+    const expandedQuery = expandQuery(query);
+    const wasExpanded = expandedQuery !== query;
+    if (wasExpanded) {
+      searchQuery = expandedQuery;
+      console.log(`[RAG] Query expanded: "${query}" -> "${searchQuery}"`);
+    }
   }
-  
-  const embedding = await generateEmbedding(expandedQuery);
-  const chunks = await searchKnowledgeChunks(embedding, threshold, count);
-  
+
+  console.log(`[RAG] Searching with query: "${searchQuery}"`);
+  console.log(`[RAG] Options: { enableQueryExpansion: ${ENABLE_QUERY_EXPANSION}, minSimilarity: ${MIN_SIMILARITY}, maxResults: ${MAX_RESULTS} }`);
+
+  const embedding = await generateEmbedding(searchQuery);
+  const chunks = await searchKnowledgeChunks(embedding, threshold, MAX_RESULTS);
+
+  // Apply quality filtering - only keep results above minimum similarity
+  const filteredChunks = chunks.filter(c => (c.similarity || 0) >= MIN_SIMILARITY);
+
   // Log retrieval results for debugging
   if (chunks.length > 0) {
-    const avgSimilarity = chunks.reduce((sum, c) => sum + (c.similarity || 0), 0) / chunks.length;
-    const minSimilarity = Math.min(...chunks.map(c => c.similarity || 0));
-    const maxSimilarity = Math.max(...chunks.map(c => c.similarity || 0));
-    
-    console.log(`[RAG] Retrieved ${chunks.length} chunks (threshold: ${threshold})`);
-    console.log(`[RAG] Similarity scores: min=${(minSimilarity * 100).toFixed(2)}%, avg=${(avgSimilarity * 100).toFixed(2)}%, max=${(maxSimilarity * 100).toFixed(2)}%`);
+    const similarities = chunks.map(c => c.similarity || 0);
+    const minSim = Math.min(...similarities);
+    const maxSim = Math.max(...similarities);
+    const avgSim = similarities.reduce((a, b) => a + b, 0) / similarities.length;
+
+    console.log(`[RAG] Retrieved ${chunks.length} chunks, filtered to ${filteredChunks.length} high-quality matches`);
+    console.log(`[RAG] Similarity range: ${minSim.toFixed(2)} - ${maxSim.toFixed(2)} (avg: ${avgSim.toFixed(2)})`);
     console.log(`[RAG] Sections: ${chunks.map(c => c.source_section || 'none').join(', ')}`);
   } else {
     console.log(`[RAG] No chunks found with threshold ${threshold}`);
   }
-  
-  return chunks;
+
+  // Return filtered results, or fall back to top 5 if all filtered out (graceful degradation)
+  const finalResults = filteredChunks.length > 0 ? filteredChunks : chunks.slice(0, 5);
+
+  return finalResults;
 }
 
 /**
@@ -191,8 +219,12 @@ function extractSources(chunks: KnowledgeChunk[]): Source[] {
  * Main RAG function: search knowledge base and generate response with Claude
  */
 export async function askRAG(question: string): Promise<RAGResponse> {
-  // Step 1: Search the knowledge base (threshold lowered to 0.30 for better recall)
-  const chunks = await searchKnowledge(question, 0.30, 5);
+  // Step 1: Search the knowledge base with quality filtering
+  const chunks = await searchKnowledge(question, 0.55, 15, {
+    enableQueryExpansion: false, // Disabled by default - can enable for A/B testing
+    minSimilarity: 0.50,
+    maxResults: 15
+  });
 
   // Step 2: Build context from retrieved chunks
   const context = buildContext(chunks);
@@ -357,9 +389,13 @@ export async function askRAGStream(
     console.log(`[RAG] Document analysis mode: "${documentName || 'unnamed'}" (${documentContent.length} chars)`);
   }
 
-  // Step 1: Search the knowledge base using ONLY the question
+  // Step 1: Search the knowledge base using ONLY the question with quality filtering
   // Don't pollute the search with document content - we want relevant ORS sections for the question
-  const chunks = await searchKnowledge(question, 0.30, 5);
+  const chunks = await searchKnowledge(question, 0.55, 15, {
+    enableQueryExpansion: false, // Disabled by default - can enable for A/B testing
+    minSimilarity: 0.50,
+    maxResults: 15
+  });
 
   // Step 2: Build context from retrieved chunks
   const context = buildContext(chunks);
