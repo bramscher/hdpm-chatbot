@@ -54,8 +54,12 @@ Currently Available ORS 90 Sections:
 
 **Code Location:**
 - `lib/rag.ts` lines 173 and 340: Hardcoded threshold of 0.30
-- `lib/rag.ts` line 127-136: `searchKnowledge()` function with query expansion
+- `lib/rag.ts` line 127-158: `searchKnowledge()` function with query expansion (now includes debug logging)
 - `lib/supabase.ts` line 88-107: `searchKnowledgeChunks()` RPC call
+- Database function `match_knowledge_chunks`: Uses cosine distance (`<=>`) converted to similarity (`1 - distance`)
+
+**Investigation Tools Created:**
+- `scripts/diagnose-retrieval.mjs` - Diagnostic script to test retrieval quality with different thresholds and show similarity scores
 
 ## Areas to Investigate
 

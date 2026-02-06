@@ -131,8 +131,30 @@ export async function searchKnowledge(
 ): Promise<KnowledgeChunk[]> {
   // Expand the query with related legal terms
   const expandedQuery = expandQuery(query);
+  const wasExpanded = expandedQuery !== query;
+  
+  // Log query expansion for debugging
+  if (wasExpanded) {
+    console.log(`[RAG] Query expanded: "${query}" -> "${expandedQuery}"`);
+  }
+  
   const embedding = await generateEmbedding(expandedQuery);
-  return searchKnowledgeChunks(embedding, threshold, count);
+  const chunks = await searchKnowledgeChunks(embedding, threshold, count);
+  
+  // Log retrieval results for debugging
+  if (chunks.length > 0) {
+    const avgSimilarity = chunks.reduce((sum, c) => sum + (c.similarity || 0), 0) / chunks.length;
+    const minSimilarity = Math.min(...chunks.map(c => c.similarity || 0));
+    const maxSimilarity = Math.max(...chunks.map(c => c.similarity || 0));
+    
+    console.log(`[RAG] Retrieved ${chunks.length} chunks (threshold: ${threshold})`);
+    console.log(`[RAG] Similarity scores: min=${(minSimilarity * 100).toFixed(2)}%, avg=${(avgSimilarity * 100).toFixed(2)}%, max=${(maxSimilarity * 100).toFixed(2)}%`);
+    console.log(`[RAG] Sections: ${chunks.map(c => c.source_section || 'none').join(', ')}`);
+  } else {
+    console.log(`[RAG] No chunks found with threshold ${threshold}`);
+  }
+  
+  return chunks;
 }
 
 /**
