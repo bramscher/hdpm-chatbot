@@ -107,6 +107,91 @@ export async function searchKnowledgeChunks(
 }
 
 // ============================================
+// Full-Text Search Functions
+// ============================================
+
+// Result type for full-text search (uses rank instead of similarity)
+export interface FulltextChunk {
+  id: string;
+  content: string;
+  source_type: 'ors_90' | 'loom_video' | 'policy_doc';
+  source_title: string;
+  source_url: string;
+  source_section: string | null;
+  rank: number;
+  similarity?: number; // Added when merged with vector results
+}
+
+/**
+ * Full-text keyword search using PostgreSQL tsvector
+ * Good for general keyword queries like "late fee" or "security deposit"
+ */
+export async function searchKnowledgeFulltext(
+  query: string,
+  maxResults: number = 15
+): Promise<FulltextChunk[]> {
+  const supabase = getSupabaseAdmin();
+
+  const { data, error } = await supabase.rpc('search_knowledge_fulltext', {
+    search_query: query,
+    max_results: maxResults,
+  });
+
+  if (error) {
+    console.error('Error in fulltext search:', error);
+    throw new Error(`Fulltext search failed: ${error.message}`);
+  }
+
+  return data as FulltextChunk[];
+}
+
+/**
+ * Phrase search for exact or near-exact phrase matching
+ * Good for "which section says 'reasonable wear and tear'"
+ */
+export async function searchKnowledgePhrase(
+  phrase: string,
+  maxResults: number = 15
+): Promise<FulltextChunk[]> {
+  const supabase = getSupabaseAdmin();
+
+  const { data, error } = await supabase.rpc('search_knowledge_phrase', {
+    search_phrase: phrase,
+    max_results: maxResults,
+  });
+
+  if (error) {
+    console.error('Error in phrase search:', error);
+    throw new Error(`Phrase search failed: ${error.message}`);
+  }
+
+  return data as FulltextChunk[];
+}
+
+/**
+ * Substring search using ILIKE for exact text matching
+ * Good for finding specific ORS section numbers like "90.300"
+ */
+export async function searchKnowledgeSubstring(
+  text: string,
+  maxResults: number = 15
+): Promise<FulltextChunk[]> {
+  const supabase = getSupabaseAdmin();
+
+  const { data, error } = await supabase.rpc('search_knowledge_substring', {
+    search_text: text,
+    max_results: maxResults,
+  });
+
+  if (error) {
+    console.error('Error in substring search:', error);
+    throw new Error(`Substring search failed: ${error.message}`);
+  }
+
+  return data as FulltextChunk[];
+}
+
+// ============================================
 // Conversation Management Functions
 // ============================================
 

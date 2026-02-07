@@ -1,6 +1,13 @@
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
-import { searchKnowledgeChunks, KnowledgeChunk } from './supabase';
+import {
+  searchKnowledgeChunks,
+  searchKnowledgeFulltext,
+  searchKnowledgePhrase,
+  searchKnowledgeSubstring,
+  KnowledgeChunk,
+  FulltextChunk,
+} from './supabase';
 
 // Lazy initialization to avoid build-time issues
 let _openai: OpenAI | null = null;
@@ -185,6 +192,217 @@ export async function searchKnowledge(
   return finalResults;
 }
 
+// ============================================
+// Hybrid Search (Vector + Full-Text)
+// ============================================
+
+/**
+ * Detect the intent of a query to choose the best search strategy
+ */
+type SearchIntent = 'phrase_lookup' | 'section_lookup' | 'keyword' | 'semantic';
+
+function detectSearchIntent(query: string): SearchIntent {
+  const lower = query.toLowerCase();
+
+  // Quoted phrases — user wants exact language
+  // e.g., 'where does it say "reasonable wear and tear"'
+  const hasQuotedPhrase = /["'"](.+?)["'"]/.test(query);
+  if (hasQuotedPhrase) {
+    return 'phrase_lookup';
+  }
+
+  // ORS section number reference — user wants a specific section
+  // e.g., "what does 90.300 say" or "show me ORS 90.394"
+  const hasOrsReference = /\b(ors\s*)?90\.\d{3}\b/i.test(query);
+  if (hasOrsReference) {
+    return 'section_lookup';
+  }
+
+  // Language lookup patterns — user is searching for specific wording
+  // e.g., "which section mentions...", "where does it say...", "find the part about..."
+  const lookupPatterns = [
+    /which\s+(section|part|ors)/i,
+    /where\s+(does|do)\s+it\s+(say|mention|state|define|address)/i,
+    /find\s+(the\s+)?(section|part|language|wording|provision)/i,
+    /what\s+section\s+(covers?|addresses?|mentions?|talks?\s+about)/i,
+    /is\s+there\s+(a\s+)?(section|provision|rule)\s+(about|for|on|regarding)/i,
+    /does\s+(ors|the\s+law)\s+(say|mention|address|cover|define)/i,
+    /look\s+up/i,
+    /search\s+for/i,
+  ];
+
+  if (lookupPatterns.some(pattern => pattern.test(lower))) {
+    return 'keyword';
+  }
+
+  // Default to semantic search
+  return 'semantic';
+}
+
+/**
+ * Extract a quoted phrase from a query, if present
+ */
+function extractQuotedPhrase(query: string): string | null {
+  const match = query.match(/["'"](.+?)["'"]/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Extract an ORS section number from a query
+ */
+function extractOrsSection(query: string): string | null {
+  const match = query.match(/\b(?:ors\s*)?(\d{2,3}\.\d{3})\b/i);
+  return match ? match[1] : null;
+}
+
+/**
+ * Convert fulltext results to KnowledgeChunk format for compatibility
+ */
+function fulltextToKnowledgeChunks(results: FulltextChunk[]): KnowledgeChunk[] {
+  return results.map(r => ({
+    id: r.id,
+    content: r.content,
+    source_type: r.source_type,
+    source_title: r.source_title,
+    source_url: r.source_url,
+    source_section: r.source_section,
+    similarity: r.rank, // Use rank as a proxy for similarity in display
+  }));
+}
+
+/**
+ * Merge and deduplicate results from vector and fulltext search
+ * Boosts items that appear in both result sets
+ */
+function mergeSearchResults(
+  vectorResults: KnowledgeChunk[],
+  fulltextResults: KnowledgeChunk[],
+  maxResults: number = 15
+): KnowledgeChunk[] {
+  const merged = new Map<string, KnowledgeChunk & { boost: number }>();
+
+  // Add vector results
+  for (const chunk of vectorResults) {
+    merged.set(chunk.id, { ...chunk, boost: 1 });
+  }
+
+  // Add or boost fulltext results
+  for (const chunk of fulltextResults) {
+    if (merged.has(chunk.id)) {
+      // Appears in both — boost the similarity score
+      const existing = merged.get(chunk.id)!;
+      existing.boost = 2;
+      // Keep the higher similarity
+      existing.similarity = Math.max(existing.similarity || 0, chunk.similarity || 0);
+    } else {
+      merged.set(chunk.id, { ...chunk, boost: 1 });
+    }
+  }
+
+  // Sort: boosted items first, then by similarity
+  const sorted = [...merged.values()].sort((a, b) => {
+    if (a.boost !== b.boost) return b.boost - a.boost;
+    return (b.similarity || 0) - (a.similarity || 0);
+  });
+
+  return sorted.slice(0, maxResults);
+}
+
+/**
+ * Hybrid search: combines vector similarity search with full-text keyword search
+ * Automatically detects query intent and chooses the best strategy
+ */
+export async function searchKnowledgeHybrid(
+  query: string,
+  options?: SearchKnowledgeOptions
+): Promise<KnowledgeChunk[]> {
+  const intent = detectSearchIntent(query);
+  const maxResults = options?.maxResults ?? 15;
+
+  console.log(`[RAG Hybrid] Query: "${query}"`);
+  console.log(`[RAG Hybrid] Detected intent: ${intent}`);
+
+  try {
+    switch (intent) {
+      case 'phrase_lookup': {
+        // User wants exact phrase — prioritize phrase search, supplement with vector
+        const phrase = extractQuotedPhrase(query) || query;
+        console.log(`[RAG Hybrid] Phrase search for: "${phrase}"`);
+
+        const [phraseResults, vectorResults] = await Promise.all([
+          searchKnowledgePhrase(phrase, maxResults).then(fulltextToKnowledgeChunks),
+          searchKnowledge(query, 0.30, maxResults, { ...options, enableQueryExpansion: false }),
+        ]);
+
+        console.log(`[RAG Hybrid] Phrase: ${phraseResults.length} results, Vector: ${vectorResults.length} results`);
+
+        // Phrase results first, then supplement with vector
+        if (phraseResults.length > 0) {
+          return mergeSearchResults(phraseResults, vectorResults, maxResults);
+        }
+        // Fallback to substring search if phrase search found nothing
+        const substringResults = await searchKnowledgeSubstring(phrase, maxResults).then(fulltextToKnowledgeChunks);
+        if (substringResults.length > 0) {
+          console.log(`[RAG Hybrid] Substring fallback: ${substringResults.length} results`);
+          return mergeSearchResults(substringResults, vectorResults, maxResults);
+        }
+        return vectorResults;
+      }
+
+      case 'section_lookup': {
+        // User wants a specific ORS section — substring search for the number
+        const section = extractOrsSection(query);
+        console.log(`[RAG Hybrid] Section lookup for: ${section}`);
+
+        const [substringResults, vectorResults] = await Promise.all([
+          searchKnowledgeSubstring(section || query, maxResults).then(fulltextToKnowledgeChunks),
+          searchKnowledge(query, 0.30, maxResults, { ...options, enableQueryExpansion: false }),
+        ]);
+
+        console.log(`[RAG Hybrid] Substring: ${substringResults.length} results, Vector: ${vectorResults.length} results`);
+
+        if (substringResults.length > 0) {
+          return mergeSearchResults(substringResults, vectorResults, maxResults);
+        }
+        return vectorResults;
+      }
+
+      case 'keyword': {
+        // User is looking for specific language — run both fulltext and vector in parallel
+        console.log(`[RAG Hybrid] Keyword + Vector search`);
+
+        const [fulltextResults, vectorResults] = await Promise.all([
+          searchKnowledgeFulltext(query, maxResults).then(fulltextToKnowledgeChunks),
+          searchKnowledge(query, 0.30, maxResults, { ...options, enableQueryExpansion: false }),
+        ]);
+
+        console.log(`[RAG Hybrid] Fulltext: ${fulltextResults.length} results, Vector: ${vectorResults.length} results`);
+
+        return mergeSearchResults(vectorResults, fulltextResults, maxResults);
+      }
+
+      case 'semantic':
+      default: {
+        // Standard semantic question — vector search is best, supplement with fulltext
+        console.log(`[RAG Hybrid] Semantic (vector primary) + Fulltext supplement`);
+
+        const [vectorResults, fulltextResults] = await Promise.all([
+          searchKnowledge(query, 0.30, maxResults, options),
+          searchKnowledgeFulltext(query, maxResults).then(fulltextToKnowledgeChunks).catch(() => []),
+        ]);
+
+        console.log(`[RAG Hybrid] Vector: ${vectorResults.length} results, Fulltext: ${fulltextResults.length} results`);
+
+        return mergeSearchResults(vectorResults, fulltextResults, maxResults);
+      }
+    }
+  } catch (error) {
+    // If hybrid search fails (e.g., fulltext not yet set up), fall back to vector-only
+    console.error(`[RAG Hybrid] Error, falling back to vector-only:`, error);
+    return searchKnowledge(query, 0.30, maxResults, options);
+  }
+}
+
 /**
  * Build context from knowledge chunks with source references
  */
@@ -219,10 +437,9 @@ function extractSources(chunks: KnowledgeChunk[]): Source[] {
  * Main RAG function: search knowledge base and generate response with Claude
  */
 export async function askRAG(question: string): Promise<RAGResponse> {
-  // Step 1: Search the knowledge base with quality filtering
-  // DB threshold stays low (0.30) to get candidates; minSimilarity filters in app
-  const chunks = await searchKnowledge(question, 0.30, 15, {
-    enableQueryExpansion: false, // Disabled by default - can enable for A/B testing
+  // Step 1: Hybrid search — vector + fulltext, auto-detects query intent
+  const chunks = await searchKnowledgeHybrid(question, {
+    enableQueryExpansion: false,
     minSimilarity: 0.50,
     maxResults: 15
   });
@@ -390,11 +607,10 @@ export async function askRAGStream(
     console.log(`[RAG] Document analysis mode: "${documentName || 'unnamed'}" (${documentContent.length} chars)`);
   }
 
-  // Step 1: Search the knowledge base using ONLY the question with quality filtering
+  // Step 1: Hybrid search — vector + fulltext, auto-detects query intent
   // Don't pollute the search with document content - we want relevant ORS sections for the question
-  // DB threshold stays low (0.30) to get candidates; minSimilarity filters in app
-  const chunks = await searchKnowledge(question, 0.30, 15, {
-    enableQueryExpansion: false, // Disabled by default - can enable for A/B testing
+  const chunks = await searchKnowledgeHybrid(question, {
+    enableQueryExpansion: false,
     minSimilarity: 0.50,
     maxResults: 15
   });
