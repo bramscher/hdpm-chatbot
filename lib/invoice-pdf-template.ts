@@ -42,8 +42,8 @@ const CONTENT_W = PAGE_W - MARGIN * 2; // 512
 // Contact info
 // ============================================
 const PHONE = '541-548-0383';
-const FAX = '541-923-0795';
 const EMAIL = 'maintenance@highdesertpm.com';
+const ADDRESS = '1515 SW Reindeer Ave, Redmond, OR 97756';
 
 // ============================================
 // PDF Generator
@@ -84,7 +84,7 @@ export function generateInvoicePdf(invoice: HdmsInvoice): Buffer {
   // Contact info line
   doc.setFontSize(8);
   doc.setTextColor(LABEL);
-  doc.text(`Phone: ${PHONE}   |   Fax: ${FAX}   |   ${EMAIL}`, textX, y + 38);
+  doc.text(`${ADDRESS}   |   ${PHONE}   |   ${EMAIL}`, textX, y + 38);
 
   y += logoH + 8;
 
@@ -228,7 +228,7 @@ export function generateInvoicePdf(invoice: HdmsInvoice): Buffer {
   doc.setFontSize(7);
   doc.setTextColor(LABEL);
   doc.text(
-    `High Desert Maintenance Services   |   Phone: ${PHONE}   |   Fax: ${FAX}   |   ${EMAIL}`,
+    `High Desert Maintenance Services   |   ${ADDRESS}   |   ${PHONE}   |   ${EMAIL}`,
     PAGE_W / 2,
     footerY + 10,
     { align: 'center' }
