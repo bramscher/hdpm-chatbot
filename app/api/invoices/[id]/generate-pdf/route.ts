@@ -30,9 +30,23 @@ export async function POST(
       return NextResponse.json({ error: 'Cannot generate PDF for a voided invoice' }, { status: 400 });
     }
 
+    // Ensure numeric fields are numbers (Supabase may return strings)
+    const safeInvoice = {
+      ...invoice,
+      labor_amount: Number(invoice.labor_amount) || 0,
+      materials_amount: Number(invoice.materials_amount) || 0,
+      total_amount: Number(invoice.total_amount) || 0,
+      wo_reference: invoice.wo_reference ? String(invoice.wo_reference) : null,
+      property_name: String(invoice.property_name || ''),
+      property_address: String(invoice.property_address || ''),
+      description: String(invoice.description || ''),
+      invoice_code: String(invoice.invoice_code || ''),
+      completed_date: invoice.completed_date ? String(invoice.completed_date) : null,
+    };
+
     // Render PDF to buffer
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pdfBuffer = await renderToBuffer(createInvoicePdfElement(invoice) as any);
+    const pdfBuffer = await renderToBuffer(createInvoicePdfElement(safeInvoice) as any);
 
     // Upload to Supabase Storage
     const pdfPath = await uploadInvoicePdf(pdfBuffer, invoice);

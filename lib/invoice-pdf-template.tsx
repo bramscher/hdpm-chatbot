@@ -190,9 +190,12 @@ interface InvoicePdfProps {
   invoice: HdmsInvoice;
 }
 
-/** Helper to create the PDF element for renderToBuffer */
+/** Helper to create the PDF element for renderToBuffer.
+ *  We call the component function directly so renderToBuffer
+ *  receives a <Document> element at the top level instead of
+ *  a wrapper component — @react-pdf/renderer requires this. */
 export function createInvoicePdfElement(invoice: HdmsInvoice) {
-  return React.createElement(InvoicePdfDocument, { invoice });
+  return InvoicePdfDocument({ invoice });
 }
 
 export function InvoicePdfDocument({ invoice }: InvoicePdfProps) {
@@ -215,12 +218,12 @@ export function InvoicePdfDocument({ invoice }: InvoicePdfProps) {
             <Text style={styles.infoLabel}>Date</Text>
             <Text style={styles.infoValue}>{formatDate(invoice.completed_date)}</Text>
           </View>
-          {invoice.wo_reference && (
+          {invoice.wo_reference ? (
             <View style={styles.infoBlock}>
               <Text style={styles.infoLabel}>Work Order</Text>
               <Text style={styles.infoValue}>{invoice.wo_reference}</Text>
             </View>
-          )}
+          ) : null}
         </View>
 
         {/* Property */}
@@ -247,7 +250,7 @@ export function InvoicePdfDocument({ invoice }: InvoicePdfProps) {
             </View>
           </View>
 
-          {invoice.labor_amount > 0 && (
+          {invoice.labor_amount > 0 ? (
             <View style={styles.tableRow}>
               <View style={styles.tableColDesc}>
                 <Text style={styles.tableCellText}>Labor</Text>
@@ -256,9 +259,9 @@ export function InvoicePdfDocument({ invoice }: InvoicePdfProps) {
                 <Text style={styles.tableCellText}>{formatCurrency(invoice.labor_amount)}</Text>
               </View>
             </View>
-          )}
+          ) : null}
 
-          {invoice.materials_amount > 0 && (
+          {invoice.materials_amount > 0 ? (
             <View style={styles.tableRow}>
               <View style={styles.tableColDesc}>
                 <Text style={styles.tableCellText}>Materials</Text>
@@ -267,7 +270,7 @@ export function InvoicePdfDocument({ invoice }: InvoicePdfProps) {
                 <Text style={styles.tableCellText}>{formatCurrency(invoice.materials_amount)}</Text>
               </View>
             </View>
-          )}
+          ) : null}
 
           <View style={styles.tableTotalRow}>
             <View style={styles.tableColDesc}>
