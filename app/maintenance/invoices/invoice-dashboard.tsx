@@ -21,6 +21,7 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
   const [parsedRows, setParsedRows] = useState<WorkOrderRow[]>([]);
   const [selectedRow, setSelectedRow] = useState<WorkOrderRow | null>(null);
   const [editInvoice, setEditInvoice] = useState<HdmsInvoice | null>(null);
+  const [fromPdfScan, setFromPdfScan] = useState(false);
   const [invoices, setInvoices] = useState<HdmsInvoice[]>([]);
   const [isLoadingInvoices, setIsLoadingInvoices] = useState(true);
 
@@ -48,9 +49,30 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
     setView("table");
   }
 
+  function handlePdfScanned(fields: Record<string, string>) {
+    const row: WorkOrderRow = {
+      wo_number: fields.wo_number || "",
+      property_name: fields.property_name || "",
+      property_address: fields.property_address || "",
+      unit: fields.unit || "",
+      description: fields.description || "",
+      completed_date: fields.completed_date || "",
+      category: fields.category || "",
+      assigned_to: "",
+      labor_amount: fields.labor_amount || "",
+      materials_amount: fields.materials_amount || "",
+      total_amount: fields.total_amount || "",
+    };
+    setSelectedRow(row);
+    setEditInvoice(null);
+    setFromPdfScan(true);
+    setView("form");
+  }
+
   function handleSelectRow(row: WorkOrderRow) {
     setSelectedRow(row);
     setEditInvoice(null);
+    setFromPdfScan(false);
     setView("form");
   }
 
@@ -65,6 +87,7 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
     setView("upload");
     setSelectedRow(null);
     setEditInvoice(null);
+    setFromPdfScan(false);
   }
 
   function handleBackToUpload() {
@@ -73,9 +96,10 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
   }
 
   function handleBackFromForm() {
-    if (editInvoice) {
+    if (editInvoice || fromPdfScan) {
       setView("upload");
       setEditInvoice(null);
+      setFromPdfScan(false);
     } else {
       setView("table");
     }
@@ -109,7 +133,7 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
       {/* Main Content */}
       {view === "upload" && (
         <>
-          <CsvUploader onParsed={handleCsvParsed} />
+          <CsvUploader onParsed={handleCsvParsed} onPdfScanned={handlePdfScanned} />
           <InvoiceList
             invoices={invoices}
             onRefresh={fetchInvoices}

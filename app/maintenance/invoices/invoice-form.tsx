@@ -45,6 +45,9 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
       setWoReference(workOrder.wo_number);
       setCompletedDate(workOrder.completed_date);
       setDescription(workOrder.description);
+      if (workOrder.labor_amount) setLaborAmount(workOrder.labor_amount);
+      if (workOrder.materials_amount) setMaterialsAmount(workOrder.materials_amount);
+      if (workOrder.total_amount) setTotalAmount(workOrder.total_amount);
     }
   }, [workOrder, editInvoice]);
 
