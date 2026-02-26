@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { renderToBuffer } from '@react-pdf/renderer';
 import { getInvoiceById, updateInvoice, uploadInvoicePdf } from '@/lib/invoices';
-import { createInvoicePdfElement } from '@/lib/invoice-pdf-template';
+import { generateInvoicePdf } from '@/lib/invoice-pdf-template';
 
 export const maxDuration = 30;
 
@@ -44,9 +43,8 @@ export async function POST(
       completed_date: invoice.completed_date ? String(invoice.completed_date) : null,
     };
 
-    // Render PDF to buffer
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pdfBuffer = await renderToBuffer(createInvoicePdfElement(safeInvoice) as any);
+    // Generate PDF using jsPDF (pure JS, no React dependency)
+    const pdfBuffer = generateInvoicePdf(safeInvoice);
 
     // Upload to Supabase Storage
     const pdfPath = await uploadInvoicePdf(pdfBuffer, invoice);

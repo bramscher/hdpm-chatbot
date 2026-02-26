@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ['@anthropic-ai/sdk', '@react-pdf/renderer'],
+  serverExternalPackages: ['@anthropic-ai/sdk'],
 };
 
 export default nextConfig;
