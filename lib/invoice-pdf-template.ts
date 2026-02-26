@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { HdmsInvoice } from './invoices';
+import { HDPM_LOGO_BASE64 } from './hdpm-logo';
 
 // ============================================
 // Helpers
@@ -28,6 +29,7 @@ const MID = '#666666';
 const LABEL = '#888888';
 const LIGHT_BORDER = '#e0e0e0';
 const BG_GRAY = '#f5f5f5';
+const GREEN = '#3d7a3d';
 
 // ============================================
 // Layout constants (US Letter: 612 x 792 pt)
@@ -35,7 +37,13 @@ const BG_GRAY = '#f5f5f5';
 const MARGIN = 50;
 const PAGE_W = 612;
 const CONTENT_W = PAGE_W - MARGIN * 2; // 512
-const COL_DESC_W = CONTENT_W * 0.7;
+
+// ============================================
+// Contact info
+// ============================================
+const PHONE = '541-548-0383';
+const FAX = '541-923-0795';
+const EMAIL = 'maintenance@highdesertpm.com';
 
 // ============================================
 // PDF Generator
@@ -54,21 +62,34 @@ export function generateInvoicePdf(invoice: HdmsInvoice): Buffer {
 
   let y = MARGIN;
 
-  // ── Header ──────────────────────────────────
+  // ── Header with Logo ────────────────────────
+  // Logo on the left
+  const logoW = 80;
+  const logoH = 52; // aspect ratio ~1.54:1 from 1240x806 image
+  doc.addImage(HDPM_LOGO_BASE64, 'PNG', MARGIN, y - 8, logoW, logoH);
+
+  // Company name and subtitle to the right of logo
+  const textX = MARGIN + logoW + 14;
+
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(20);
+  doc.setFontSize(18);
   doc.setTextColor(BLACK);
-  doc.text('High Desert Maintenance Services', MARGIN, y);
-  y += 18;
+  doc.text('High Desert Maintenance Services', textX, y + 10);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   doc.setTextColor(MID);
-  doc.text('Internal Division of High Desert Property Management', MARGIN, y);
-  y += 12;
+  doc.text('Internal Division of High Desert Property Management', textX, y + 24);
+
+  // Contact info line
+  doc.setFontSize(8);
+  doc.setTextColor(LABEL);
+  doc.text(`Phone: ${PHONE}   |   Fax: ${FAX}   |   ${EMAIL}`, textX, y + 38);
+
+  y += logoH + 8;
 
   // Header divider
-  doc.setDrawColor(DARK);
+  doc.setDrawColor(GREEN);
   doc.setLineWidth(2);
   doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
   y += 25;
@@ -193,15 +214,25 @@ export function generateInvoicePdf(invoice: HdmsInvoice): Buffer {
   doc.text(formatCurrency(Number(invoice.total_amount)), MARGIN + CONTENT_W, y, { align: 'right' });
 
   // ── Footer ──────────────────────────────────
-  const footerY = 742; // near bottom of letter page
-  doc.setDrawColor(LIGHT_BORDER);
-  doc.setLineWidth(0.5);
-  doc.line(MARGIN, footerY - 15, MARGIN + CONTENT_W, footerY - 15);
+  const footerY = 740;
+  doc.setDrawColor(GREEN);
+  doc.setLineWidth(1);
+  doc.line(MARGIN, footerY - 20, MARGIN + CONTENT_W, footerY - 20);
 
   doc.setFont('helvetica', 'italic');
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   doc.setTextColor(LABEL);
-  doc.text('Thank you for your business.', PAGE_W / 2, footerY, { align: 'center' });
+  doc.text('Thank you for your business.', PAGE_W / 2, footerY - 4, { align: 'center' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(LABEL);
+  doc.text(
+    `High Desert Maintenance Services   |   Phone: ${PHONE}   |   Fax: ${FAX}   |   ${EMAIL}`,
+    PAGE_W / 2,
+    footerY + 10,
+    { align: 'center' }
+  );
 
   // ── Output ──────────────────────────────────
   const arrayBuffer = doc.output('arraybuffer');
