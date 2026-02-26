@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ChatWidget } from "@/components/ChatWidget";
 
 export default function Home() {
@@ -37,6 +38,13 @@ export default function Home() {
               <span className="text-2xl">&#x1F4C4;</span>
               <span className="text-gray-700 font-medium">Policy Documents</span>
             </div>
+            <Link
+              href="/maintenance/invoices"
+              className="flex items-center gap-2 glass-subtle glass-shine rounded-2xl px-5 py-3 hover:bg-white/80 transition-all duration-200 ease-spring hover:-translate-y-0.5"
+            >
+              <span className="text-2xl">&#x1F9FE;</span>
+              <span className="text-gray-700 font-medium">Invoice Generator</span>
+            </Link>
           </div>
 
           <div className="glass-heavy glass-elevated rounded-3xl p-8 text-left animate-slide-up">
