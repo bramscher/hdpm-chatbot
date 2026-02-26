@@ -79,7 +79,7 @@ export function generateInvoicePdf(invoice: HdmsInvoice): Buffer {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(MID);
-  doc.text('Internal Division of High Desert Property Management', textX, y + 24);
+  doc.text('Division of High Desert Property Management', textX, y + 24);
 
   // Contact info line
   doc.setFontSize(8);
