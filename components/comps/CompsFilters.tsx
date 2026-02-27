@@ -158,7 +158,7 @@ export function CompsFilters({ filter, onChange }: CompsFiltersProps) {
               Data Source
             </label>
             <PillToggle<DataSource>
-              options={ALL_DATA_SOURCES}
+              options={ALL_DATA_SOURCES.filter((s) => s !== 'hud_fmr')}
               selected={filter.data_sources || []}
               onToggle={(s) =>
                 onChange({ ...filter, data_sources: toggle(filter.data_sources, s) })
