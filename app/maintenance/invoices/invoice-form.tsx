@@ -66,10 +66,13 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
     createdBy?: string;
   }>({});
 
+  const [taskItems, setTaskItems] = useState<string[]>([]);
+
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showTechNotes, setShowTechNotes] = useState(false);
+  const [showTaskList, setShowTaskList] = useState(false);
 
   // Computed totals
   const totalAmount = useMemo(() => {
@@ -125,6 +128,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
 
       // Load line items from scanned PDF
       if (workOrder.line_items && workOrder.line_items.length > 0) {
+        // Financial WO with pre-priced line items from Details table
         setLineItems(
           workOrder.line_items.map((li) => ({
             id: newLineItemId(),
@@ -134,6 +138,26 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             amount: li.amount.toFixed(2),
           }))
         );
+      } else if (workOrder.task_items && workOrder.task_items.length > 0) {
+        // Task-list WO — roll all tasks into a single Labor line + a Materials line
+        const taskSummary = workOrder.task_items.join("; ");
+        const items: FormLineItem[] = [
+          {
+            id: newLineItemId(),
+            type: "labor",
+            account: "",
+            description: `Labor – ${taskSummary}`,
+            amount: "0.00",
+          },
+          {
+            id: newLineItemId(),
+            type: "materials",
+            account: "",
+            description: "Materials",
+            amount: "0.00",
+          },
+        ];
+        setLineItems(items);
       } else {
         // Fall back to legacy amounts
         const items: FormLineItem[] = [];
@@ -148,6 +172,11 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
         }
         if (items.length === 0) items.push(blankLineItem());
         setLineItems(items);
+      }
+
+      // Store task items for reference
+      if (workOrder.task_items && workOrder.task_items.length > 0) {
+        setTaskItems(workOrder.task_items);
       }
 
       // Store scanned metadata for context
@@ -424,6 +453,33 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
                   </div>
                 )}
               </div>
+            )}
+          </div>
+        )}
+
+        {/* Task List Reference (collapsible, from scanned task-list WOs) */}
+        {taskItems.length > 0 && (
+          <div className="rounded-xl bg-emerald-50/50 border border-emerald-200/40 px-4 py-3">
+            <button
+              type="button"
+              onClick={() => setShowTaskList(!showTaskList)}
+              className="w-full flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2">
+                <p className="text-[10px] font-semibold text-emerald-700 uppercase tracking-widest">
+                  Work Order Tasks ({taskItems.length})
+                </p>
+              </div>
+              <span className="text-[11px] font-medium text-emerald-600">
+                {showTaskList ? "Hide" : "Show"} Task List
+              </span>
+            </button>
+            {showTaskList && (
+              <ul className="mt-2 space-y-0.5 text-[11px] text-gray-600 list-disc list-inside max-h-48 overflow-y-auto">
+                {taskItems.map((task, idx) => (
+                  <li key={idx} className="leading-relaxed">{task}</li>
+                ))}
+              </ul>
             )}
           </div>
         )}

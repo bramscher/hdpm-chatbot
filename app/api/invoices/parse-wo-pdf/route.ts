@@ -92,7 +92,7 @@ async function extractWorkOrderFields(text: string): Promise<ParsedWorkOrder> {
 
 There are TWO types of work orders:
 1. FINANCIAL WOs: Have a "Details" table with columns (Account, Statement Description, Amount). Extract every row as a line item with the amount.
-2. TASK-LIST WOs: Have a detailed Description section listing individual tasks to complete, plus a "Technician's Notes" section with paragraph descriptions of completed work. These may NOT have dollar amounts — extract each task as a line item with amount "0" so the user can fill in pricing.
+2. TASK-LIST WOs: Have a detailed Description section listing individual tasks to complete, plus a "Technician's Notes" section with paragraph descriptions of completed work. These may NOT have dollar amounts — extract each task into the task_items array (NOT as separate line items). The invoice form will roll all labor tasks into a single consolidated "Labor" line.
 
 Return this exact JSON structure:
 {
@@ -136,7 +136,7 @@ Return this exact JSON structure:
 
 Rules:
 - FINANCIAL WOs: line_items MUST contain every row from the Details table.
-- TASK-LIST WOs (no Details table): Create a line item for EACH individual task from the Description section. Set amount to "0" so the user can price them. Classify each as "labor" or "materials" based on context (replacing parts/supplies = materials, performing work = labor).
+- TASK-LIST WOs (no Details table): Do NOT create individual line items per task. Instead, put all tasks into task_items and set line_items to an empty array []. The UI will create consolidated Labor and Materials lines.
 - task_items: ALWAYS extract every individual task line from the Description section as separate strings. These are usually short lines like "Fix plug in living room" or "Replace door stop in hall bathroom".
 - technician_notes: Extract the FULL text of any paragraph-form notes about completed work. These often appear after the task list and describe what was actually done in detail.
 - For the property_name, use the complex/property name (e.g. "Slivka 151 - Slivka 151") not the management company name.
