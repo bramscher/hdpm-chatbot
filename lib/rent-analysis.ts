@@ -70,6 +70,15 @@ function computeSimilarityScore(
     score += 3;
   }
 
+  // Bathroom match
+  if (subject.bathrooms && comp.bathrooms) {
+    if (comp.bathrooms === subject.bathrooms) {
+      score += 5;
+    } else if (Math.abs(comp.bathrooms - subject.bathrooms) <= 0.5) {
+      score += 2;
+    }
+  }
+
   // Property type match
   if (comp.property_type === subject.property_type) {
     score += 5;
