@@ -276,9 +276,10 @@ export async function fetchAppFolioListings(syncUser: string): Promise<CreateCom
           const rent = parseNumber(unit.ListedRent) || parseNumber(unit.MarketRent);
           if (!rent || rent <= 0) continue;
 
-          const bedrooms = parseNumber(unit.Bedrooms);
+          const bedrooms = Math.round(parseNumber(unit.Bedrooms));
           const bathrooms = parseNumber(unit.Bathrooms);
-          const sqft = parseNumber(unit.SquareFeet) || undefined;
+          const rawSqft = parseNumber(unit.SquareFeet);
+          const sqft = rawSqft ? Math.round(rawSqft) : undefined;
 
           comps.push({
             town,
