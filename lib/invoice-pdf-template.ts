@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf';
-import { HdmsInvoice } from './invoices';
+import { HdmsInvoice, LineItem } from './invoices';
 import { HDPM_LOGO_BASE64 } from './hdpm-logo';
 
 // ============================================
@@ -20,6 +20,10 @@ function formatDate(dateStr: string | null): string {
   });
 }
 
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 // ============================================
 // Colors
 // ============================================
@@ -30,13 +34,17 @@ const LABEL = '#888888';
 const LIGHT_BORDER = '#e0e0e0';
 const BG_GRAY = '#f5f5f5';
 const GREEN = '#3d7a3d';
+const BLUE_LABEL = '#4a6fa5';
+const AMBER_LABEL = '#a5784a';
 
 // ============================================
 // Layout constants (US Letter: 612 x 792 pt)
 // ============================================
 const MARGIN = 50;
 const PAGE_W = 612;
+const PAGE_H = 792;
 const CONTENT_W = PAGE_W - MARGIN * 2; // 512
+const FOOTER_ZONE = 80; // reserve this much at the bottom for footer
 
 // ============================================
 // Contact info
@@ -62,13 +70,19 @@ export function generateInvoicePdf(invoice: HdmsInvoice): Buffer {
 
   let y = MARGIN;
 
+  function checkPageBreak(needed: number) {
+    if (y + needed > PAGE_H - FOOTER_ZONE) {
+      drawFooter(doc);
+      doc.addPage();
+      y = MARGIN;
+    }
+  }
+
   // ── Header with Logo ────────────────────────
-  // Logo on the left
   const logoW = 80;
-  const logoH = 52; // aspect ratio ~1.54:1 from 1240x806 image
+  const logoH = 52;
   doc.addImage(HDPM_LOGO_BASE64, 'PNG', MARGIN, y - 8, logoW, logoH);
 
-  // Company name and subtitle to the right of logo
   const textX = MARGIN + logoW + 14;
 
   doc.setFont('helvetica', 'bold');
@@ -81,7 +95,6 @@ export function generateInvoicePdf(invoice: HdmsInvoice): Buffer {
   doc.setTextColor(MID);
   doc.text('Division of High Desert Property Management', textX, y + 24);
 
-  // Contact info line
   doc.setFontSize(8);
   doc.setTextColor(LABEL);
   doc.text(`${ADDRESS}   |   ${PHONE}   |   ${EMAIL}`, textX, y + 38);
@@ -98,15 +111,12 @@ export function generateInvoicePdf(invoice: HdmsInvoice): Buffer {
   const infoBlockX = [MARGIN, MARGIN + 170, MARGIN + 340];
   let infoIdx = 0;
 
-  // Invoice Number
   drawInfoBlock(doc, infoBlockX[infoIdx], y, 'INVOICE NUMBER', String(invoice.invoice_code));
   infoIdx++;
 
-  // Date
   drawInfoBlock(doc, infoBlockX[infoIdx], y, 'DATE', formatDate(invoice.completed_date));
   infoIdx++;
 
-  // Work Order (optional)
   if (invoice.wo_reference) {
     drawInfoBlock(doc, infoBlockX[infoIdx], y, 'WORK ORDER', String(invoice.wo_reference));
   }
@@ -140,6 +150,7 @@ export function generateInvoicePdf(invoice: HdmsInvoice): Buffer {
   y += propBoxH + 20;
 
   // ── Description ─────────────────────────────
+  checkPageBreak(60);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   doc.setTextColor(LABEL);
@@ -150,55 +161,170 @@ export function generateInvoicePdf(invoice: HdmsInvoice): Buffer {
   doc.setFontSize(10);
   doc.setTextColor(DARK);
   const descLines = doc.splitTextToSize(String(invoice.description), CONTENT_W);
-  doc.text(descLines, MARGIN, y);
-  y += descLines.length * 14 + 16;
-
-  // ── Line Items Table ────────────────────────
-
-  // Table header
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(LABEL);
-  doc.text('ITEM', MARGIN, y);
-  doc.text('AMOUNT', MARGIN + CONTENT_W, y, { align: 'right' });
+  // Render description in chunks if it's very long
+  for (let i = 0; i < descLines.length; i++) {
+    checkPageBreak(14);
+    doc.text(descLines[i], MARGIN, y);
+    y += 14;
+  }
   y += 8;
 
-  doc.setDrawColor(DARK);
-  doc.setLineWidth(2);
-  doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
-  y += 14;
+  // ── Line Items Table ────────────────────────
+  const lineItems: LineItem[] = invoice.line_items && invoice.line_items.length > 0
+    ? invoice.line_items
+    : [];
 
-  // Labor row
-  if (Number(invoice.labor_amount) > 0) {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(DARK);
-    doc.text('Labor', MARGIN, y);
-    doc.text(formatCurrency(Number(invoice.labor_amount)), MARGIN + CONTENT_W, y, { align: 'right' });
+  // Column layout: Type (60) | Account (100) | Description (flex) | Amount (80)
+  const COL_TYPE_W = 55;
+  const COL_ACCT_W = 90;
+  const COL_AMT_W = 75;
+  const COL_DESC_W = CONTENT_W - COL_TYPE_W - COL_ACCT_W - COL_AMT_W;
+
+  const COL_TYPE_X = MARGIN;
+  const COL_ACCT_X = COL_TYPE_X + COL_TYPE_W;
+  const COL_DESC_X = COL_ACCT_X + COL_ACCT_W;
+  const COL_AMT_X = MARGIN + CONTENT_W; // right-aligned
+
+  if (lineItems.length > 0) {
+    // Table header
+    checkPageBreak(40);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(LABEL);
+    doc.text('TYPE', COL_TYPE_X, y);
+    doc.text('ACCOUNT', COL_ACCT_X, y);
+    doc.text('DESCRIPTION', COL_DESC_X, y);
+    doc.text('AMOUNT', COL_AMT_X, y, { align: 'right' });
     y += 8;
 
-    doc.setDrawColor(LIGHT_BORDER);
-    doc.setLineWidth(0.5);
+    doc.setDrawColor(DARK);
+    doc.setLineWidth(2);
     doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
-    y += 14;
-  }
+    y += 12;
 
-  // Materials row
-  if (Number(invoice.materials_amount) > 0) {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(DARK);
-    doc.text('Materials', MARGIN, y);
-    doc.text(formatCurrency(Number(invoice.materials_amount)), MARGIN + CONTENT_W, y, { align: 'right' });
+    // Line item rows
+    let laborSubtotal = 0;
+    let materialsSubtotal = 0;
+
+    for (const item of lineItems) {
+      const amount = Number(item.amount) || 0;
+      const type = item.type || 'other';
+      if (type === 'labor') laborSubtotal += amount;
+      else if (type === 'materials') materialsSubtotal += amount;
+
+      // Wrap description text
+      const descWrapped = doc.splitTextToSize(item.description, COL_DESC_W - 6);
+      const rowHeight = Math.max(descWrapped.length * 12, 14);
+
+      checkPageBreak(rowHeight + 10);
+
+      // Type label (colored)
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      if (type === 'labor') doc.setTextColor(BLUE_LABEL);
+      else if (type === 'materials') doc.setTextColor(AMBER_LABEL);
+      else doc.setTextColor(MID);
+      doc.text(capitalize(type), COL_TYPE_X, y);
+
+      // Account
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(MID);
+      const acctText = item.account || '';
+      if (acctText) {
+        const truncAcct = acctText.length > 14 ? acctText.substring(0, 14) + '…' : acctText;
+        doc.text(truncAcct, COL_ACCT_X, y);
+      }
+
+      // Description (wrapped)
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(DARK);
+      for (let i = 0; i < descWrapped.length; i++) {
+        doc.text(descWrapped[i], COL_DESC_X, y + (i * 12));
+      }
+
+      // Amount
+      if (amount > 0) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(DARK);
+        doc.text(formatCurrency(amount), COL_AMT_X, y, { align: 'right' });
+      }
+
+      y += rowHeight;
+
+      // Row separator
+      doc.setDrawColor(LIGHT_BORDER);
+      doc.setLineWidth(0.5);
+      doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
+      y += 10;
+    }
+
+    // ── Subtotals (if both labor and materials present) ──
+    if (laborSubtotal > 0 && materialsSubtotal > 0) {
+      checkPageBreak(45);
+      y += 4;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+
+      doc.setTextColor(BLUE_LABEL);
+      doc.text('Labor Subtotal', MARGIN + CONTENT_W - 160, y);
+      doc.setTextColor(DARK);
+      doc.text(formatCurrency(laborSubtotal), COL_AMT_X, y, { align: 'right' });
+      y += 14;
+
+      doc.setTextColor(AMBER_LABEL);
+      doc.text('Materials Subtotal', MARGIN + CONTENT_W - 160, y);
+      doc.setTextColor(DARK);
+      doc.text(formatCurrency(materialsSubtotal), COL_AMT_X, y, { align: 'right' });
+      y += 14;
+    }
+  } else {
+    // ── Legacy Labor / Materials rows ────────
+    checkPageBreak(60);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(LABEL);
+    doc.text('ITEM', MARGIN, y);
+    doc.text('AMOUNT', MARGIN + CONTENT_W, y, { align: 'right' });
     y += 8;
 
-    doc.setDrawColor(LIGHT_BORDER);
-    doc.setLineWidth(0.5);
+    doc.setDrawColor(DARK);
+    doc.setLineWidth(2);
     doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
     y += 14;
+
+    if (Number(invoice.labor_amount) > 0) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(DARK);
+      doc.text('Labor', MARGIN, y);
+      doc.text(formatCurrency(Number(invoice.labor_amount)), MARGIN + CONTENT_W, y, { align: 'right' });
+      y += 8;
+      doc.setDrawColor(LIGHT_BORDER);
+      doc.setLineWidth(0.5);
+      doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
+      y += 14;
+    }
+
+    if (Number(invoice.materials_amount) > 0) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(DARK);
+      doc.text('Materials', MARGIN, y);
+      doc.text(formatCurrency(Number(invoice.materials_amount)), MARGIN + CONTENT_W, y, { align: 'right' });
+      y += 8;
+      doc.setDrawColor(LIGHT_BORDER);
+      doc.setLineWidth(0.5);
+      doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
+      y += 14;
+    }
   }
 
-  // Total row
+  // ── Total Row ─────────────────────────────
+  checkPageBreak(40);
   y += 4;
   doc.setDrawColor(DARK);
   doc.setLineWidth(2);
@@ -214,25 +340,7 @@ export function generateInvoicePdf(invoice: HdmsInvoice): Buffer {
   doc.text(formatCurrency(Number(invoice.total_amount)), MARGIN + CONTENT_W, y, { align: 'right' });
 
   // ── Footer ──────────────────────────────────
-  const footerY = 740;
-  doc.setDrawColor(GREEN);
-  doc.setLineWidth(1);
-  doc.line(MARGIN, footerY - 20, MARGIN + CONTENT_W, footerY - 20);
-
-  doc.setFont('helvetica', 'italic');
-  doc.setFontSize(9);
-  doc.setTextColor(LABEL);
-  doc.text('Thank you for your business.', PAGE_W / 2, footerY - 4, { align: 'center' });
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(LABEL);
-  doc.text(
-    `High Desert Maintenance Services   |   ${ADDRESS}   |   ${PHONE}   |   ${EMAIL}`,
-    PAGE_W / 2,
-    footerY + 10,
-    { align: 'center' }
-  );
+  drawFooter(doc);
 
   // ── Output ──────────────────────────────────
   const arrayBuffer = doc.output('arraybuffer');
@@ -253,4 +361,26 @@ function drawInfoBlock(doc: jsPDF, x: number, y: number, label: string, value: s
   doc.setFontSize(12);
   doc.setTextColor(BLACK);
   doc.text(value, x, y + 16);
+}
+
+function drawFooter(doc: jsPDF) {
+  const footerY = PAGE_H - FOOTER_ZONE + 40;
+  doc.setDrawColor(GREEN);
+  doc.setLineWidth(1);
+  doc.line(MARGIN, footerY - 20, MARGIN + CONTENT_W, footerY - 20);
+
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(9);
+  doc.setTextColor(LABEL);
+  doc.text('Thank you for your business.', PAGE_W / 2, footerY - 4, { align: 'center' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(LABEL);
+  doc.text(
+    `High Desert Maintenance Services   |   ${ADDRESS}   |   ${PHONE}   |   ${EMAIL}`,
+    PAGE_W / 2,
+    footerY + 10,
+    { align: 'center' }
+  );
 }

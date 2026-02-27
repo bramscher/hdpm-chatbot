@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   XCircle,
   Pencil,
+  Trash2,
   Loader2,
   FileText,
   RefreshCw,
@@ -43,6 +44,7 @@ function formatDate(dateStr: string): string {
 
 export function InvoiceList({ invoices, onRefresh, onEdit, isLoading }: InvoiceListProps) {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   async function handleDownload(invoice: HdmsInvoice) {
     setActionLoading(`download-${invoice.id}`);
@@ -73,6 +75,21 @@ export function InvoiceList({ invoices, onRefresh, onEdit, isLoading }: InvoiceL
     }
   }
 
+  async function handleDelete(invoice: HdmsInvoice) {
+    setActionLoading(`delete-${invoice.id}`);
+    try {
+      const res = await fetch(`/api/invoices/${invoice.id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        onRefresh();
+      }
+    } finally {
+      setActionLoading(null);
+      setDeleteConfirm(null);
+    }
+  }
+
   if (invoices.length === 0 && !isLoading) {
     return null;
   }
@@ -97,6 +114,8 @@ export function InvoiceList({ invoices, onRefresh, onEdit, isLoading }: InvoiceL
         {invoices.map((invoice) => {
           const statusStyle = STATUS_STYLES[invoice.status] || STATUS_STYLES.draft;
           const isVoid = invoice.status === "void";
+          const isConfirmingDelete = deleteConfirm === invoice.id;
+          const lineItemCount = invoice.line_items?.length || 0;
 
           return (
             <div
@@ -126,12 +145,22 @@ export function InvoiceList({ invoices, onRefresh, onEdit, isLoading }: InvoiceL
                       >
                         {statusStyle.label}
                       </span>
+                      {invoice.wo_reference && (
+                        <span className="text-[10px] text-gray-400 font-mono">
+                          WO#{invoice.wo_reference}
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm text-gray-600 truncate">
                       {invoice.property_name}
                     </p>
                     <p className="text-xs text-gray-400">
                       {formatDate(invoice.created_at)}
+                      {lineItemCount > 0 && (
+                        <span className="ml-2 text-gray-300">
+                          • {lineItemCount} line item{lineItemCount !== 1 ? "s" : ""}
+                        </span>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -141,21 +170,38 @@ export function InvoiceList({ invoices, onRefresh, onEdit, isLoading }: InvoiceL
                   <span className="text-lg font-semibold text-gray-900">
                     {formatCurrency(invoice.total_amount)}
                   </span>
+                  {(invoice.labor_amount > 0 || invoice.materials_amount > 0) && invoice.labor_amount !== invoice.total_amount && (
+                    <div className="text-[10px] text-gray-400 mt-0.5">
+                      {invoice.labor_amount > 0 && (
+                        <span className="text-blue-500">L: {formatCurrency(invoice.labor_amount)}</span>
+                      )}
+                      {invoice.labor_amount > 0 && invoice.materials_amount > 0 && (
+                        <span className="mx-1">·</span>
+                      )}
+                      {invoice.materials_amount > 0 && (
+                        <span className="text-amber-500">M: {formatCurrency(invoice.materials_amount)}</span>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Right: Actions */}
-                <div className="flex items-center gap-2 shrink-0">
-                  {invoice.status === "draft" && (
+                <div className="flex items-center gap-1 shrink-0">
+                  {/* Edit — available for all non-void invoices */}
+                  {!isVoid && (
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => onEdit(invoice)}
                       disabled={actionLoading !== null}
+                      title="Edit invoice"
+                      className="h-8 w-8 p-0"
                     >
-                      <Pencil className="h-4 w-4" />
+                      <Pencil className="h-3.5 w-3.5" />
                     </Button>
                   )}
 
+                  {/* Download */}
                   {(invoice.status === "generated" || invoice.status === "attached") &&
                     invoice.pdf_path && (
                       <Button
@@ -163,15 +209,18 @@ export function InvoiceList({ invoices, onRefresh, onEdit, isLoading }: InvoiceL
                         size="sm"
                         onClick={() => handleDownload(invoice)}
                         disabled={actionLoading !== null}
+                        title="Download PDF"
+                        className="h-8 w-8 p-0"
                       >
                         {actionLoading === `download-${invoice.id}` ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         ) : (
-                          <Download className="h-4 w-4" />
+                          <Download className="h-3.5 w-3.5" />
                         )}
                       </Button>
                     )}
 
+                  {/* Mark as Attached */}
                   {invoice.status === "generated" && (
                     <Button
                       variant="ghost"
@@ -179,16 +228,17 @@ export function InvoiceList({ invoices, onRefresh, onEdit, isLoading }: InvoiceL
                       onClick={() => handleStatusChange(invoice, "attached")}
                       disabled={actionLoading !== null}
                       title="Mark as Attached in AppFolio"
-                      className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                      className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 h-8 w-8 p-0"
                     >
                       {actionLoading === `status-${invoice.id}` ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
-                        <CheckCircle2 className="h-4 w-4" />
+                        <CheckCircle2 className="h-3.5 w-3.5" />
                       )}
                     </Button>
                   )}
 
+                  {/* Void */}
                   {!isVoid && (
                     <Button
                       variant="ghost"
@@ -196,9 +246,49 @@ export function InvoiceList({ invoices, onRefresh, onEdit, isLoading }: InvoiceL
                       onClick={() => handleStatusChange(invoice, "void")}
                       disabled={actionLoading !== null}
                       title="Void invoice"
-                      className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                      className="text-red-400 hover:text-red-600 hover:bg-red-50 h-8 w-8 p-0"
                     >
-                      <XCircle className="h-4 w-4" />
+                      <XCircle className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+
+                  {/* Delete */}
+                  {isConfirmingDelete ? (
+                    <div className="flex items-center gap-1 ml-1 pl-1 border-l border-gray-200">
+                      <span className="text-[10px] text-red-600 font-medium whitespace-nowrap">Delete?</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(invoice)}
+                        disabled={actionLoading !== null}
+                        className="text-red-600 hover:bg-red-50 h-7 px-2 text-[10px] font-semibold"
+                      >
+                        {actionLoading === `delete-${invoice.id}` ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          "Yes"
+                        )}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDeleteConfirm(null)}
+                        disabled={actionLoading !== null}
+                        className="text-gray-500 hover:bg-gray-50 h-7 px-2 text-[10px]"
+                      >
+                        No
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDeleteConfirm(invoice.id)}
+                      disabled={actionLoading !== null}
+                      title="Delete invoice"
+                      className="text-gray-300 hover:text-red-500 hover:bg-red-50 h-8 w-8 p-0"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   )}
                 </div>

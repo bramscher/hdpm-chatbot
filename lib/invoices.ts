@@ -183,6 +183,38 @@ export async function updateInvoice(id: string, input: UpdateInvoiceInput): Prom
   return data as HdmsInvoice;
 }
 
+export async function deleteInvoice(id: string): Promise<void> {
+  const supabase = getSupabaseAdmin();
+
+  // First get the invoice to check for PDF to clean up
+  const invoice = await getInvoiceById(id);
+  if (!invoice) {
+    throw new Error('Invoice not found');
+  }
+
+  // Delete PDF from storage if it exists
+  if (invoice.pdf_path) {
+    const { error: storageError } = await supabase.storage
+      .from('hdms-invoices')
+      .remove([invoice.pdf_path]);
+    if (storageError) {
+      console.error('Error deleting PDF from storage:', storageError);
+      // Continue with invoice deletion even if storage cleanup fails
+    }
+  }
+
+  // Delete the invoice record
+  const { error } = await supabase
+    .from('hdms_invoices')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting invoice:', error);
+    throw new Error(`Failed to delete invoice: ${error.message}`);
+  }
+}
+
 // ============================================
 // Storage Operations
 // ============================================
