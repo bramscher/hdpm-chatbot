@@ -10,7 +10,16 @@ import type { UpsertBaselineInput } from '@/types/comps';
  * Data from https://www.ushousingdata.com/fair-market-rents/oregon
  * This is a one-time or annual operation — FMR values change once per year.
  */
+// Support both GET (browser visit) and POST
+export async function GET(request: NextRequest) {
+  return seedBaselines(request);
+}
+
 export async function POST(request: NextRequest) {
+  return seedBaselines(request);
+}
+
+async function seedBaselines(request: NextRequest) {
   try {
     const session = await getServerSession();
     if (!session?.user?.email?.endsWith('@highdesertpm.com')) {
