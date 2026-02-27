@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, Building2, Loader2, Home, MapPin } from "lucide-react";
+import { Search, Building2, Loader2, Home, MapPin, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -19,7 +19,7 @@ interface PropertyInputProps {
   loading: boolean;
 }
 
-type Tab = "appfolio" | "manual";
+type Tab = "address" | "appfolio" | "manual";
 
 interface AppFolioUnit {
   unitId: string;
@@ -42,8 +42,41 @@ interface AppFolioResult {
   units: AppFolioUnit[];
 }
 
+interface AddressLookupResult {
+  formatted_address: string;
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
+  county: string | null;
+  town: Town | null;
+  property: {
+    bedrooms: number | null;
+    bathrooms: number | null;
+    sqft: number | null;
+    property_type: PropertyType | null;
+    year_built: number | null;
+    lot_size: number | null;
+    last_sale_price: number | null;
+    features: {
+      garage: boolean;
+      ac: boolean;
+      heating: boolean;
+    };
+  } | null;
+  sources: string[];
+}
+
 export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
-  const [tab, setTab] = useState<Tab>("appfolio");
+  const [tab, setTab] = useState<Tab>("address");
+
+  // Address lookup state
+  const [addressQuery, setAddressQuery] = useState("");
+  const [lookingUp, setLookingUp] = useState(false);
+  const [lookupResult, setLookupResult] = useState<AddressLookupResult | null>(
+    null
+  );
+  const [lookupError, setLookupError] = useState<string | null>(null);
 
   // AppFolio search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -68,7 +101,56 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
     );
   }
 
-  // AppFolio search
+  // ==================== Address Lookup ====================
+  async function handleAddressLookup() {
+    if (addressQuery.trim().length < 5) {
+      setLookupError("Enter a full address (e.g. 123 Main St, Bend, OR)");
+      return;
+    }
+
+    setLookingUp(true);
+    setLookupError(null);
+    setLookupResult(null);
+
+    try {
+      const res = await fetch(
+        `/api/comps/address-lookup?address=${encodeURIComponent(addressQuery.trim())}`
+      );
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error);
+
+      setLookupResult(data);
+    } catch (err) {
+      setLookupError(
+        err instanceof Error ? err.message : "Address lookup failed"
+      );
+    } finally {
+      setLookingUp(false);
+    }
+  }
+
+  function handleSelectLookupResult() {
+    if (!lookupResult) return;
+
+    const prop = lookupResult.property;
+    const detectedAmenities: Amenity[] = [];
+    if (prop?.features.garage) detectedAmenities.push("garage");
+    if (prop?.features.ac) detectedAmenities.push("ac");
+
+    onSubmit({
+      address: lookupResult.formatted_address,
+      town: lookupResult.town || "Bend",
+      zip_code: lookupResult.zip || undefined,
+      bedrooms: prop?.bedrooms || 3,
+      bathrooms: prop?.bathrooms || undefined,
+      sqft: prop?.sqft || undefined,
+      property_type: prop?.property_type || "SFR",
+      amenities: detectedAmenities.length > 0 ? detectedAmenities : undefined,
+    });
+  }
+
+  // ==================== AppFolio Search ====================
   async function handleSearch() {
     if (searchQuery.trim().length < 3) {
       setSearchError("Enter at least 3 characters to search");
@@ -89,18 +171,17 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
 
       setSearchResults(data.properties || []);
       if (data.properties?.length === 0) {
-        setSearchError("No properties found. Try a different search or enter manually.");
+        setSearchError(
+          "No properties found. Try a different search or use Address Lookup."
+        );
       }
     } catch (err) {
-      setSearchError(
-        err instanceof Error ? err.message : "Search failed"
-      );
+      setSearchError(err instanceof Error ? err.message : "Search failed");
     } finally {
       setSearching(false);
     }
   }
 
-  // Select an AppFolio property + unit
   function selectUnit(property: AppFolioResult, unit: AppFolioUnit) {
     const cityLower = property.city.toLowerCase();
     const townMap: Record<string, Town> = {
@@ -125,7 +206,12 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
       return "Other";
     };
 
-    const fullAddress = [property.address, property.city, property.state, property.zip]
+    const fullAddress = [
+      property.address,
+      property.city,
+      property.state,
+      property.zip,
+    ]
       .filter(Boolean)
       .join(", ");
 
@@ -142,7 +228,7 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
     });
   }
 
-  // Manual submit
+  // ==================== Manual Submit ====================
   function handleManualSubmit() {
     if (!address.trim()) return;
 
@@ -159,37 +245,245 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
     });
   }
 
+  // ==================== Tab button helper ====================
+  function TabButton({
+    id,
+    icon: Icon,
+    label,
+  }: {
+    id: Tab;
+    icon: React.ElementType;
+    label: string;
+  }) {
+    return (
+      <button
+        type="button"
+        onClick={() => setTab(id)}
+        className={`flex-1 flex items-center justify-center gap-2 px-4 py-3.5 text-sm font-medium transition-all duration-200 ${
+          tab === id
+            ? "bg-white/60 text-gray-900 border-b-2 border-emerald-600"
+            : "text-gray-400 hover:text-gray-600 hover:bg-white/30"
+        }`}
+      >
+        <Icon className="h-4 w-4" />
+        {label}
+      </button>
+    );
+  }
+
   return (
     <div className="glass-heavy glass-elevated rounded-2xl overflow-hidden">
       {/* Tab header */}
       <div className="flex border-b border-gray-200/50">
-        <button
-          type="button"
-          onClick={() => setTab("appfolio")}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-3.5 text-sm font-medium transition-all duration-200 ${
-            tab === "appfolio"
-              ? "bg-white/60 text-gray-900 border-b-2 border-emerald-600"
-              : "text-gray-400 hover:text-gray-600 hover:bg-white/30"
-          }`}
-        >
-          <Building2 className="h-4 w-4" />
-          AppFolio Lookup
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("manual")}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-3.5 text-sm font-medium transition-all duration-200 ${
-            tab === "manual"
-              ? "bg-white/60 text-gray-900 border-b-2 border-emerald-600"
-              : "text-gray-400 hover:text-gray-600 hover:bg-white/30"
-          }`}
-        >
-          <Home className="h-4 w-4" />
-          Manual Entry
-        </button>
+        <TabButton id="address" icon={Globe} label="Address Lookup" />
+        <TabButton id="appfolio" icon={Building2} label="AppFolio" />
+        <TabButton id="manual" icon={Home} label="Manual" />
       </div>
 
       <div className="p-6">
+        {/* ==================== Address Lookup Tab ==================== */}
+        {tab === "address" && (
+          <div className="space-y-5">
+            <p className="text-sm text-gray-500">
+              Enter any address to auto-fill property details from public
+              records.
+            </p>
+
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  value={addressQuery}
+                  onChange={(e) => setAddressQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddressLookup()}
+                  placeholder="123 NW Franklin Ave, Bend, OR 97703"
+                  className="pl-9 bg-white/70 backdrop-blur-sm"
+                  disabled={lookingUp || loading}
+                />
+              </div>
+              <Button
+                onClick={handleAddressLookup}
+                disabled={
+                  lookingUp || loading || addressQuery.trim().length < 5
+                }
+                className="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-glow"
+              >
+                {lookingUp ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Look Up"
+                )}
+              </Button>
+            </div>
+
+            {lookupError && (
+              <div className="p-3 bg-amber-50/80 backdrop-blur-sm border border-amber-200/50 rounded-xl text-amber-700 text-sm">
+                {lookupError}
+              </div>
+            )}
+
+            {/* Lookup result */}
+            {lookupResult && (
+              <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50 overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-100/50">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                    <span className="font-medium text-sm text-gray-900">
+                      {lookupResult.formatted_address}
+                    </span>
+                  </div>
+                  {lookupResult.town && (
+                    <p className="text-xs text-emerald-600 mt-0.5 pl-6">
+                      Service area: {lookupResult.town}, OR
+                    </p>
+                  )}
+                  {!lookupResult.town && (
+                    <p className="text-xs text-amber-600 mt-0.5 pl-6">
+                      Outside HDPM service area &mdash; analysis will use
+                      closest comps
+                    </p>
+                  )}
+                </div>
+
+                {lookupResult.property ? (
+                  <div className="px-4 py-3 space-y-2">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div>
+                        <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                          Bedrooms
+                        </p>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {lookupResult.property.bedrooms ?? "--"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                          Bathrooms
+                        </p>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {lookupResult.property.bathrooms ?? "--"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                          Sqft
+                        </p>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {lookupResult.property.sqft
+                            ? lookupResult.property.sqft.toLocaleString()
+                            : "--"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                          Type
+                        </p>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {lookupResult.property.property_type || "--"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {lookupResult.property.year_built && (
+                        <div>
+                          <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                            Year Built
+                          </p>
+                          <p className="text-sm text-gray-700">
+                            {lookupResult.property.year_built}
+                          </p>
+                        </div>
+                      )}
+                      {lookupResult.property.lot_size && (
+                        <div>
+                          <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                            Lot Size
+                          </p>
+                          <p className="text-sm text-gray-700">
+                            {lookupResult.property.lot_size.toLocaleString()}{" "}
+                            sqft
+                          </p>
+                        </div>
+                      )}
+                      {lookupResult.property.last_sale_price && (
+                        <div>
+                          <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                            Last Sale
+                          </p>
+                          <p className="text-sm text-gray-700">
+                            $
+                            {lookupResult.property.last_sale_price.toLocaleString()}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Detected features */}
+                    {(lookupResult.property.features.garage ||
+                      lookupResult.property.features.ac) && (
+                      <div className="flex gap-2 pt-1">
+                        {lookupResult.property.features.garage && (
+                          <span className="px-2 py-0.5 text-[10px] font-medium bg-emerald-100/80 text-emerald-700 rounded-full">
+                            Garage
+                          </span>
+                        )}
+                        {lookupResult.property.features.ac && (
+                          <span className="px-2 py-0.5 text-[10px] font-medium bg-emerald-100/80 text-emerald-700 rounded-full">
+                            A/C
+                          </span>
+                        )}
+                        {lookupResult.property.features.heating && (
+                          <span className="px-2 py-0.5 text-[10px] font-medium bg-emerald-100/80 text-emerald-700 rounded-full">
+                            Heating
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    <p className="text-[10px] text-gray-400 pt-1">
+                      Data from: {lookupResult.sources.join(", ")}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="px-4 py-3">
+                    <p className="text-xs text-gray-500">
+                      Address validated but no property details found. You can
+                      use this address and fill in details manually.
+                    </p>
+                  </div>
+                )}
+
+                <div className="px-4 py-3 border-t border-gray-100/50 flex justify-end">
+                  <Button
+                    onClick={handleSelectLookupResult}
+                    disabled={loading}
+                    className="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-glow hover:shadow-glow-lg transition-all duration-200"
+                  >
+                    {loading ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Search className="h-4 w-4 mr-2" />
+                    )}
+                    Analyze This Property
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <p className="text-xs text-gray-400">
+              Works for any US address &mdash; not just properties in AppFolio.{" "}
+              <button
+                type="button"
+                onClick={() => setTab("appfolio")}
+                className="text-emerald-600 hover:text-emerald-700 font-medium"
+              >
+                Search AppFolio instead
+              </button>
+            </p>
+          </div>
+        )}
+
         {/* ==================== AppFolio Tab ==================== */}
         {tab === "appfolio" && (
           <div className="space-y-5">
@@ -212,7 +506,9 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
               </div>
               <Button
                 onClick={handleSearch}
-                disabled={searching || loading || searchQuery.trim().length < 3}
+                disabled={
+                  searching || loading || searchQuery.trim().length < 3
+                }
                 className="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-glow"
               >
                 {searching ? (
@@ -229,7 +525,6 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
               </div>
             )}
 
-            {/* Search results */}
             {searchResults.length > 0 && (
               <div className="space-y-3">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -269,13 +564,19 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
                                 {unit.bedrooms} BR / {unit.bathrooms || "—"} BA
                               </span>
                               {unit.sqft > 0 && (
-                                <span>{unit.sqft.toLocaleString()} sqft</span>
+                                <span>
+                                  {unit.sqft.toLocaleString()} sqft
+                                </span>
                               )}
                             </div>
                             <div className="flex items-center gap-3">
                               {(unit.listedRent || unit.marketRent) > 0 && (
                                 <span className="font-semibold text-gray-900">
-                                  ${(unit.listedRent || unit.marketRent).toLocaleString()}/mo
+                                  $
+                                  {(
+                                    unit.listedRent || unit.marketRent
+                                  ).toLocaleString()}
+                                  /mo
                                 </span>
                               )}
                               <span className="text-xs text-emerald-600 font-medium">
@@ -299,10 +600,18 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
               Don&apos;t see your property?{" "}
               <button
                 type="button"
+                onClick={() => setTab("address")}
+                className="text-emerald-600 hover:text-emerald-700 font-medium"
+              >
+                Try address lookup
+              </button>{" "}
+              or{" "}
+              <button
+                type="button"
                 onClick={() => setTab("manual")}
                 className="text-emerald-600 hover:text-emerald-700 font-medium"
               >
-                Enter manually
+                enter manually
               </button>
             </p>
           </div>
@@ -311,7 +620,6 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
         {/* ==================== Manual Tab ==================== */}
         {tab === "manual" && (
           <div className="space-y-5">
-            {/* Address & Town */}
             <div className="grid md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
                 <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
@@ -378,7 +686,6 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
               </div>
             </div>
 
-            {/* BR / BA / Sqft */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
@@ -448,7 +755,6 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
               </div>
             </div>
 
-            {/* Amenities */}
             <div>
               <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
                 Amenities
@@ -475,7 +781,6 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
               </div>
             </div>
 
-            {/* Submit */}
             <div className="flex justify-end pt-4 border-t border-gray-200/50">
               <Button
                 onClick={handleManualSubmit}
