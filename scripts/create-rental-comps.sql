@@ -65,6 +65,10 @@ CREATE TABLE IF NOT EXISTS market_baselines (
   UNIQUE (area_name, bedrooms, data_year)
 );
 
+-- Step 2b: Add unique partial index on external_id (for upsert on sync)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_rental_comps_external_id
+  ON rental_comps(external_id) WHERE external_id IS NOT NULL;
+
 -- Step 3: Create indexes for rental_comps
 CREATE INDEX IF NOT EXISTS idx_rental_comps_town ON rental_comps(town);
 CREATE INDEX IF NOT EXISTS idx_rental_comps_bedrooms ON rental_comps(bedrooms);

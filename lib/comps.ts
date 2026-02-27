@@ -159,37 +159,97 @@ export async function deleteComp(id: string): Promise<void> {
 export async function bulkUpsertComps(comps: CreateCompInput[]): Promise<number> {
   const supabase = getSupabaseAdmin();
 
-  const rows = comps.map((c) => ({
-    town: c.town,
-    address: c.address || null,
-    zip_code: c.zip_code || null,
-    bedrooms: c.bedrooms,
-    bathrooms: c.bathrooms ?? 1,
-    sqft: c.sqft || null,
-    property_type: c.property_type,
-    amenities: c.amenities || [],
-    monthly_rent: c.monthly_rent,
-    rent_per_sqft: c.rent_per_sqft || null,
-    data_source: c.data_source || 'manual',
-    comp_date: c.comp_date || new Date().toISOString().split('T')[0],
-    external_id: c.external_id || null,
-    rentometer_percentile: c.rentometer_percentile || null,
-    rentometer_cached_until: c.rentometer_cached_until || null,
-    notes: c.notes || null,
-    created_by: c.created_by,
-  }));
+  // Separate comps with external_id (sync sources) from manual entries
+  const withExternalId = comps.filter((c) => c.external_id);
+  const withoutExternalId = comps.filter((c) => !c.external_id);
 
-  const { data, error } = await supabase
-    .from('rental_comps')
-    .upsert(rows, { onConflict: 'external_id' })
-    .select();
+  let totalUpserted = 0;
 
-  if (error) {
-    console.error('Error bulk upserting comps:', error);
-    throw new Error(`Failed to bulk upsert comps: ${error.message}`);
+  // For comps with external_id: delete existing matches, then insert fresh
+  if (withExternalId.length > 0) {
+    const externalIds = withExternalId.map((c) => c.external_id!);
+
+    // Delete existing rows that will be replaced
+    const { error: deleteError } = await supabase
+      .from('rental_comps')
+      .delete()
+      .in('external_id', externalIds);
+
+    if (deleteError) {
+      console.error('Error deleting existing comps for upsert:', deleteError);
+      // Non-fatal — continue with insert (some may be new)
+    }
+
+    // Insert all rows
+    const rows = withExternalId.map((c) => ({
+      town: c.town,
+      address: c.address || null,
+      zip_code: c.zip_code || null,
+      bedrooms: c.bedrooms,
+      bathrooms: c.bathrooms ?? 1,
+      sqft: c.sqft || null,
+      property_type: c.property_type,
+      amenities: c.amenities || [],
+      monthly_rent: c.monthly_rent,
+      rent_per_sqft: c.rent_per_sqft || null,
+      data_source: c.data_source || 'manual',
+      comp_date: c.comp_date || new Date().toISOString().split('T')[0],
+      external_id: c.external_id,
+      rentometer_percentile: c.rentometer_percentile || null,
+      rentometer_cached_until: c.rentometer_cached_until || null,
+      notes: c.notes || null,
+      created_by: c.created_by,
+    }));
+
+    const { data, error } = await supabase
+      .from('rental_comps')
+      .insert(rows)
+      .select();
+
+    if (error) {
+      console.error('Error inserting synced comps:', error);
+      throw new Error(`Failed to bulk upsert comps: ${error.message}`);
+    }
+
+    totalUpserted += data?.length || 0;
   }
 
-  return data?.length || 0;
+  // For comps without external_id: just insert
+  if (withoutExternalId.length > 0) {
+    const rows = withoutExternalId.map((c) => ({
+      town: c.town,
+      address: c.address || null,
+      zip_code: c.zip_code || null,
+      bedrooms: c.bedrooms,
+      bathrooms: c.bathrooms ?? 1,
+      sqft: c.sqft || null,
+      property_type: c.property_type,
+      amenities: c.amenities || [],
+      monthly_rent: c.monthly_rent,
+      rent_per_sqft: c.rent_per_sqft || null,
+      data_source: c.data_source || 'manual',
+      comp_date: c.comp_date || new Date().toISOString().split('T')[0],
+      external_id: null,
+      rentometer_percentile: c.rentometer_percentile || null,
+      rentometer_cached_until: c.rentometer_cached_until || null,
+      notes: c.notes || null,
+      created_by: c.created_by,
+    }));
+
+    const { data, error } = await supabase
+      .from('rental_comps')
+      .insert(rows)
+      .select();
+
+    if (error) {
+      console.error('Error inserting manual comps:', error);
+      throw new Error(`Failed to insert comps: ${error.message}`);
+    }
+
+    totalUpserted += data?.length || 0;
+  }
+
+  return totalUpserted;
 }
 
 // ============================================
