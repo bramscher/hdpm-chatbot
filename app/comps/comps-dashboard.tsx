@@ -36,7 +36,11 @@ type DataView = "table" | "chart";
 export function CompsDashboard({ userEmail, userName }: CompsDashboardProps) {
   const [view, setView] = useState<View>("dashboard");
   const [dataView, setDataView] = useState<DataView>("table");
-  const [filter, setFilter] = useState<CompsFilter>({});
+  const [filter, setFilter] = useState<CompsFilter>(() => {
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    return { date_from: sixMonthsAgo.toISOString().split("T")[0] };
+  });
 
   // Data state
   const [comps, setComps] = useState<RentalComp[]>([]);
