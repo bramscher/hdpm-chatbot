@@ -76,20 +76,26 @@ export default function Home() {
               </p>
             </div>
 
-            {/* Coming Soon Placeholder */}
-            <div className="glass rounded-2xl p-6 opacity-50 cursor-default">
-              <div className="w-14 h-14 bg-gray-200 rounded-xl flex items-center justify-center mb-5">
-                <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            {/* Rent Comparison Toolkit */}
+            <Link
+              href="/comps"
+              className="group glass glass-shine rounded-2xl p-6 hover:shadow-glow-lg transition-all duration-300 ease-spring hover:-translate-y-1 block"
+            >
+              <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-green-700 rounded-xl flex items-center justify-center mb-5 shadow-glow group-hover:scale-105 transition-transform duration-300">
+                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-gray-400 mb-1.5">
-                More Coming Soon
+              <h3 className="text-lg font-semibold text-gray-900 mb-1.5 flex items-center justify-between">
+                Rent Comps
+                <svg className="w-5 h-5 text-gray-300 group-hover:text-emerald-600 group-hover:translate-x-1 transition-all duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </h3>
-              <p className="text-gray-400 text-sm leading-relaxed">
-                Additional automation tools are in development.
+              <p className="text-gray-500 text-sm leading-relaxed">
+                Compare rental rates across Central Oregon. AppFolio, Rentometer, HUD FMR, and manual entry.
               </p>
-            </div>
+            </Link>
           </div>
         </div>
       </div>

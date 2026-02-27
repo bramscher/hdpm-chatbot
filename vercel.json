@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/sync/appfolio",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/sync/hud",
+      "schedule": "0 10 1 1 *"
+    }
+  ]
+}
