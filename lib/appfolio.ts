@@ -341,6 +341,99 @@ export interface AppFolioPropertyResult {
   }>;
 }
 
+/**
+ * Fuzzy match score: how well does a search query match a target string?
+ * Returns a score from 0 (no match) to higher = better match.
+ * Handles: substring matches, word-order independence, partial words, typos.
+ */
+function fuzzyScore(query: string, target: string): number {
+  if (!target) return 0;
+  const q = query.toLowerCase().trim();
+  const t = target.toLowerCase().trim();
+
+  // Exact substring match — best score
+  if (t.includes(q)) return 100;
+
+  // Split into words for flexible matching
+  const queryWords = q.split(/\s+/).filter(Boolean);
+  const targetWords = t.split(/[\s,]+/).filter(Boolean);
+
+  if (queryWords.length === 0) return 0;
+
+  let totalScore = 0;
+
+  for (const qw of queryWords) {
+    let bestWordScore = 0;
+
+    for (const tw of targetWords) {
+      // Exact word match
+      if (tw === qw) {
+        bestWordScore = Math.max(bestWordScore, 20);
+        continue;
+      }
+
+      // Word starts with query word (e.g. "main" matches "mainstream")
+      if (tw.startsWith(qw)) {
+        bestWordScore = Math.max(bestWordScore, 15);
+        continue;
+      }
+
+      // Target word starts with query word or vice versa
+      if (qw.startsWith(tw)) {
+        bestWordScore = Math.max(bestWordScore, 12);
+        continue;
+      }
+
+      // Substring match within a word
+      if (tw.includes(qw) || qw.includes(tw)) {
+        bestWordScore = Math.max(bestWordScore, 10);
+        continue;
+      }
+
+      // Levenshtein-based typo tolerance (for words 4+ chars)
+      if (qw.length >= 4 && tw.length >= 4) {
+        const dist = levenshtein(qw, tw);
+        const maxLen = Math.max(qw.length, tw.length);
+        const similarity = 1 - dist / maxLen;
+        if (similarity >= 0.6) {
+          bestWordScore = Math.max(bestWordScore, Math.round(similarity * 12));
+        }
+      }
+
+      // Number-only comparison (street numbers)
+      if (/^\d+$/.test(qw) && tw.includes(qw)) {
+        bestWordScore = Math.max(bestWordScore, 18);
+      }
+    }
+
+    totalScore += bestWordScore;
+  }
+
+  return totalScore;
+}
+
+/**
+ * Simple Levenshtein distance for short strings (typo detection).
+ */
+function levenshtein(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+
+  return dp[m][n];
+}
+
 export async function searchAppFolioProperties(
   searchAddress: string
 ): Promise<AppFolioPropertyResult[]> {
@@ -351,20 +444,32 @@ export async function searchAppFolioProperties(
 
   try {
     const allProperties = await fetchAllProperties(clientId, clientSecret, developerId);
-    const normalized = searchAddress.toLowerCase().trim();
 
-    // Filter by address substring match (case-insensitive)
-    const matches = allProperties.filter((p) => {
-      if (p.HiddenAt) return false;
-      const addr = (p.Address1 || '').toLowerCase();
-      const name = (p.Name || '').toLowerCase();
-      return addr.includes(normalized) || name.includes(normalized);
-    });
+    // Score all visible properties by fuzzy match quality
+    const scored = allProperties
+      .filter((p) => !p.HiddenAt)
+      .map((p) => {
+        const addr = (p.Address1 || '') + ' ' + (p.Address2 || '');
+        const name = p.Name || '';
+        const city = p.City || '';
+        const full = `${addr} ${name} ${city}`.trim();
+        const score = Math.max(
+          fuzzyScore(searchAddress, addr),
+          fuzzyScore(searchAddress, name),
+          fuzzyScore(searchAddress, full)
+        );
+        return { property: p, score };
+      })
+      .filter((s) => s.score > 0)
+      .sort((a, b) => b.score - a.score);
 
-    // For each match (limit to 5), fetch units
+    // Take top 5 matches
+    const topMatches = scored.slice(0, 5);
+
+    // For each match, fetch units
     const results: AppFolioPropertyResult[] = [];
 
-    for (const prop of matches.slice(0, 5)) {
+    for (const { property: prop } of topMatches) {
       try {
         const units = await fetchUnitsForProperty(
           prop.Id,
