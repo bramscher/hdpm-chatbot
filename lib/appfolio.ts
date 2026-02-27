@@ -1,15 +1,17 @@
 /**
- * AppFolio Partner API Client
+ * AppFolio Database API (v0) Client
  *
- * Fetches listing and lease data from AppFolio's Partner API,
+ * Fetches property and unit data from AppFolio's v0 Database API,
  * maps to our rental_comps schema for nightly sync.
  *
- * Uses the same credentials as the Konmashi integration.
+ * Uses the same credentials and API as the Konmashi integration.
+ * API base: https://api.appfolio.com/api/v0
+ * Auth: Basic (ClientId:ClientSecret) + X-AppFolio-Developer-ID header
  *
  * Required env vars:
  *   APPFOLIO_CLIENT_ID
  *   APPFOLIO_CLIENT_SECRET
- *   APPFOLIO_API_BASE_URL (e.g. "https://highdesertpm.appfolio.com/partner_api/v1")
+ *   APPFOLIO_DEVELOPER_ID
  */
 
 import type { CreateCompInput, Town, PropertyType } from '@/types/comps';
@@ -18,41 +20,110 @@ import type { CreateCompInput, Town, PropertyType } from '@/types/comps';
 // Config
 // ============================================
 
+const APPFOLIO_V0_BASE = 'https://api.appfolio.com/api/v0';
+
 function getConfig() {
   const clientId = process.env.APPFOLIO_CLIENT_ID;
   const clientSecret = process.env.APPFOLIO_CLIENT_SECRET;
-  const baseUrl = process.env.APPFOLIO_API_BASE_URL;
+  const developerId = process.env.APPFOLIO_DEVELOPER_ID;
 
-  if (!clientId || !clientSecret || !baseUrl) {
+  if (!clientId || !clientSecret || !developerId) {
     console.warn('[AppFolio] Missing API credentials — sync will be skipped');
+    console.warn('[AppFolio] Need: APPFOLIO_CLIENT_ID, APPFOLIO_CLIENT_SECRET, APPFOLIO_DEVELOPER_ID');
     return null;
   }
 
-  return { clientId, clientSecret, baseUrl };
-}
-
-function getAuthHeader(clientId: string, clientSecret: string) {
-  const encoded = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-  return `Basic ${encoded}`;
+  return { clientId, clientSecret, developerId };
 }
 
 // ============================================
-// Town detection from address
+// v0 API Client
 // ============================================
 
-const TOWN_PATTERNS: { pattern: RegExp; town: Town }[] = [
-  { pattern: /\bBend\b/i, town: 'Bend' },
-  { pattern: /\bRedmond\b/i, town: 'Redmond' },
-  { pattern: /\bSisters\b/i, town: 'Sisters' },
-  { pattern: /\bPrineville\b/i, town: 'Prineville' },
-  { pattern: /\bCulver\b/i, town: 'Culver' },
-];
+interface V0ListResponse<T = Record<string, unknown>> {
+  data: T[];
+  next_page_path?: string | null;
+}
 
-function detectTown(address: string): Town | null {
-  for (const { pattern, town } of TOWN_PATTERNS) {
-    if (pattern.test(address)) return town;
+async function v0Fetch<T>(
+  path: string,
+  params: Record<string, string>,
+  clientId: string,
+  clientSecret: string,
+  developerId: string
+): Promise<V0ListResponse<T>> {
+  const url = new URL(`${APPFOLIO_V0_BASE}${path}`);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+
+  const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+
+  const response = await fetch(url.toString(), {
+    method: 'GET',
+    headers: {
+      Authorization: `Basic ${auth}`,
+      'X-AppFolio-Developer-ID': developerId,
+      Accept: 'application/json',
+    },
+  });
+
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`AppFolio v0 error (${response.status}): ${text.substring(0, 300)}`);
   }
-  return null;
+
+  try {
+    return JSON.parse(text) as V0ListResponse<T>;
+  } catch {
+    throw new Error(`AppFolio v0 invalid JSON: ${text.substring(0, 200)}`);
+  }
+}
+
+// ============================================
+// v0 API Types
+// ============================================
+
+interface V0Property {
+  Id: string;
+  Name?: string;
+  Address1?: string;
+  Address2?: string;
+  City?: string;
+  State?: string;
+  Zip?: string;
+  PropertyType?: string;
+  LastUpdatedAt?: string;
+  HiddenAt?: string | null;
+}
+
+interface V0Unit {
+  Id: string;
+  PropertyId?: string;
+  Bedrooms?: number | string;
+  Bathrooms?: number | string;
+  SquareFeet?: number | string;
+  ListedRent?: number | string;
+  MarketRent?: number | string;
+  RentReady?: boolean;
+  AvailableOn?: string;
+  MarketingDescription?: string;
+  AppliancesIncluded?: string[];
+}
+
+// ============================================
+// Town detection from city
+// ============================================
+
+const TOWN_MAP: Record<string, Town> = {
+  bend: 'Bend',
+  redmond: 'Redmond',
+  sisters: 'Sisters',
+  prineville: 'Prineville',
+  culver: 'Culver',
+};
+
+function detectTown(city: string): Town | null {
+  const normalized = (city || '').trim().toLowerCase();
+  return TOWN_MAP[normalized] || null;
 }
 
 // ============================================
@@ -67,139 +138,178 @@ function mapPropertyType(appfolioType: string): PropertyType {
   if (t.includes('duplex')) return 'Duplex';
   if (t.includes('condo')) return 'Condo';
   if (t.includes('manufactured') || t.includes('mobile')) return 'Manufactured';
+  if (t.includes('multi')) return 'Apartment';
   return 'Other';
 }
 
 // ============================================
-// Zip code extraction
+// Number parsing (v0 API returns some as strings)
 // ============================================
 
-function extractZip(address: string): string | undefined {
-  const match = address.match(/\b(97\d{3})\b/);
-  return match ? match[1] : undefined;
+function parseNumber(val: unknown): number {
+  if (val == null) return 0;
+  if (typeof val === 'number' && !Number.isNaN(val)) return val;
+  if (typeof val === 'string') {
+    const n = parseFloat(val.replace(/[^0-9.-]/g, ''));
+    return Number.isNaN(n) ? 0 : n;
+  }
+  return 0;
 }
 
 // ============================================
-// API Fetching — Partner API
+// Fetch Properties (paginated)
 // ============================================
 
-interface AppFolioListing {
-  id: string | number;
-  address?: string;
-  full_address?: string;
-  address_line_1?: string;
-  city?: string;
-  state?: string;
-  zip?: string;
-  zip_code?: string;
-  property_type?: string;
-  unit_type?: string;
-  bedrooms?: number;
-  bathrooms?: number;
-  square_feet?: number;
-  square_footage?: number;
-  market_rent?: number;
-  listed_rent?: number;
-  rent?: number;
-  actual_rent?: number;
-  status?: string;
-  amenities?: string[];
-}
-
-async function fetchFromAppFolio(
-  endpoint: string,
-  baseUrl: string,
+async function fetchAllProperties(
   clientId: string,
-  clientSecret: string
-): Promise<unknown[]> {
-  const url = `${baseUrl}${endpoint}`;
-  const res = await fetch(url, {
-    headers: {
-      Authorization: getAuthHeader(clientId, clientSecret),
-      Accept: 'application/json',
-    },
-  });
+  clientSecret: string,
+  developerId: string
+): Promise<V0Property[]> {
+  const allProperties: V0Property[] = [];
+  let pageNumber = 1;
+  const pageSize = 1000;
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`AppFolio Partner API error (${res.status}): ${text}`);
+  while (true) {
+    console.log(`[AppFolio] Fetching properties page ${pageNumber}...`);
+    const res = await v0Fetch<V0Property>(
+      '/properties',
+      {
+        'filters[LastUpdatedAtFrom]': '1970-01-01T00:00:00Z',
+        'page[number]': String(pageNumber),
+        'page[size]': String(pageSize),
+      },
+      clientId,
+      clientSecret,
+      developerId
+    );
+
+    const properties = res.data || [];
+    allProperties.push(...properties);
+    console.log(`[AppFolio] Page ${pageNumber}: ${properties.length} properties`);
+
+    // If we got fewer than pageSize, we're done
+    if (properties.length < pageSize || !res.next_page_path) {
+      break;
+    }
+    pageNumber++;
+
+    // Safety: max 10 pages (10,000 properties)
+    if (pageNumber > 10) {
+      console.warn('[AppFolio] Hit max page limit (10), stopping pagination');
+      break;
+    }
   }
 
-  const json = await res.json();
-  // Partner API responses vary — handle array or nested data
-  if (Array.isArray(json)) return json;
-  if (json.data && Array.isArray(json.data)) return json.data;
-  if (json.results && Array.isArray(json.results)) return json.results;
-  if (json.listings && Array.isArray(json.listings)) return json.listings;
-  if (json.units && Array.isArray(json.units)) return json.units;
-  return [];
+  return allProperties;
 }
 
 // ============================================
-// Public: Fetch & Map Listings
+// Fetch Units for a Property
+// ============================================
+
+async function fetchUnitsForProperty(
+  propertyId: string,
+  clientId: string,
+  clientSecret: string,
+  developerId: string
+): Promise<V0Unit[]> {
+  const res = await v0Fetch<V0Unit>(
+    '/units',
+    {
+      'filters[PropertyId]': propertyId,
+      'filters[LastUpdatedAtFrom]': '1970-01-01T00:00:00Z',
+      'page[number]': '1',
+      'page[size]': '1000',
+    },
+    clientId,
+    clientSecret,
+    developerId
+  );
+
+  return res.data || [];
+}
+
+// ============================================
+// Public: Fetch & Map to Comps
 // ============================================
 
 export async function fetchAppFolioListings(syncUser: string): Promise<CreateCompInput[]> {
   const config = getConfig();
   if (!config) return [];
 
-  const { clientId, clientSecret, baseUrl } = config;
+  const { clientId, clientSecret, developerId } = config;
 
   try {
-    // Try /listings first, fall back to /units if needed
-    let listings: AppFolioListing[] = [];
+    // Step 1: Fetch all properties
+    const allProperties = await fetchAllProperties(clientId, clientSecret, developerId);
+    console.log(`[AppFolio] Total properties: ${allProperties.length}`);
 
-    try {
-      listings = (await fetchFromAppFolio(
-        '/listings.json',
-        baseUrl,
-        clientId,
-        clientSecret
-      )) as AppFolioListing[];
-    } catch {
-      console.log('[AppFolio] /listings.json not available, trying /units.json...');
-      listings = (await fetchFromAppFolio(
-        '/units.json',
-        baseUrl,
-        clientId,
-        clientSecret
-      )) as AppFolioListing[];
-    }
+    // Step 2: Filter to our Central Oregon service area
+    const serviceAreaProperties = allProperties.filter((p) => {
+      if (p.HiddenAt) return false; // Skip hidden/inactive properties
+      const town = detectTown(p.City || '');
+      return town !== null;
+    });
+    console.log(`[AppFolio] Properties in service area: ${serviceAreaProperties.length}`);
 
-    console.log(`[AppFolio] Fetched ${listings.length} listings`);
-
+    // Step 3: For each service area property, fetch units
     const comps: CreateCompInput[] = [];
+    let unitCount = 0;
 
-    for (const listing of listings) {
-      const address = listing.full_address || listing.address_line_1 || listing.address || '';
-      const town = detectTown(listing.city || address);
-      if (!town) continue; // Skip if not in our service area
+    for (const property of serviceAreaProperties) {
+      const town = detectTown(property.City || '')!;
+      const address = [property.Address1, property.Address2].filter(Boolean).join(', ');
+      const fullAddress = [address, property.City, property.State, property.Zip]
+        .filter(Boolean)
+        .join(', ');
 
-      const rent = listing.market_rent || listing.listed_rent || listing.rent || listing.actual_rent;
-      if (!rent || rent <= 0) continue;
+      try {
+        const units = await fetchUnitsForProperty(
+          property.Id,
+          clientId,
+          clientSecret,
+          developerId
+        );
+        unitCount += units.length;
 
-      const bedrooms = listing.bedrooms ?? 0;
-      const sqft = listing.square_feet || listing.square_footage || undefined;
+        for (const unit of units) {
+          const rent = parseNumber(unit.ListedRent) || parseNumber(unit.MarketRent);
+          if (!rent || rent <= 0) continue;
 
-      comps.push({
-        town,
-        address: address || undefined,
-        zip_code: listing.zip || listing.zip_code || extractZip(address),
-        bedrooms,
-        bathrooms: listing.bathrooms,
-        sqft,
-        property_type: mapPropertyType(listing.property_type || listing.unit_type || ''),
-        amenities: listing.amenities || [],
-        monthly_rent: rent,
-        rent_per_sqft: sqft && sqft > 0 ? Math.round((rent / sqft) * 10000) / 10000 : undefined,
-        data_source: 'appfolio',
-        comp_date: new Date().toISOString().split('T')[0],
-        external_id: `appfolio-${listing.id}`,
-        created_by: syncUser,
-      });
+          const bedrooms = parseNumber(unit.Bedrooms);
+          const bathrooms = parseNumber(unit.Bathrooms);
+          const sqft = parseNumber(unit.SquareFeet) || undefined;
+
+          comps.push({
+            town,
+            address: fullAddress || undefined,
+            zip_code: property.Zip || undefined,
+            bedrooms,
+            bathrooms: bathrooms || undefined,
+            sqft,
+            property_type: mapPropertyType(property.PropertyType || ''),
+            amenities: unit.AppliancesIncluded || [],
+            monthly_rent: rent,
+            rent_per_sqft:
+              sqft && sqft > 0
+                ? Math.round((rent / sqft) * 10000) / 10000
+                : undefined,
+            data_source: 'appfolio',
+            comp_date: new Date().toISOString().split('T')[0],
+            external_id: `appfolio-${property.Id}-${unit.Id}`,
+            created_by: syncUser,
+          });
+        }
+      } catch (err) {
+        console.error(`[AppFolio] Error fetching units for property ${property.Id}:`, err);
+        // Continue with other properties
+      }
     }
 
-    console.log(`[AppFolio] Mapped ${comps.length} comps in service area`);
+    console.log(
+      `[AppFolio] Fetched ${unitCount} units across ${serviceAreaProperties.length} properties`
+    );
+    console.log(`[AppFolio] Mapped ${comps.length} comps with rent data`);
     return comps;
   } catch (err) {
     console.error('[AppFolio] Sync error:', err);
