@@ -575,85 +575,66 @@ function mapWorkOrderStatus(appfolioStatus: string): WorkOrderStatus {
 // Public: Fetch Work Orders (paginated)
 // ============================================
 
-// Possible v0 API paths for work orders — try each until one works
-const WORK_ORDER_PATHS = ['/work_orders', '/tasks', '/maintenance_requests'];
-
-// Different param combos: some endpoints might not support LastUpdatedAtFrom
-const PARAM_VARIANTS: Record<string, string>[] = [
-  {
-    'filters[LastUpdatedAtFrom]': '1970-01-01T00:00:00Z',
-    'page[number]': '1',
-    'page[size]': '200',
-  },
-  {
-    'page[number]': '1',
-    'page[size]': '200',
-  },
-];
-
 export async function fetchAppFolioWorkOrders(): Promise<AppFolioWorkOrder[]> {
   const config = getConfig();
   if (!config) return [];
 
   const { clientId, clientSecret, developerId } = config;
 
-  // Try each possible endpoint path × param variant
-  let workingPath: string | null = null;
-  let workingParams: Record<string, string> | null = null;
-  let firstPageData: V0ListResponse<V0WorkOrder> | null = null;
-  const errors: string[] = [];
+  // Use a recent date — 1970 causes a 533 "Data unavailable" error.
+  // Fetch last 2 years of work orders.
+  const twoYearsAgo = new Date();
+  twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+  const lastUpdatedFrom = twoYearsAgo.toISOString();
 
-  for (const path of WORK_ORDER_PATHS) {
-    for (const params of PARAM_VARIANTS) {
+  const pageSize = 200;
+
+  // Retry logic for 533 "Data unavailable" — AppFolio may need time to prepare
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY_MS = 3000;
+
+  async function fetchPage(pageNumber: number): Promise<V0ListResponse<V0WorkOrder>> {
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        const label = `${path} (${Object.keys(params).join(', ')})`;
-        console.log(`[AppFolio] Trying work orders: ${label}...`);
-        const res = await v0Fetch<V0WorkOrder>(
-          path,
-          params,
+        return await v0Fetch<V0WorkOrder>(
+          '/work_orders',
+          {
+            'filters[LastUpdatedAtFrom]': lastUpdatedFrom,
+            'page[number]': String(pageNumber),
+            'page[size]': String(pageSize),
+          },
           clientId,
           clientSecret,
           developerId
         );
-        workingPath = path;
-        workingParams = params;
-        firstPageData = res;
-        console.log(`[AppFolio] ✓ Endpoint ${label} works — ${res.data?.length || 0} records on page 1`);
-        break;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        errors.push(`${path}: ${msg}`);
-        console.warn(`[AppFolio] ✗ Endpoint ${path} failed:`, msg);
+        const is533 = msg.includes('(533)');
+        if (is533 && attempt < MAX_RETRIES) {
+          console.warn(`[AppFolio] 533 on page ${pageNumber}, retrying in ${RETRY_DELAY_MS}ms (attempt ${attempt}/${MAX_RETRIES})...`);
+          await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+          continue;
+        }
+        throw err;
       }
     }
-    if (workingPath) break;
+    throw new Error('Unreachable');
   }
 
-  if (!workingPath || !firstPageData || !workingParams) {
-    console.error('[AppFolio] All work order endpoints failed. Tried:', WORK_ORDER_PATHS.join(', '));
-    throw new Error(
-      `AppFolio work order API not available.\n\nAttempted endpoints:\n${errors.join('\n')}`
-    );
-  }
+  // Fetch first page
+  console.log(`[AppFolio] Fetching work orders (since ${lastUpdatedFrom})...`);
+  const firstPage = await fetchPage(1);
 
-  // Paginate using the working path
-  const allWorkOrders: V0WorkOrder[] = [...(firstPageData.data || [])];
+  const allWorkOrders: V0WorkOrder[] = [...(firstPage.data || [])];
   let pageNumber = 1;
-  const pageSize = 200;
+  console.log(`[AppFolio] Page 1: ${allWorkOrders.length} work orders`);
 
   // Continue pagination if first page was full
-  if (allWorkOrders.length >= pageSize && firstPageData.next_page_path) {
+  if (allWorkOrders.length >= pageSize && firstPage.next_page_path) {
     while (true) {
       pageNumber++;
-      console.log(`[AppFolio] Fetching work orders page ${pageNumber} from ${workingPath}...`);
-      const paginationParams = { ...workingParams, 'page[number]': String(pageNumber), 'page[size]': String(pageSize) };
-      const res = await v0Fetch<V0WorkOrder>(
-        workingPath,
-        paginationParams,
-        clientId,
-        clientSecret,
-        developerId
-      );
+      console.log(`[AppFolio] Fetching work orders page ${pageNumber}...`);
+      const res = await fetchPage(pageNumber);
 
       const orders = res.data || [];
       allWorkOrders.push(...orders);
