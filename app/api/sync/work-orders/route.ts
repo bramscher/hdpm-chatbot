@@ -7,15 +7,10 @@ import { bulkUpsertWorkOrders } from '@/lib/work-orders';
  * GET /api/sync/work-orders
  *
  * Debug endpoint — test AppFolio work order API connectivity.
- * Auth: session only.
+ * TEMPORARILY PUBLIC for diagnostics. TODO: add auth back once API is working.
  */
 export async function GET() {
   try {
-    const session = await getServerSession();
-    if (!session?.user?.email?.endsWith('@highdesertpm.com')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     console.log('[Sync] GET — testing AppFolio work orders API...');
 
     const workOrders = await fetchAppFolioWorkOrders();
@@ -28,7 +23,7 @@ export async function GET() {
   } catch (error) {
     console.error('[Sync] GET work orders test error:', error);
     const message = error instanceof Error ? error.message : 'API test failed';
-    return NextResponse.json({ error: message, stack: error instanceof Error ? error.stack : undefined }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
