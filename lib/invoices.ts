@@ -4,6 +4,13 @@ import { getSupabaseAdmin } from './supabase';
 // Types
 // ============================================
 
+/** An individual billable line item on an invoice */
+export interface LineItem {
+  description: string;
+  account?: string;        // GL account code from work order (e.g. "6500: Keys, Locks...")
+  amount: number;
+}
+
 export interface HdmsInvoice {
   id: string;
   invoice_number: number;
@@ -17,6 +24,7 @@ export interface HdmsInvoice {
   labor_amount: number;
   materials_amount: number;
   total_amount: number;
+  line_items: LineItem[] | null;
   internal_notes: string | null;
   pdf_path: string | null;
   created_by: string;
@@ -34,6 +42,7 @@ export interface CreateInvoiceInput {
   labor_amount: number;
   materials_amount: number;
   total_amount: number;
+  line_items?: LineItem[];
   internal_notes?: string;
   created_by: string;
 }
@@ -48,11 +57,12 @@ export interface UpdateInvoiceInput {
   labor_amount?: number;
   materials_amount?: number;
   total_amount?: number;
+  line_items?: LineItem[];
   internal_notes?: string;
   pdf_path?: string;
 }
 
-/** Represents a parsed row from the AppFolio CSV export */
+/** Represents a parsed work order row (from CSV, PDF scan, or AppFolio API) */
 export interface WorkOrderRow {
   wo_number: string;
   property_name: string;
@@ -62,7 +72,21 @@ export interface WorkOrderRow {
   completed_date: string;
   category: string;
   assigned_to: string;
-  [key: string]: string;
+  work_order_id?: string;
+  // Scanned fields
+  line_items?: LineItem[];
+  technician?: string;
+  status?: string;
+  scheduled_date?: string;
+  permission_to_enter?: string;
+  maintenance_limit?: string;
+  vendor_instructions?: string;
+  property_notes?: string;
+  // Legacy aggregate amounts (still supported)
+  labor_amount?: string;
+  materials_amount?: string;
+  total_amount?: string;
+  [key: string]: string | LineItem[] | undefined;
 }
 
 // ============================================
@@ -84,6 +108,7 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<HdmsInvo
       labor_amount: input.labor_amount,
       materials_amount: input.materials_amount,
       total_amount: input.total_amount,
+      line_items: input.line_items?.length ? input.line_items : null,
       internal_notes: input.internal_notes || null,
       created_by: input.created_by,
     })

@@ -403,19 +403,35 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
     setView("table");
   }
 
-  function handlePdfScanned(fields: Record<string, string>) {
+  function handlePdfScanned(fields: Record<string, unknown>) {
+    // Parse line_items from the scanned PDF response
+    const rawLineItems = Array.isArray(fields.line_items) ? fields.line_items : [];
+    const lineItems = rawLineItems.map((li: Record<string, unknown>) => ({
+      account: String(li.account || ""),
+      description: String(li.description || ""),
+      amount: parseFloat(String(li.amount || "0")) || 0,
+    }));
+
     const row: WorkOrderRow = {
-      wo_number: fields.wo_number || "",
-      property_name: fields.property_name || "",
-      property_address: fields.property_address || "",
-      unit: fields.unit || "",
-      description: fields.description || "",
-      completed_date: fields.completed_date || "",
-      category: fields.category || "",
-      assigned_to: "",
-      labor_amount: fields.labor_amount || "",
-      materials_amount: fields.materials_amount || "",
-      total_amount: fields.total_amount || "",
+      wo_number: String(fields.wo_number || ""),
+      property_name: String(fields.property_name || ""),
+      property_address: String(fields.property_address || ""),
+      unit: String(fields.unit || ""),
+      description: String(fields.description || ""),
+      completed_date: String(fields.completed_date || ""),
+      category: String(fields.category || ""),
+      assigned_to: String(fields.assigned_to || ""),
+      technician: String(fields.technician || ""),
+      status: String(fields.status || ""),
+      scheduled_date: String(fields.scheduled_date || ""),
+      permission_to_enter: String(fields.permission_to_enter || ""),
+      maintenance_limit: String(fields.maintenance_limit || ""),
+      vendor_instructions: String(fields.vendor_instructions || ""),
+      property_notes: String(fields.property_notes || ""),
+      labor_amount: String(fields.labor_amount || ""),
+      materials_amount: String(fields.materials_amount || ""),
+      total_amount: String(fields.total_amount || ""),
+      line_items: lineItems.length > 0 ? lineItems : undefined,
     };
     setSelectedRow(row);
     setEditInvoice(null);

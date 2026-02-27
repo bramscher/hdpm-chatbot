@@ -8,7 +8,7 @@ import { WorkOrderRow } from "@/lib/invoices";
 
 interface CsvUploaderProps {
   onParsed: (rows: WorkOrderRow[], headers: string[]) => void;
-  onPdfScanned: (fields: Record<string, string>) => void;
+  onPdfScanned: (fields: Record<string, unknown>) => void;
 }
 
 export function CsvUploader({ onParsed, onPdfScanned }: CsvUploaderProps) {
