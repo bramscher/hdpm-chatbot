@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -24,6 +24,7 @@ import type {
   CompsStats,
   TownStats,
   MarketBaseline,
+  Town,
 } from "@/types/comps";
 
 interface CompsDashboardProps {
@@ -50,15 +51,90 @@ export function CompsDashboard({ userEmail, userName }: CompsDashboardProps) {
   const [baselines, setBaselines] = useState<MarketBaseline[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Build query string from filter
+  // Convert a MarketBaseline into a pseudo-RentalComp for table display
+  function baselineToComp(b: MarketBaseline): RentalComp {
+    return {
+      id: `baseline-${b.id}`,
+      town: b.area_name as Town,
+      address: `FY${b.data_year} Fair Market Rent — ${b.county} County`,
+      zip_code: null,
+      bedrooms: b.bedrooms,
+      bathrooms: null,
+      sqft: null,
+      property_type: "Other",
+      amenities: [],
+      monthly_rent: b.fmr_rent || 0,
+      rent_per_sqft: null,
+      data_source: "hud_fmr",
+      comp_date: `${b.data_year}-01-01`,
+      external_id: null,
+      rentometer_percentile: null,
+      rentometer_cached_until: null,
+      notes: `HUD Fair Market Rent for ${b.area_name} (${b.bedrooms}BR) — FY${b.data_year}`,
+      created_by: "system",
+      created_at: b.created_at,
+      updated_at: b.updated_at,
+    };
+  }
+
+  // Blend baselines into comps when HUD FMR filter is active
+  const displayComps = useMemo(() => {
+    const hudSelected = filter.data_sources?.includes("hud_fmr");
+    if (!hudSelected) return comps;
+
+    // Convert baselines to pseudo-comp rows
+    let baselineComps = baselines
+      .filter((b) => b.fmr_rent && b.fmr_rent > 0)
+      .map(baselineToComp);
+
+    // Apply town filter
+    if (filter.towns?.length) {
+      baselineComps = baselineComps.filter((c) =>
+        filter.towns!.includes(c.town)
+      );
+    }
+
+    // Apply bedroom filter
+    if (filter.bedrooms?.length) {
+      baselineComps = baselineComps.filter((c) =>
+        filter.bedrooms!.includes(c.bedrooms)
+      );
+    }
+
+    // Apply rent range filter
+    if (filter.rent_min !== undefined) {
+      baselineComps = baselineComps.filter(
+        (c) => c.monthly_rent >= filter.rent_min!
+      );
+    }
+    if (filter.rent_max !== undefined) {
+      baselineComps = baselineComps.filter(
+        (c) => c.monthly_rent <= filter.rent_max!
+      );
+    }
+
+    // If ONLY hud_fmr selected, show only baselines
+    const otherSources = (filter.data_sources || []).filter(
+      (s) => s !== "hud_fmr"
+    );
+    if (otherSources.length === 0) {
+      return baselineComps;
+    }
+
+    // Otherwise merge comps + baselines
+    return [...comps, ...baselineComps];
+  }, [comps, baselines, filter]);
+
+  // Build query string from filter (strip hud_fmr since it's handled client-side)
   function buildQuery(f: CompsFilter): string {
     const params = new URLSearchParams();
     if (f.towns?.length) params.set("towns", f.towns.join(","));
     if (f.bedrooms?.length) params.set("bedrooms", f.bedrooms.join(","));
     if (f.property_types?.length)
       params.set("property_types", f.property_types.join(","));
-    if (f.data_sources?.length)
-      params.set("data_sources", f.data_sources.join(","));
+    // Strip hud_fmr from API call — baselines are blended client-side
+    const apiSources = f.data_sources?.filter((s) => s !== "hud_fmr");
+    if (apiSources?.length) params.set("data_sources", apiSources.join(","));
     if (f.amenities?.length) params.set("amenities", f.amenities.join(","));
     if (f.date_from) params.set("date_from", f.date_from);
     if (f.date_to) params.set("date_to", f.date_to);
@@ -102,8 +178,9 @@ export function CompsDashboard({ userEmail, userName }: CompsDashboardProps) {
     fetchData();
   }, [fetchData]);
 
-  // Delete handler
+  // Delete handler (skip baseline pseudo-comps)
   async function handleDelete(id: string) {
+    if (id.startsWith("baseline-")) return;
     if (!confirm("Delete this comp?")) return;
     try {
       const res = await fetch(`/api/comps/${id}`, { method: "DELETE" });
@@ -215,7 +292,7 @@ export function CompsDashboard({ userEmail, userName }: CompsDashboardProps) {
 
       {/* Data View */}
       {dataView === "table" ? (
-        <CompsTable comps={comps} loading={loading} onDelete={handleDelete} />
+        <CompsTable comps={displayComps} loading={loading} onDelete={handleDelete} />
       ) : (
         <CompsChart
           townStats={townStats}
@@ -229,10 +306,10 @@ export function CompsDashboard({ userEmail, userName }: CompsDashboardProps) {
       <RentometerWidget onCompCreated={fetchData} />
 
       {/* Footer info */}
-      {!loading && comps.length > 0 && (
+      {!loading && displayComps.length > 0 && (
         <p className="text-center text-[10px] text-gray-300 pb-8">
           Data from AppFolio, Rentometer, HUD FMR, and manual entry •{" "}
-          {comps.length} comps loaded
+          {displayComps.length} records loaded
         </p>
       )}
     </div>
