@@ -90,7 +90,7 @@ export function ConversationHistory({
 
   if (isCollapsed) {
     return (
-      <div className="w-12 border-r border-violet-300/40 flex flex-col items-center py-4 bg-gradient-to-b from-violet-100/90 via-violet-50/70 to-purple-50/80 backdrop-blur-xl shadow-[inset_-8px_0_20px_-6px_rgba(139,92,246,0.15)]">
+      <div className="w-12 border-r border-emerald-400/40 flex flex-col items-center py-4 bg-gradient-to-b from-emerald-100/90 via-emerald-50/70 to-emerald-50/80 backdrop-blur-xl shadow-[inset_-8px_0_20px_-6px_rgba(61,122,61,0.15)]">
         <Button
           variant="ghost"
           size="icon"
@@ -104,7 +104,7 @@ export function ConversationHistory({
           variant="ghost"
           size="icon"
           onClick={onNewConversation}
-          className="text-violet-600 hover:text-violet-700 hover:bg-violet-50/50"
+          className="text-emerald-700 hover:text-emerald-700 hover:bg-emerald-50/50"
           title="New conversation"
         >
           <MessageSquarePlus className="h-5 w-5" />
@@ -114,16 +114,16 @@ export function ConversationHistory({
   }
 
   return (
-    <div className="w-64 border-r border-violet-300/40 flex flex-col bg-gradient-to-b from-violet-100/90 via-violet-50/70 to-purple-50/80 backdrop-blur-xl shadow-[inset_-8px_0_20px_-6px_rgba(139,92,246,0.15)]">
+    <div className="w-64 border-r border-emerald-400/40 flex flex-col bg-gradient-to-b from-emerald-100/90 via-emerald-50/70 to-emerald-50/80 backdrop-blur-xl shadow-[inset_-8px_0_20px_-6px_rgba(61,122,61,0.15)]">
       {/* Header */}
-      <div className="p-4 border-b border-violet-200/30 flex items-center justify-between">
-        <h3 className="font-semibold text-violet-900">Team History</h3>
+      <div className="p-4 border-b border-emerald-300/30 flex items-center justify-between">
+        <h3 className="font-semibold text-emerald-900">Team History</h3>
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
             size="icon"
             onClick={onNewConversation}
-            className="h-8 w-8 text-violet-600 hover:text-violet-700 hover:bg-violet-50/50"
+            className="h-8 w-8 text-emerald-700 hover:text-emerald-700 hover:bg-emerald-50/50"
             title="New conversation"
           >
             <MessageSquarePlus className="h-4 w-4" />
@@ -144,7 +144,7 @@ export function ConversationHistory({
       <div className="flex-1 overflow-y-auto p-2">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
-            <div className="w-6 h-6 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-emerald-700 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : conversations.length === 0 ? (
           <div className="text-center py-8 px-4">
@@ -165,7 +165,7 @@ export function ConversationHistory({
                   className={cn(
                     "group relative p-3 rounded-xl cursor-pointer transition-all duration-200 ease-spring",
                     activeConversationId === conversation.id
-                      ? "bg-violet-100/60 border border-violet-200/50"
+                      ? "bg-emerald-100/60 border border-emerald-300/50"
                       : "hover:bg-white/40 border border-transparent"
                   )}
                 >
@@ -173,7 +173,7 @@ export function ConversationHistory({
                     <p className={cn(
                       "text-sm font-medium truncate",
                       activeConversationId === conversation.id
-                        ? "text-violet-900"
+                        ? "text-emerald-900"
                         : "text-gray-800"
                     )}>
                       {conversation.title}
@@ -183,7 +183,7 @@ export function ConversationHistory({
                         className={cn(
                           "inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold shrink-0",
                           isOwner
-                            ? "bg-violet-200/80 text-violet-700"
+                            ? "bg-emerald-300/80 text-emerald-700"
                             : "bg-blue-100 text-blue-700"
                         )}
                         title={conversation.user_name || conversation.user_email}
@@ -223,10 +223,10 @@ export function ConversationHistory({
       </div>
 
       {/* Footer */}
-      <div className="p-3 border-t border-violet-200/30">
+      <div className="p-3 border-t border-emerald-300/30">
         <Button
           onClick={onNewConversation}
-          className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-glow rounded-xl transition-all duration-300"
+          className="w-full bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-glow rounded-xl transition-all duration-300"
         >
           <MessageSquarePlus className="h-4 w-4 mr-2" />
           New Conversation

@@ -6,8 +6,8 @@ import { SessionProvider } from "@/components/SessionProvider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "HDPM Chatbot",
-  description: "AI-powered assistant for HDPM knowledge base",
+  title: "HDPM Automation Dashboard",
+  description: "High Desert Property Management internal automation tools",
 };
 
 export default function RootLayout({

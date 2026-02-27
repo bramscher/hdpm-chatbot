@@ -1,174 +1,95 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ChatWidget } from "@/components/ChatWidget";
 
 export default function Home() {
   return (
     <main className="min-h-screen">
-      {/* Hero Section */}
-      <div className="container mx-auto px-4 py-20">
-        <div className="max-w-3xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 bg-white/60 backdrop-blur-sm border border-white/30 text-violet-600 px-4 py-2 rounded-full text-sm font-medium mb-6 glass-shine">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-500"></span>
-            </span>
-            AI-Powered Knowledge Base
+      {/* Header */}
+      <div className="container mx-auto px-4 pt-14 pb-10">
+        <div className="max-w-5xl mx-auto">
+          <div className="flex items-center gap-5 mb-3 animate-slide-up">
+            <Image
+              src="/hdpm-logo.png"
+              alt="High Desert Property Management"
+              width={72}
+              height={47}
+              priority
+              className="flex-shrink-0"
+            />
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">
+                High Desert Property Management
+              </h1>
+              <p className="text-lg font-medium text-emerald-700 mt-0.5">
+                Automation Dashboard
+              </p>
+            </div>
           </div>
 
-          <h1 className="text-5xl font-bold text-gray-900 mb-6 tracking-tight">
-            HDPM Assistant
-          </h1>
-
-          <p className="text-xl text-gray-500 mb-10 leading-relaxed">
-            Get instant answers from your knowledge base. Our AI assistant
-            searches through policies, regulations, and documentation to
-            provide accurate, cited responses.
-          </p>
-
-          <div className="flex flex-wrap justify-center gap-4 mb-14 stagger-children">
-            <div className="flex items-center gap-2 glass-subtle glass-shine rounded-2xl px-5 py-3">
-              <span className="text-2xl">&#x2696;&#xFE0F;</span>
-              <span className="text-gray-700 font-medium">Laws &amp; Regulations</span>
-            </div>
-            <div className="flex items-center gap-2 glass-subtle glass-shine rounded-2xl px-5 py-3">
-              <span className="text-2xl">&#x1F3AC;</span>
-              <span className="text-gray-700 font-medium">Video Resources</span>
-            </div>
-            <div className="flex items-center gap-2 glass-subtle glass-shine rounded-2xl px-5 py-3">
-              <span className="text-2xl">&#x1F4C4;</span>
-              <span className="text-gray-700 font-medium">Policy Documents</span>
-            </div>
-            <Link
-              href="/maintenance/invoices"
-              className="flex items-center gap-2 glass-subtle glass-shine rounded-2xl px-5 py-3 hover:bg-white/80 transition-all duration-200 ease-spring hover:-translate-y-0.5"
-            >
-              <span className="text-2xl">&#x1F9FE;</span>
-              <span className="text-gray-700 font-medium">Invoice Generator</span>
-            </Link>
-          </div>
-
-          <div className="glass-heavy glass-elevated rounded-3xl p-8 text-left animate-slide-up">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-6">
-              How it works
-            </h2>
-            <ol className="space-y-5">
-              <li className="flex gap-4">
-                <span className="flex-shrink-0 w-9 h-9 bg-gradient-to-br from-violet-500 to-purple-500 text-white rounded-xl flex items-center justify-center font-semibold shadow-glow text-sm">
-                  1
-                </span>
-                <div>
-                  <h3 className="font-medium text-gray-900">Ask a question</h3>
-                  <p className="text-gray-500 mt-0.5">
-                    Click the chat button in the bottom right corner and type
-                    your question.
-                  </p>
-                </div>
-              </li>
-              <li className="flex gap-4">
-                <span className="flex-shrink-0 w-9 h-9 bg-gradient-to-br from-violet-500 to-purple-500 text-white rounded-xl flex items-center justify-center font-semibold shadow-glow text-sm">
-                  2
-                </span>
-                <div>
-                  <h3 className="font-medium text-gray-900">AI searches your knowledge base</h3>
-                  <p className="text-gray-500 mt-0.5">
-                    Our system uses semantic search to find the most relevant
-                    information from your documents.
-                  </p>
-                </div>
-              </li>
-              <li className="flex gap-4">
-                <span className="flex-shrink-0 w-9 h-9 bg-gradient-to-br from-violet-500 to-purple-500 text-white rounded-xl flex items-center justify-center font-semibold shadow-glow text-sm">
-                  3
-                </span>
-                <div>
-                  <h3 className="font-medium text-gray-900">
-                    Get cited answers
-                  </h3>
-                  <p className="text-gray-500 mt-0.5">
-                    Receive accurate responses with inline citations and
-                    clickable source links.
-                  </p>
-                </div>
-              </li>
-            </ol>
-          </div>
+          {/* Green accent bar */}
+          <div className="h-0.5 bg-gradient-to-r from-emerald-600 via-green-500 to-transparent rounded-full mt-6 mb-2" />
         </div>
       </div>
 
-      {/* Features Section */}
-      <div className="container mx-auto px-4 py-16">
-        <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto stagger-children">
-          <div className="glass glass-shine rounded-2xl p-6 hover:shadow-glass-lg transition-all duration-300 ease-spring hover:-translate-y-1">
-            <div className="w-12 h-12 bg-violet-100/80 rounded-xl flex items-center justify-center mb-4">
-              <svg
-                className="w-6 h-6 text-violet-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Semantic Search
-            </h3>
-            <p className="text-gray-500">
-              Find relevant information based on meaning, not just keywords.
-            </p>
-          </div>
+      {/* Tools Grid */}
+      <div className="container mx-auto px-4 pb-20">
+        <div className="max-w-5xl mx-auto">
+          <p className="text-sm font-medium text-gray-400 uppercase tracking-widest mb-6">
+            Tools
+          </p>
 
-          <div className="glass glass-shine rounded-2xl p-6 hover:shadow-glass-lg transition-all duration-300 ease-spring hover:-translate-y-1">
-            <div className="w-12 h-12 bg-emerald-100/80 rounded-xl flex items-center justify-center mb-4">
-              <svg
-                className="w-6 h-6 text-emerald-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Verified Sources
-            </h3>
-            <p className="text-gray-500">
-              Every answer includes citations linking back to the original
-              documents.
-            </p>
-          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 stagger-children">
+            {/* Invoice Generator */}
+            <Link
+              href="/maintenance/invoices"
+              className="group glass glass-shine rounded-2xl p-6 hover:shadow-glow-lg transition-all duration-300 ease-spring hover:-translate-y-1 block"
+            >
+              <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-green-700 rounded-xl flex items-center justify-center mb-5 shadow-glow group-hover:scale-105 transition-transform duration-300">
+                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1.5 flex items-center justify-between">
+                Invoice Generator
+                <svg className="w-5 h-5 text-gray-300 group-hover:text-emerald-600 group-hover:translate-x-1 transition-all duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </h3>
+              <p className="text-gray-500 text-sm leading-relaxed">
+                Generate branded PDF invoices for maintenance work orders. Upload CSV or scan work order PDFs.
+              </p>
+            </Link>
 
-          <div className="glass glass-shine rounded-2xl p-6 hover:shadow-glass-lg transition-all duration-300 ease-spring hover:-translate-y-1">
-            <div className="w-12 h-12 bg-rose-100/80 rounded-xl flex items-center justify-center mb-4">
-              <svg
-                className="w-6 h-6 text-rose-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 10V3L4 14h7v7l9-11h-7z"
-                />
-              </svg>
+            {/* AI Knowledge Base */}
+            <div className="group glass glass-shine rounded-2xl p-6 hover:shadow-glow-lg transition-all duration-300 ease-spring hover:-translate-y-1 cursor-default">
+              <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-green-700 rounded-xl flex items-center justify-center mb-5 shadow-glow group-hover:scale-105 transition-transform duration-300">
+                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1.5">
+                AI Knowledge Base
+              </h3>
+              <p className="text-gray-500 text-sm leading-relaxed">
+                Search policies, regulations, and documentation with AI-powered semantic search. Click the chat button below.
+              </p>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Instant Answers
-            </h3>
-            <p className="text-gray-500">
-              Get responses in seconds, powered by Claude&apos;s advanced AI.
-            </p>
+
+            {/* Coming Soon Placeholder */}
+            <div className="glass rounded-2xl p-6 opacity-50 cursor-default">
+              <div className="w-14 h-14 bg-gray-200 rounded-xl flex items-center justify-center mb-5">
+                <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-400 mb-1.5">
+                More Coming Soon
+              </h3>
+              <p className="text-gray-400 text-sm leading-relaxed">
+                Additional automation tools are in development.
+              </p>
+            </div>
           </div>
         </div>
       </div>

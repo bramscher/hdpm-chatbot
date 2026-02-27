@@ -237,7 +237,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             placeholder="Clean, owner-facing description of the work performed..."
             rows={3}
             disabled={isLoading}
-            className="flex w-full rounded-xl border border-input bg-white/70 backdrop-blur-sm px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+            className="flex w-full rounded-xl border border-input bg-white/70 backdrop-blur-sm px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
           />
         </div>
 
@@ -307,7 +307,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             placeholder="Internal notes for tracking..."
             rows={2}
             disabled={isLoading}
-            className="flex w-full rounded-xl border border-input bg-white/70 backdrop-blur-sm px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+            className="flex w-full rounded-xl border border-input bg-white/70 backdrop-blur-sm px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
           />
         </div>
 
@@ -328,7 +328,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
           <Button
             onClick={() => handleSave(true)}
             disabled={isLoading}
-            className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-glow hover:shadow-glow-lg transition-all duration-200"
+            className="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-glow hover:shadow-glow-lg transition-all duration-200"
           >
             {isGenerating ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />

@@ -111,14 +111,14 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
       <div className="mb-8">
         <Link
           href="/"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-violet-600 transition-colors mb-4"
+          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-emerald-700 transition-colors mb-4"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Home
         </Link>
 
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-glow">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-green-700 flex items-center justify-center shadow-glow">
             <Receipt className="h-6 w-6 text-white" />
           </div>
           <div>

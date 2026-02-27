@@ -60,7 +60,7 @@ export function WorkOrderTable({ rows, onSelectRow, onBack }: WorkOrderTableProp
                 >
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-violet-500 shrink-0" />
+                      <FileText className="h-4 w-4 text-emerald-600 shrink-0" />
                       <span className="font-medium text-gray-800">
                         {row.wo_number || "—"}
                       </span>
@@ -85,7 +85,7 @@ export function WorkOrderTable({ rows, onSelectRow, onBack }: WorkOrderTableProp
                     <Button
                       size="sm"
                       onClick={() => onSelectRow(row)}
-                      className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-glow hover:shadow-glow-lg transition-all duration-200 rounded-lg"
+                      className="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-glow hover:shadow-glow-lg transition-all duration-200 rounded-lg"
                     >
                       <Plus className="h-4 w-4 mr-1" />
                       Create Invoice

@@ -41,7 +41,7 @@ export function ChatWidget() {
         onClick={handleToggle}
         className={cn(
           "fixed bottom-5 right-5 w-14 h-14 rounded-full z-50",
-          "bg-gradient-to-br from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700",
+          "bg-gradient-to-br from-emerald-500 to-green-700 hover:from-emerald-600 hover:to-green-800",
           "shadow-glow hover:shadow-glow-lg",
           "transition-all duration-300 ease-spring hover:scale-110 active:scale-95",
           "animate-scale-in",

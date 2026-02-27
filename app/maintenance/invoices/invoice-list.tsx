@@ -109,8 +109,8 @@ export function InvoiceList({ invoices, onRefresh, onEdit, isLoading }: InvoiceL
               <div className="flex items-center justify-between gap-4">
                 {/* Left: Invoice info */}
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-lg bg-violet-100/80 flex items-center justify-center shrink-0">
-                    <FileText className="h-5 w-5 text-violet-600" />
+                  <div className="w-10 h-10 rounded-lg bg-emerald-100/80 flex items-center justify-center shrink-0">
+                    <FileText className="h-5 w-5 text-emerald-700" />
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">

@@ -21,7 +21,7 @@ function LoginContent() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-gray-500">Loading...</p>
         </div>
       </div>
@@ -33,7 +33,7 @@ function LoginContent() {
       <div className="glass-heavy glass-elevated rounded-3xl p-10 max-w-md w-full mx-4 animate-slide-up">
         {/* Logo/Header */}
         <div className="text-center mb-8">
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-violet-500 via-purple-500 to-rose-400 flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4 shadow-glow">
+          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-600 via-green-600 to-green-400 flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4 shadow-glow">
             HD
           </div>
           <h1 className="text-2xl font-bold text-gray-900">
@@ -65,7 +65,7 @@ function LoginContent() {
         {/* Sign In Button */}
         <Button
           onClick={() => signIn("azure-ad", { callbackUrl: "/" })}
-          className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 h-12 text-base font-medium shadow-glow hover:shadow-glow-lg transition-all duration-300 rounded-xl"
+          className="w-full bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 h-12 text-base font-medium shadow-glow hover:shadow-glow-lg transition-all duration-300 rounded-xl"
         >
           <svg
             className="w-5 h-5 mr-2"
@@ -95,7 +95,7 @@ export default function LoginPage() {
       fallback={
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
-            <div className="w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p className="text-gray-500">Loading...</p>
           </div>
         </div>

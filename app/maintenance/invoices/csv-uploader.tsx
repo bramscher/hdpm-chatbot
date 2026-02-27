@@ -143,13 +143,13 @@ export function CsvUploader({ onParsed, onPdfScanned }: CsvUploaderProps) {
 
       {/* Upload Zone */}
       {isUploading ? (
-        <div className="rounded-2xl border-2 border-violet-300 bg-violet-50/60 p-10 text-center">
+        <div className="rounded-2xl border-2 border-emerald-400 bg-emerald-50/60 p-10 text-center">
           <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-violet-100/80 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-xl bg-emerald-100/80 flex items-center justify-center">
               {uploadType === "pdf" ? (
-                <ScanLine className="h-6 w-6 text-violet-600 animate-pulse" />
+                <ScanLine className="h-6 w-6 text-emerald-700 animate-pulse" />
               ) : (
-                <FileText className="h-6 w-6 text-violet-600 animate-pulse" />
+                <FileText className="h-6 w-6 text-emerald-700 animate-pulse" />
               )}
             </div>
             <div>
@@ -174,13 +174,13 @@ export function CsvUploader({ onParsed, onPdfScanned }: CsvUploaderProps) {
           className={cn(
             "rounded-2xl border-2 border-dashed p-8 text-center transition-all duration-200 ease-spring",
             isDragging
-              ? "border-violet-400 bg-violet-50/60 scale-[1.01]"
-              : "border-gray-300/50 bg-white/40 backdrop-blur-sm hover:border-violet-300 hover:bg-white/60"
+              ? "border-emerald-500 bg-emerald-50/60 scale-[1.01]"
+              : "border-gray-300/50 bg-white/40 backdrop-blur-sm hover:border-emerald-400 hover:bg-white/60"
           )}
         >
           <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-violet-100/80 flex items-center justify-center">
-              <Upload className="h-6 w-6 text-violet-600" />
+            <div className="w-12 h-12 rounded-xl bg-emerald-100/80 flex items-center justify-center">
+              <Upload className="h-6 w-6 text-emerald-700" />
             </div>
             <div>
               <p className="text-sm font-medium text-gray-700">
@@ -208,7 +208,7 @@ export function CsvUploader({ onParsed, onPdfScanned }: CsvUploaderProps) {
                   e.stopPropagation();
                   pdfInputRef.current?.click();
                 }}
-                className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-glow hover:shadow-glow-lg transition-all duration-200"
+                className="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-glow hover:shadow-glow-lg transition-all duration-200"
               >
                 <ScanLine className="h-4 w-4 mr-1.5" />
                 Scan Work Order PDF
