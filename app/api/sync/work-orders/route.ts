@@ -4,6 +4,35 @@ import { fetchAppFolioWorkOrders, fetchAllPropertiesPublic } from '@/lib/appfoli
 import { bulkUpsertWorkOrders } from '@/lib/work-orders';
 
 /**
+ * GET /api/sync/work-orders
+ *
+ * Debug endpoint — test AppFolio work order API connectivity.
+ * Auth: session only.
+ */
+export async function GET() {
+  try {
+    const session = await getServerSession();
+    if (!session?.user?.email?.endsWith('@highdesertpm.com')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    console.log('[Sync] GET — testing AppFolio work orders API...');
+
+    const workOrders = await fetchAppFolioWorkOrders();
+
+    return NextResponse.json({
+      message: 'AppFolio work orders API test',
+      count: workOrders.length,
+      sample: workOrders.slice(0, 3),
+    });
+  } catch (error) {
+    console.error('[Sync] GET work orders test error:', error);
+    const message = error instanceof Error ? error.message : 'API test failed';
+    return NextResponse.json({ error: message, stack: error instanceof Error ? error.stack : undefined }, { status: 500 });
+  }
+}
+
+/**
  * POST /api/sync/work-orders
  *
  * Sync work orders from AppFolio.

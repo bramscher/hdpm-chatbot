@@ -575,39 +575,80 @@ function mapWorkOrderStatus(appfolioStatus: string): WorkOrderStatus {
 // Public: Fetch Work Orders (paginated)
 // ============================================
 
+// Possible v0 API paths for work orders — try each until one works
+const WORK_ORDER_PATHS = ['/work_orders', '/tasks', '/maintenance_requests'];
+
 export async function fetchAppFolioWorkOrders(): Promise<AppFolioWorkOrder[]> {
   const config = getConfig();
   if (!config) return [];
 
   const { clientId, clientSecret, developerId } = config;
-  const allWorkOrders: V0WorkOrder[] = [];
+
+  // Try each possible endpoint path
+  let workingPath: string | null = null;
+  let firstPageData: V0ListResponse<V0WorkOrder> | null = null;
+
+  for (const path of WORK_ORDER_PATHS) {
+    try {
+      console.log(`[AppFolio] Trying work orders endpoint: ${path}...`);
+      const res = await v0Fetch<V0WorkOrder>(
+        path,
+        {
+          'filters[LastUpdatedAtFrom]': '1970-01-01T00:00:00Z',
+          'page[number]': '1',
+          'page[size]': '1000',
+        },
+        clientId,
+        clientSecret,
+        developerId
+      );
+      workingPath = path;
+      firstPageData = res;
+      console.log(`[AppFolio] ✓ Endpoint ${path} works — ${res.data?.length || 0} records on page 1`);
+      break;
+    } catch (err) {
+      console.warn(`[AppFolio] ✗ Endpoint ${path} failed:`, err instanceof Error ? err.message : err);
+    }
+  }
+
+  if (!workingPath || !firstPageData) {
+    console.error('[AppFolio] All work order endpoints failed. Tried:', WORK_ORDER_PATHS.join(', '));
+    throw new Error(
+      `AppFolio work order API not available. Tried endpoints: ${WORK_ORDER_PATHS.join(', ')}. Check API credentials and permissions.`
+    );
+  }
+
+  // Paginate using the working path
+  const allWorkOrders: V0WorkOrder[] = [...(firstPageData.data || [])];
   let pageNumber = 1;
   const pageSize = 1000;
 
-  while (true) {
-    console.log(`[AppFolio] Fetching work orders page ${pageNumber}...`);
-    const res = await v0Fetch<V0WorkOrder>(
-      '/work_orders',
-      {
-        'filters[LastUpdatedAtFrom]': '1970-01-01T00:00:00Z',
-        'page[number]': String(pageNumber),
-        'page[size]': String(pageSize),
-      },
-      clientId,
-      clientSecret,
-      developerId
-    );
+  // Continue pagination if first page was full
+  if (allWorkOrders.length >= pageSize && firstPageData.next_page_path) {
+    while (true) {
+      pageNumber++;
+      console.log(`[AppFolio] Fetching work orders page ${pageNumber} from ${workingPath}...`);
+      const res = await v0Fetch<V0WorkOrder>(
+        workingPath,
+        {
+          'filters[LastUpdatedAtFrom]': '1970-01-01T00:00:00Z',
+          'page[number]': String(pageNumber),
+          'page[size]': String(pageSize),
+        },
+        clientId,
+        clientSecret,
+        developerId
+      );
 
-    const orders = res.data || [];
-    allWorkOrders.push(...orders);
-    console.log(`[AppFolio] Page ${pageNumber}: ${orders.length} work orders`);
+      const orders = res.data || [];
+      allWorkOrders.push(...orders);
+      console.log(`[AppFolio] Page ${pageNumber}: ${orders.length} work orders`);
 
-    if (orders.length < pageSize || !res.next_page_path) break;
-    pageNumber++;
-
-    if (pageNumber > 10) {
-      console.warn('[AppFolio] Hit max page limit (10), stopping pagination');
-      break;
+      if (orders.length < pageSize || !res.next_page_path) break;
+      if (pageNumber > 10) {
+        console.warn('[AppFolio] Hit max page limit (10), stopping pagination');
+        break;
+      }
     }
   }
 
