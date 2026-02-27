@@ -28,6 +28,7 @@ export interface CreateInvoiceInput {
   property_name: string;
   property_address: string;
   wo_reference?: string;
+  work_order_id?: string;
   completed_date?: string;
   description: string;
   labor_amount: number;
@@ -77,6 +78,7 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<HdmsInvo
       property_name: input.property_name,
       property_address: input.property_address,
       wo_reference: input.wo_reference || null,
+      work_order_id: input.work_order_id || null,
       completed_date: input.completed_date || null,
       description: input.description,
       labor_amount: input.labor_amount,

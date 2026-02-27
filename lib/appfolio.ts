@@ -434,6 +434,16 @@ function levenshtein(a: string, b: string): number {
   return dp[m][n];
 }
 
+// ============================================
+// Public: Fetch All Properties (exported for work order sync)
+// ============================================
+
+export async function fetchAllPropertiesPublic(): Promise<V0Property[]> {
+  const config = getConfig();
+  if (!config) return [];
+  return fetchAllProperties(config.clientId, config.clientSecret, config.developerId);
+}
+
 export async function searchAppFolioProperties(
   searchAddress: string
 ): Promise<AppFolioPropertyResult[]> {
@@ -506,4 +516,118 @@ export async function searchAppFolioProperties(
     console.error('[AppFolio] Property search error:', err);
     throw err;
   }
+}
+
+// ============================================
+// v0 Work Order Types
+// ============================================
+
+interface V0WorkOrder {
+  Id: string;
+  PropertyId?: string;
+  UnitId?: string;
+  JobDescription?: string;
+  Status?: string;
+  Priority?: string;
+  AssignedUsers?: string[];
+  VendorId?: string;
+  ScheduledStart?: string;
+  ScheduledEnd?: string;
+  CompletedOn?: string;
+  CanceledOn?: string;
+  PermissionToEnter?: boolean;
+  CreatedAt?: string;
+  LastUpdatedAt?: string;
+}
+
+export type WorkOrderStatus = 'open' | 'closed' | 'done';
+
+export interface AppFolioWorkOrder {
+  appfolioId: string;
+  propertyId: string | null;
+  unitId: string | null;
+  description: string;
+  status: WorkOrderStatus;
+  appfolioStatus: string;
+  priority: string | null;
+  assignedTo: string | null;
+  vendorId: string | null;
+  scheduledStart: string | null;
+  scheduledEnd: string | null;
+  completedDate: string | null;
+  canceledDate: string | null;
+  permissionToEnter: boolean;
+  createdAt: string | null;
+}
+
+// ============================================
+// Work Order Status Mapping
+// ============================================
+
+function mapWorkOrderStatus(appfolioStatus: string): WorkOrderStatus {
+  const s = (appfolioStatus || '').toLowerCase().trim();
+  if (s === 'completed' || s === 'complete') return 'done';
+  if (s === 'canceled' || s === 'cancelled' || s === 'closed') return 'closed';
+  return 'open'; // "Open", "In Progress", etc.
+}
+
+// ============================================
+// Public: Fetch Work Orders (paginated)
+// ============================================
+
+export async function fetchAppFolioWorkOrders(): Promise<AppFolioWorkOrder[]> {
+  const config = getConfig();
+  if (!config) return [];
+
+  const { clientId, clientSecret, developerId } = config;
+  const allWorkOrders: V0WorkOrder[] = [];
+  let pageNumber = 1;
+  const pageSize = 1000;
+
+  while (true) {
+    console.log(`[AppFolio] Fetching work orders page ${pageNumber}...`);
+    const res = await v0Fetch<V0WorkOrder>(
+      '/work_orders',
+      {
+        'filters[LastUpdatedAtFrom]': '1970-01-01T00:00:00Z',
+        'page[number]': String(pageNumber),
+        'page[size]': String(pageSize),
+      },
+      clientId,
+      clientSecret,
+      developerId
+    );
+
+    const orders = res.data || [];
+    allWorkOrders.push(...orders);
+    console.log(`[AppFolio] Page ${pageNumber}: ${orders.length} work orders`);
+
+    if (orders.length < pageSize || !res.next_page_path) break;
+    pageNumber++;
+
+    if (pageNumber > 10) {
+      console.warn('[AppFolio] Hit max page limit (10), stopping pagination');
+      break;
+    }
+  }
+
+  console.log(`[AppFolio] Total work orders fetched: ${allWorkOrders.length}`);
+
+  return allWorkOrders.map((wo) => ({
+    appfolioId: wo.Id,
+    propertyId: wo.PropertyId || null,
+    unitId: wo.UnitId || null,
+    description: wo.JobDescription || '',
+    status: mapWorkOrderStatus(wo.Status || ''),
+    appfolioStatus: wo.Status || '',
+    priority: wo.Priority || null,
+    assignedTo: wo.AssignedUsers?.join(', ') || null,
+    vendorId: wo.VendorId || null,
+    scheduledStart: wo.ScheduledStart || null,
+    scheduledEnd: wo.ScheduledEnd || null,
+    completedDate: wo.CompletedOn || null,
+    canceledDate: wo.CanceledOn || null,
+    permissionToEnter: wo.PermissionToEnter || false,
+    createdAt: wo.CreatedAt || null,
+  }));
 }

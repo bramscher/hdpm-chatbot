@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { ArrowLeft, Receipt } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { WorkOrderRow, HdmsInvoice } from "@/lib/invoices";
 import { CsvUploader } from "./csv-uploader";
 import { WorkOrderTable } from "./work-order-table";
@@ -17,6 +18,7 @@ interface InvoiceDashboardProps {
 }
 
 export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps) {
+  const searchParams = useSearchParams();
   const [view, setView] = useState<View>("upload");
   const [parsedRows, setParsedRows] = useState<WorkOrderRow[]>([]);
   const [selectedRow, setSelectedRow] = useState<WorkOrderRow | null>(null);
@@ -43,6 +45,45 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
   useEffect(() => {
     fetchInvoices();
   }, [fetchInvoices]);
+
+  // Handle ?from_wo= parameter — pre-populate form from work order
+  useEffect(() => {
+    const fromWo = searchParams.get("from_wo");
+    if (!fromWo) return;
+
+    async function loadWorkOrder(woId: string) {
+      try {
+        const res = await fetch(`/api/work-orders/${woId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const wo = data.workOrder;
+        if (!wo) return;
+
+        // Convert work order into a WorkOrderRow for the form
+        const row: WorkOrderRow = {
+          wo_number: wo.wo_number || wo.appfolio_id || "",
+          property_name: wo.property_name || "",
+          property_address: wo.property_address || "",
+          unit: wo.unit_name || "",
+          description: wo.description || "",
+          completed_date: wo.completed_date
+            ? new Date(wo.completed_date).toISOString().split("T")[0]
+            : "",
+          category: wo.category || "",
+          assigned_to: wo.assigned_to || "",
+          work_order_id: wo.id,
+        };
+        setSelectedRow(row);
+        setEditInvoice(null);
+        setFromPdfScan(false);
+        setView("form");
+      } catch (err) {
+        console.error("Failed to load work order:", err);
+      }
+    }
+
+    loadWorkOrder(fromWo);
+  }, [searchParams]);
 
   function handleCsvParsed(rows: WorkOrderRow[]) {
     setParsedRows(rows);
