@@ -9,6 +9,7 @@ import {
   BarChartHorizontal,
   Plus,
   Loader2,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CompsFilters } from "@/components/comps/CompsFilters";
@@ -156,14 +157,26 @@ export function CompsDashboard({ userEmail, userName }: CompsDashboardProps) {
           </div>
         </div>
 
-        <Button
-          onClick={() => setView("add")}
-          size="sm"
-          className="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-glow hover:shadow-glow-lg transition-all duration-200"
-        >
-          <Plus className="h-4 w-4 mr-1.5" />
-          Add Comp
-        </Button>
+        <div className="flex items-center gap-2">
+          <Link href="/comps/analysis">
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+            >
+              <FileText className="h-4 w-4 mr-1.5" />
+              Rent Analysis
+            </Button>
+          </Link>
+          <Button
+            onClick={() => setView("add")}
+            size="sm"
+            className="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-glow hover:shadow-glow-lg transition-all duration-200"
+          >
+            <Plus className="h-4 w-4 mr-1.5" />
+            Add Comp
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}

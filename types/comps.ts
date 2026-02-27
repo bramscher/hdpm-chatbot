@@ -214,3 +214,49 @@ export interface CompsSort {
   field: CompsSortField;
   direction: CompsSortDirection;
 }
+
+// ============================================
+// Rent Analysis Report Types
+// ============================================
+
+/** Subject property for rent analysis */
+export interface SubjectProperty {
+  address: string;
+  town: Town;
+  zip_code?: string;
+  bedrooms: number;
+  bathrooms?: number;
+  sqft?: number;
+  property_type: PropertyType;
+  amenities?: Amenity[];
+  current_rent?: number;
+  appfolio_property_id?: string;
+}
+
+/** A competing listing from Zillow or other external source */
+export interface CompetingListing {
+  address: string;
+  price: number;
+  bedrooms: number;
+  bathrooms?: number;
+  sqft?: number;
+  listing_url?: string;
+  source: 'zillow' | 'realtor' | 'apartments_com';
+  days_on_market?: number;
+  fetched_at: string;
+}
+
+/** Complete rent analysis result */
+export interface RentAnalysis {
+  subject: SubjectProperty;
+  stats: CompsStats;
+  comparable_comps: RentalComp[];
+  competing_listings: CompetingListing[];
+  baselines: MarketBaseline[];
+  recommended_rent_low: number;
+  recommended_rent_mid: number;
+  recommended_rent_high: number;
+  methodology_notes: string[];
+  generated_at: string;
+  generated_by: string;
+}

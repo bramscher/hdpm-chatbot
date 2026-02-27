@@ -317,3 +317,88 @@ export async function fetchAppFolioListings(syncUser: string): Promise<CreateCom
     throw err;
   }
 }
+
+// ============================================
+// Public: Search Properties by Address
+// ============================================
+
+export interface AppFolioPropertyResult {
+  propertyId: string;
+  name: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  propertyType: string;
+  units: Array<{
+    unitId: string;
+    bedrooms: number;
+    bathrooms: number;
+    sqft: number;
+    listedRent: number;
+    marketRent: number;
+    rentReady: boolean;
+  }>;
+}
+
+export async function searchAppFolioProperties(
+  searchAddress: string
+): Promise<AppFolioPropertyResult[]> {
+  const config = getConfig();
+  if (!config) return [];
+
+  const { clientId, clientSecret, developerId } = config;
+
+  try {
+    const allProperties = await fetchAllProperties(clientId, clientSecret, developerId);
+    const normalized = searchAddress.toLowerCase().trim();
+
+    // Filter by address substring match (case-insensitive)
+    const matches = allProperties.filter((p) => {
+      if (p.HiddenAt) return false;
+      const addr = (p.Address1 || '').toLowerCase();
+      const name = (p.Name || '').toLowerCase();
+      return addr.includes(normalized) || name.includes(normalized);
+    });
+
+    // For each match (limit to 5), fetch units
+    const results: AppFolioPropertyResult[] = [];
+
+    for (const prop of matches.slice(0, 5)) {
+      try {
+        const units = await fetchUnitsForProperty(
+          prop.Id,
+          clientId,
+          clientSecret,
+          developerId
+        );
+
+        results.push({
+          propertyId: prop.Id,
+          name: prop.Name || '',
+          address: [prop.Address1, prop.Address2].filter(Boolean).join(', '),
+          city: prop.City || '',
+          state: prop.State || '',
+          zip: prop.Zip || '',
+          propertyType: prop.PropertyType || '',
+          units: units.map((u) => ({
+            unitId: u.Id,
+            bedrooms: Math.round(parseNumber(u.Bedrooms)),
+            bathrooms: parseNumber(u.Bathrooms),
+            sqft: Math.round(parseNumber(u.SquareFeet)),
+            listedRent: parseNumber(u.ListedRent),
+            marketRent: parseNumber(u.MarketRent),
+            rentReady: u.RentReady || false,
+          })),
+        });
+      } catch (err) {
+        console.error(`[AppFolio] Error fetching units for ${prop.Id}:`, err);
+      }
+    }
+
+    return results;
+  } catch (err) {
+    console.error('[AppFolio] Property search error:', err);
+    throw err;
+  }
+}
