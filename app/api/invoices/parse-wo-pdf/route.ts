@@ -59,14 +59,20 @@ interface ParsedWorkOrder {
   category: string;
   assigned_to: string;
   technician: string;
+  technician_notes: string;
   permission_to_enter: string;
   maintenance_limit: string;
+  pets: string;
+  estimate_amount: string;
   vendor_instructions: string;
   property_notes: string;
+  created_by: string;
+  task_items: string[];
   line_items: Array<{
     account: string;
     description: string;
     amount: string;
+    type: 'labor' | 'materials' | 'other';
   }>;
   total_amount: string;
   labor_amount: string;
@@ -78,50 +84,65 @@ async function extractWorkOrderFields(text: string): Promise<ParsedWorkOrder> {
 
   const response = await anthropic.messages.create({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 2048,
+    max_tokens: 4096,
     messages: [
       {
         role: 'user',
         content: `You are parsing an AppFolio work order PDF for a property management company. Extract ALL fields into structured JSON. Return ONLY valid JSON, no other text.
 
-IMPORTANT: This work order has a "Details" table (usually on page 2) with columns: Account, Statement Description, Amount. Each row is a billable line item. Extract EVERY row as a separate line item.
+There are TWO types of work orders:
+1. FINANCIAL WOs: Have a "Details" table with columns (Account, Statement Description, Amount). Extract every row as a line item with the amount.
+2. TASK-LIST WOs: Have a detailed Description section listing individual tasks to complete, plus a "Technician's Notes" section with paragraph descriptions of completed work. These may NOT have dollar amounts — extract each task as a line item with amount "0" so the user can fill in pricing.
 
 Return this exact JSON structure:
 {
-  "wo_number": "work order number (e.g. 40895-1)",
-  "status": "work order status (e.g. Scheduled, Completed, Open)",
+  "wo_number": "work order number (e.g. 40746-4)",
+  "status": "work order status (e.g. Work Done, Scheduled, Completed, Open)",
   "property_name": "property/complex name from the Job Site field",
   "property_address": "full street address with city, state, zip from Job Site",
   "unit": "unit number if applicable",
-  "description": "combine the Description section into a clean summary of work performed — keep all detail about what was done but remove internal chatter",
+  "description": "combine the Description section into a clean summary — keep ALL detail about what was done",
   "completed_date": "YYYY-MM-DD format or empty string",
   "scheduled_date": "YYYY-MM-DD format or empty string",
   "created_date": "YYYY-MM-DD format or empty string",
-  "category": "work category inferred from the Description and Account (e.g. locks & keys, plumbing, electrical, HVAC, general maintenance, appliance, cleaning, painting)",
+  "category": "work category (e.g. general maintenance, plumbing, electrical, HVAC, appliance, painting, turnover)",
   "assigned_to": "assigned user(s) or empty string",
   "technician": "Created By name or empty string",
+  "technician_notes": "full text of the Technician's Notes section — paragraph descriptions of completed work. Include ALL detail. Empty string if none.",
   "permission_to_enter": "permission to enter value (e.g. N/A, Yes, No)",
   "maintenance_limit": "dollar amount as string (e.g. 200.00) or empty string",
+  "pets": "pet information or empty string",
+  "estimate_amount": "estimate amount as string or empty string",
   "vendor_instructions": "vendor instructions text or empty string",
   "property_notes": "property notes text or empty string",
+  "created_by": "Created By name or empty string",
+  "task_items": [
+    "Each individual task from the Description section as a separate string",
+    "e.g. Fix plug in living room",
+    "e.g. Replace the seal on the refrigerator door Model # WRF535SMBM00"
+  ],
   "line_items": [
     {
-      "account": "GL account (e.g. 6500: Keys, Locks, Remotes, & Batteries)",
-      "description": "statement description from the Details table row",
-      "amount": "amount as number string, no $ sign (e.g. 90.50)"
+      "account": "GL account code or empty string",
+      "description": "line item description",
+      "amount": "amount as number string, no $ sign (e.g. 90.50). Use 0 if no amount listed.",
+      "type": "labor or materials or other"
     }
   ],
-  "total_amount": "total from the Details table, no $ sign",
+  "total_amount": "total dollar amount, no $ sign, or empty string",
   "labor_amount": "labor cost if separately listed, or empty string",
   "materials_amount": "materials cost if separately listed, or empty string"
 }
 
 Rules:
-- line_items MUST contain every row from the Details table. If no Details table exists, use an empty array [].
-- For the property_name, use the complex/property name (e.g. "23rd St Complex - 23rd St") not the management company name.
-- For the property_address, use the actual street address of the Job Site (e.g. "2800 SW 23rd St #9, Redmond, OR 97756").
+- FINANCIAL WOs: line_items MUST contain every row from the Details table.
+- TASK-LIST WOs (no Details table): Create a line item for EACH individual task from the Description section. Set amount to "0" so the user can price them. Classify each as "labor" or "materials" based on context (replacing parts/supplies = materials, performing work = labor).
+- task_items: ALWAYS extract every individual task line from the Description section as separate strings. These are usually short lines like "Fix plug in living room" or "Replace door stop in hall bathroom".
+- technician_notes: Extract the FULL text of any paragraph-form notes about completed work. These often appear after the task list and describe what was actually done in detail.
+- For the property_name, use the complex/property name (e.g. "Slivka 151 - Slivka 151") not the management company name.
+- For the property_address, use the actual street address of the Job Site.
 - For amounts, use numbers only, no $ signs.
-- Use empty string "" for any field not found.
+- Use empty string "" for any field not found. Use [] for empty arrays.
 
 Work Order Text:
 ${text}`,
@@ -191,7 +212,7 @@ export async function POST(request: NextRequest) {
 
     // Step 2: Use Claude to extract structured fields
     const parsed = await extractWorkOrderFields(extractedText);
-    console.log(`[WO-PDF] Extracted: WO#${parsed.wo_number}, ${parsed.line_items?.length || 0} line items, total=${parsed.total_amount}`);
+    console.log(`[WO-PDF] Extracted: WO#${parsed.wo_number}, ${parsed.line_items?.length || 0} line items, ${parsed.task_items?.length || 0} tasks, total=${parsed.total_amount}`);
 
     // Convert to flat fields map for backward compat + include structured data
     const fields: Record<string, unknown> = {
@@ -207,13 +228,18 @@ export async function POST(request: NextRequest) {
       category: parsed.category,
       assigned_to: parsed.assigned_to,
       technician: parsed.technician,
+      technician_notes: parsed.technician_notes,
       permission_to_enter: parsed.permission_to_enter,
       maintenance_limit: parsed.maintenance_limit,
+      pets: parsed.pets,
+      estimate_amount: parsed.estimate_amount,
       vendor_instructions: parsed.vendor_instructions,
       property_notes: parsed.property_notes,
+      created_by: parsed.created_by,
       labor_amount: parsed.labor_amount,
       materials_amount: parsed.materials_amount,
       total_amount: parsed.total_amount,
+      task_items: parsed.task_items || [],
       line_items: parsed.line_items || [],
     };
 

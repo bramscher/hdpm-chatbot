@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { ArrowLeft, Save, FileDown, Loader2, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Save, FileDown, Loader2, Plus, Trash2, Wrench, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { WorkOrderRow, HdmsInvoice, LineItem } from "@/lib/invoices";
@@ -13,8 +13,11 @@ interface InvoiceFormProps {
   onSaved: (invoice: HdmsInvoice) => void;
 }
 
+type LineItemType = "labor" | "materials" | "other";
+
 interface FormLineItem {
-  id: string; // client-side key for React
+  id: string;
+  type: LineItemType;
   account: string;
   description: string;
   amount: string;
@@ -25,9 +28,15 @@ function newLineItemId(): string {
   return `li_${nextLineItemId++}`;
 }
 
-function blankLineItem(): FormLineItem {
-  return { id: newLineItemId(), account: "", description: "", amount: "0.00" };
+function blankLineItem(type: LineItemType = "labor"): FormLineItem {
+  return { id: newLineItemId(), type, account: "", description: "", amount: "0.00" };
 }
+
+const TYPE_STYLES: Record<LineItemType, { bg: string; text: string; label: string; icon: typeof Wrench }> = {
+  labor: { bg: "bg-blue-50", text: "text-blue-700", label: "Labor", icon: Wrench },
+  materials: { bg: "bg-amber-50", text: "text-amber-700", label: "Materials", icon: Package },
+  other: { bg: "bg-gray-50", text: "text-gray-600", label: "Other", icon: Wrench },
+};
 
 export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: InvoiceFormProps) {
   // Header fields
@@ -41,28 +50,38 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
   // Line items
   const [lineItems, setLineItems] = useState<FormLineItem[]>([blankLineItem()]);
 
-  // Legacy fields (for backward compat display)
-  const [laborAmount, setLaborAmount] = useState("0.00");
-  const [materialsAmount, setMaterialsAmount] = useState("0.00");
-
   // Scanned extra fields (read-only context shown to user)
   const [scannedMeta, setScannedMeta] = useState<{
     technician?: string;
+    technicianNotes?: string;
     status?: string;
+    createdDate?: string;
     scheduledDate?: string;
     permissionToEnter?: string;
     maintenanceLimit?: string;
+    pets?: string;
+    estimateAmount?: string;
     vendorInstructions?: string;
     propertyNotes?: string;
+    createdBy?: string;
   }>({});
 
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showTechNotes, setShowTechNotes] = useState(false);
 
-  // Computed total from line items
+  // Computed totals
   const totalAmount = useMemo(() => {
     return lineItems.reduce((sum, li) => sum + (parseFloat(li.amount) || 0), 0);
+  }, [lineItems]);
+
+  const laborTotal = useMemo(() => {
+    return lineItems.filter((li) => li.type === "labor").reduce((sum, li) => sum + (parseFloat(li.amount) || 0), 0);
+  }, [lineItems]);
+
+  const materialsTotal = useMemo(() => {
+    return lineItems.filter((li) => li.type === "materials").reduce((sum, li) => sum + (parseFloat(li.amount) || 0), 0);
   }, [lineItems]);
 
   // Pre-populate from work order or existing invoice
@@ -74,31 +93,27 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
       setCompletedDate(editInvoice.completed_date || "");
       setDescription(editInvoice.description);
       setInternalNotes(editInvoice.internal_notes || "");
-      setLaborAmount(editInvoice.labor_amount.toFixed(2));
-      setMaterialsAmount(editInvoice.materials_amount.toFixed(2));
 
       // Load line items from invoice if present
       if (editInvoice.line_items && editInvoice.line_items.length > 0) {
         setLineItems(
           editInvoice.line_items.map((li) => ({
             id: newLineItemId(),
+            type: (li.type as LineItemType) || "labor",
             account: li.account || "",
             description: li.description,
             amount: li.amount.toFixed(2),
           }))
         );
       } else {
-        // Fall back to legacy amounts as line items
         const items: FormLineItem[] = [];
         if (editInvoice.labor_amount > 0) {
-          items.push({ id: newLineItemId(), account: "", description: "Labor", amount: editInvoice.labor_amount.toFixed(2) });
+          items.push({ id: newLineItemId(), type: "labor", account: "", description: "Labor", amount: editInvoice.labor_amount.toFixed(2) });
         }
         if (editInvoice.materials_amount > 0) {
-          items.push({ id: newLineItemId(), account: "", description: "Materials", amount: editInvoice.materials_amount.toFixed(2) });
+          items.push({ id: newLineItemId(), type: "materials", account: "", description: "Materials", amount: editInvoice.materials_amount.toFixed(2) });
         }
-        if (items.length === 0) {
-          items.push(blankLineItem());
-        }
+        if (items.length === 0) items.push(blankLineItem());
         setLineItems(items);
       }
     } else if (workOrder) {
@@ -113,6 +128,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
         setLineItems(
           workOrder.line_items.map((li) => ({
             id: newLineItemId(),
+            type: (li.type as LineItemType) || "labor",
             account: li.account || "",
             description: li.description,
             amount: li.amount.toFixed(2),
@@ -122,36 +138,39 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
         // Fall back to legacy amounts
         const items: FormLineItem[] = [];
         if (workOrder.labor_amount && parseFloat(workOrder.labor_amount) > 0) {
-          items.push({ id: newLineItemId(), account: "", description: "Labor", amount: workOrder.labor_amount });
+          items.push({ id: newLineItemId(), type: "labor", account: "", description: "Labor", amount: workOrder.labor_amount });
         }
         if (workOrder.materials_amount && parseFloat(workOrder.materials_amount) > 0) {
-          items.push({ id: newLineItemId(), account: "", description: "Materials", amount: workOrder.materials_amount });
+          items.push({ id: newLineItemId(), type: "materials", account: "", description: "Materials", amount: workOrder.materials_amount });
         }
         if (workOrder.total_amount && items.length === 0 && parseFloat(workOrder.total_amount) > 0) {
-          items.push({ id: newLineItemId(), account: "", description: "Work performed", amount: workOrder.total_amount });
+          items.push({ id: newLineItemId(), type: "labor", account: "", description: "Work performed", amount: workOrder.total_amount });
         }
-        if (items.length === 0) {
-          items.push(blankLineItem());
-        }
+        if (items.length === 0) items.push(blankLineItem());
         setLineItems(items);
       }
 
       // Store scanned metadata for context
       setScannedMeta({
         technician: workOrder.technician || undefined,
+        technicianNotes: workOrder.technician_notes || undefined,
         status: workOrder.status || undefined,
+        createdDate: workOrder.created_date || undefined,
         scheduledDate: workOrder.scheduled_date || undefined,
         permissionToEnter: workOrder.permission_to_enter || undefined,
         maintenanceLimit: workOrder.maintenance_limit || undefined,
+        pets: workOrder.pets || undefined,
+        estimateAmount: workOrder.estimate_amount || undefined,
         vendorInstructions: workOrder.vendor_instructions || undefined,
         propertyNotes: workOrder.property_notes || undefined,
+        createdBy: workOrder.created_by || undefined,
       });
 
-      // Pre-fill internal notes with useful context from scan
+      // Pre-fill internal notes with useful context
       const noteParts: string[] = [];
       if (workOrder.vendor_instructions) noteParts.push(`Vendor: ${workOrder.vendor_instructions}`);
       if (workOrder.property_notes) noteParts.push(`Notes: ${workOrder.property_notes}`);
-      if (workOrder.technician) noteParts.push(`Tech: ${workOrder.technician}`);
+      if (workOrder.technician || workOrder.created_by) noteParts.push(`Tech: ${workOrder.technician || workOrder.created_by}`);
       if (noteParts.length > 0) setInternalNotes(noteParts.join("\n"));
     }
   }, [workOrder, editInvoice]);
@@ -170,8 +189,8 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
     });
   }
 
-  function addLineItem() {
-    setLineItems((prev) => [...prev, blankLineItem()]);
+  function addLineItem(type: LineItemType = "labor") {
+    setLineItems((prev) => [...prev, blankLineItem(type)]);
   }
 
   function formatDateForInput(dateStr: string): string {
@@ -193,16 +212,19 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
     setter(true);
 
     try {
-      // Build line items payload
+      // Build line items payload — include items with description even if $0 (task items)
       const validLineItems: LineItem[] = lineItems
-        .filter((li) => li.description.trim() && (parseFloat(li.amount) || 0) > 0)
+        .filter((li) => li.description.trim())
         .map((li) => ({
           description: li.description.trim(),
           account: li.account.trim() || undefined,
+          type: li.type,
           amount: parseFloat(li.amount) || 0,
         }));
 
       const computedTotal = validLineItems.reduce((sum, li) => sum + li.amount, 0);
+      const computedLabor = validLineItems.filter((li) => li.type === "labor").reduce((sum, li) => sum + li.amount, 0);
+      const computedMaterials = validLineItems.filter((li) => li.type === "materials").reduce((sum, li) => sum + li.amount, 0);
 
       const payload = {
         property_name: propertyName.trim(),
@@ -210,8 +232,8 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
         wo_reference: woReference.trim() || null,
         completed_date: formatDateForInput(completedDate) || null,
         description: description.trim(),
-        labor_amount: 0,
-        materials_amount: 0,
+        labor_amount: computedLabor,
+        materials_amount: computedMaterials,
         total_amount: computedTotal,
         line_items: validLineItems.length > 0 ? validLineItems : null,
         internal_notes: internalNotes.trim() || null,
@@ -265,6 +287,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
 
   const isLoading = isSaving || isGenerating;
   const hasScannedMeta = Object.values(scannedMeta).some(Boolean);
+  const unpricedCount = lineItems.filter((li) => li.description.trim() && (parseFloat(li.amount) || 0) === 0).length;
 
   return (
     <div className="animate-slide-up">
@@ -344,16 +367,19 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
 
         {/* Scanned Work Order Context (if available) */}
         {hasScannedMeta && (
-          <div className="rounded-xl bg-blue-50/60 border border-blue-200/40 px-4 py-3 space-y-1.5">
+          <div className="rounded-xl bg-blue-50/60 border border-blue-200/40 px-4 py-3 space-y-2">
             <p className="text-[10px] font-semibold text-blue-600 uppercase tracking-widest">
               Work Order Details
             </p>
-            <div className="grid sm:grid-cols-2 gap-x-6 gap-y-1 text-xs text-gray-600">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1 text-xs text-gray-600">
               {scannedMeta.status && (
                 <div><span className="font-medium text-gray-500">Status:</span> {scannedMeta.status}</div>
               )}
-              {scannedMeta.technician && (
-                <div><span className="font-medium text-gray-500">Technician:</span> {scannedMeta.technician}</div>
+              {(scannedMeta.technician || scannedMeta.createdBy) && (
+                <div><span className="font-medium text-gray-500">Technician:</span> {scannedMeta.technician || scannedMeta.createdBy}</div>
+              )}
+              {scannedMeta.createdDate && (
+                <div><span className="font-medium text-gray-500">Created:</span> {scannedMeta.createdDate}</div>
               )}
               {scannedMeta.scheduledDate && (
                 <div><span className="font-medium text-gray-500">Scheduled:</span> {scannedMeta.scheduledDate}</div>
@@ -361,14 +387,43 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
               {scannedMeta.maintenanceLimit && (
                 <div><span className="font-medium text-gray-500">Maint Limit:</span> ${scannedMeta.maintenanceLimit}</div>
               )}
+              {scannedMeta.estimateAmount && (
+                <div><span className="font-medium text-gray-500">Estimate:</span> ${scannedMeta.estimateAmount}</div>
+              )}
               {scannedMeta.permissionToEnter && (
                 <div><span className="font-medium text-gray-500">Permission:</span> {scannedMeta.permissionToEnter}</div>
               )}
+              {scannedMeta.pets && (
+                <div><span className="font-medium text-gray-500">Pets:</span> {scannedMeta.pets}</div>
+              )}
             </div>
             {scannedMeta.vendorInstructions && (
-              <p className="text-[11px] text-gray-500 mt-1">
+              <p className="text-[11px] text-gray-500">
                 <span className="font-medium">Vendor Instructions:</span> {scannedMeta.vendorInstructions}
               </p>
+            )}
+            {scannedMeta.propertyNotes && (
+              <p className="text-[11px] text-gray-500">
+                <span className="font-medium">Property Notes:</span> {scannedMeta.propertyNotes}
+              </p>
+            )}
+
+            {/* Technician's Notes (expandable) */}
+            {scannedMeta.technicianNotes && (
+              <div className="mt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowTechNotes(!showTechNotes)}
+                  className="text-[11px] font-medium text-blue-600 hover:text-blue-800 transition-colors"
+                >
+                  {showTechNotes ? "Hide" : "Show"} Technician&apos;s Notes
+                </button>
+                {showTechNotes && (
+                  <div className="mt-1.5 p-3 bg-white/60 rounded-lg border border-blue-100/60 text-[11px] text-gray-600 leading-relaxed whitespace-pre-wrap">
+                    {scannedMeta.technicianNotes}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -382,7 +437,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Clean, owner-facing description of the work performed..."
-            rows={3}
+            rows={4}
             disabled={isLoading}
             className="flex w-full rounded-xl border border-input bg-white/70 backdrop-blur-sm px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
           />
@@ -393,25 +448,46 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
         {/* ============================== */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Line Items
-            </label>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={addLineItem}
-              disabled={isLoading}
-              className="text-emerald-600 hover:text-emerald-800 text-xs h-7"
-            >
-              <Plus className="h-3.5 w-3.5 mr-1" />
-              Add Line
-            </Button>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Line Items
+              </label>
+              {unpricedCount > 0 && (
+                <p className="text-[10px] text-amber-600 mt-0.5">
+                  {unpricedCount} item{unpricedCount !== 1 ? "s" : ""} need pricing
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => addLineItem("labor")}
+                disabled={isLoading}
+                className="text-blue-600 hover:text-blue-800 text-xs h-7"
+              >
+                <Wrench className="h-3 w-3 mr-1" />
+                + Labor
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => addLineItem("materials")}
+                disabled={isLoading}
+                className="text-amber-600 hover:text-amber-800 text-xs h-7"
+              >
+                <Package className="h-3 w-3 mr-1" />
+                + Materials
+              </Button>
+            </div>
           </div>
 
           <div className="rounded-xl border border-gray-200/60 bg-white/50 overflow-hidden">
             {/* Table header */}
-            <div className="grid grid-cols-[1fr_2fr_100px_36px] gap-2 px-3 py-2 bg-gray-50/80 border-b border-gray-200/40 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
+            <div className="grid grid-cols-[80px_1fr_2fr_100px_36px] gap-2 px-3 py-2 bg-gray-50/80 border-b border-gray-200/40 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
+              <span>Type</span>
               <span>Account</span>
               <span>Description</span>
               <span className="text-right">Amount</span>
@@ -419,57 +495,95 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             </div>
 
             {/* Table rows */}
-            {lineItems.map((li, idx) => (
-              <div
-                key={li.id}
-                className="grid grid-cols-[1fr_2fr_100px_36px] gap-2 px-3 py-1.5 border-b border-gray-100/60 last:border-b-0 items-center"
-              >
-                <Input
-                  value={li.account}
-                  onChange={(e) => updateLineItem(li.id, "account", e.target.value)}
-                  placeholder="Account"
-                  disabled={isLoading}
-                  className="h-8 text-xs bg-transparent border-gray-200/40"
-                />
-                <Input
-                  value={li.description}
-                  onChange={(e) => updateLineItem(li.id, "description", e.target.value)}
-                  placeholder={`Line item ${idx + 1} description`}
-                  disabled={isLoading}
-                  className="h-8 text-xs bg-transparent border-gray-200/40"
-                />
-                <div className="relative">
-                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={li.amount}
-                    onChange={(e) => updateLineItem(li.id, "amount", e.target.value)}
-                    disabled={isLoading}
-                    className="h-8 text-xs pl-5 text-right bg-transparent border-gray-200/40"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeLineItem(li.id)}
-                  disabled={isLoading}
-                  className="flex items-center justify-center h-8 w-8 text-gray-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50/60"
-                  title="Remove line item"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
+            {lineItems.map((li, idx) => {
+              const typeStyle = TYPE_STYLES[li.type];
+              const isUnpriced = li.description.trim() && (parseFloat(li.amount) || 0) === 0;
 
-            {/* Total row */}
-            <div className="grid grid-cols-[1fr_2fr_100px_36px] gap-2 px-3 py-2.5 bg-gray-50/80 border-t border-gray-200/60 items-center">
-              <span />
-              <span className="text-right text-xs font-semibold text-gray-600">Total</span>
-              <span className="text-right text-sm font-bold text-gray-900">
-                ${totalAmount.toFixed(2)}
-              </span>
-              <span />
+              return (
+                <div
+                  key={li.id}
+                  className={`grid grid-cols-[80px_1fr_2fr_100px_36px] gap-2 px-3 py-1.5 border-b border-gray-100/60 last:border-b-0 items-center ${
+                    isUnpriced ? "bg-amber-50/30" : ""
+                  }`}
+                >
+                  <select
+                    value={li.type}
+                    onChange={(e) => updateLineItem(li.id, "type", e.target.value)}
+                    disabled={isLoading}
+                    className={`h-8 text-[10px] font-medium rounded-lg border border-gray-200/40 px-1.5 ${typeStyle.bg} ${typeStyle.text} cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-600/30`}
+                  >
+                    <option value="labor">Labor</option>
+                    <option value="materials">Materials</option>
+                    <option value="other">Other</option>
+                  </select>
+                  <Input
+                    value={li.account}
+                    onChange={(e) => updateLineItem(li.id, "account", e.target.value)}
+                    placeholder="Account"
+                    disabled={isLoading}
+                    className="h-8 text-xs bg-transparent border-gray-200/40"
+                  />
+                  <Input
+                    value={li.description}
+                    onChange={(e) => updateLineItem(li.id, "description", e.target.value)}
+                    placeholder={`Line item ${idx + 1} description`}
+                    disabled={isLoading}
+                    className="h-8 text-xs bg-transparent border-gray-200/40"
+                  />
+                  <div className="relative">
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={li.amount}
+                      onChange={(e) => updateLineItem(li.id, "amount", e.target.value)}
+                      disabled={isLoading}
+                      className={`h-8 text-xs pl-5 text-right bg-transparent border-gray-200/40 ${
+                        isUnpriced ? "border-amber-300/60" : ""
+                      }`}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeLineItem(li.id)}
+                    disabled={isLoading}
+                    className="flex items-center justify-center h-8 w-8 text-gray-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50/60"
+                    title="Remove line item"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+
+            {/* Subtotals + Total row */}
+            <div className="bg-gray-50/80 border-t border-gray-200/60 px-3 py-2.5 space-y-1">
+              {(laborTotal > 0 || materialsTotal > 0) && (laborTotal !== totalAmount) && (
+                <div className="grid grid-cols-[80px_1fr_2fr_100px_36px] gap-2 items-center">
+                  <span />
+                  <span />
+                  <div className="flex justify-end gap-6 text-[10px] text-gray-400">
+                    {laborTotal > 0 && (
+                      <span>Labor: <span className="font-medium text-blue-600">${laborTotal.toFixed(2)}</span></span>
+                    )}
+                    {materialsTotal > 0 && (
+                      <span>Materials: <span className="font-medium text-amber-600">${materialsTotal.toFixed(2)}</span></span>
+                    )}
+                  </div>
+                  <span />
+                  <span />
+                </div>
+              )}
+              <div className="grid grid-cols-[80px_1fr_2fr_100px_36px] gap-2 items-center">
+                <span />
+                <span />
+                <span className="text-right text-xs font-semibold text-gray-600">Total</span>
+                <span className="text-right text-sm font-bold text-gray-900">
+                  ${totalAmount.toFixed(2)}
+                </span>
+                <span />
+              </div>
             </div>
           </div>
         </div>

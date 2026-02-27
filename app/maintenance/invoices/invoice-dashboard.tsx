@@ -409,8 +409,13 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
     const lineItems = rawLineItems.map((li: Record<string, unknown>) => ({
       account: String(li.account || ""),
       description: String(li.description || ""),
+      type: (String(li.type || "labor") as "labor" | "materials" | "other"),
       amount: parseFloat(String(li.amount || "0")) || 0,
     }));
+
+    // Parse task_items array
+    const rawTaskItems = Array.isArray(fields.task_items) ? fields.task_items : [];
+    const taskItems = rawTaskItems.map((t: unknown) => String(t)).filter(Boolean);
 
     const row: WorkOrderRow = {
       wo_number: String(fields.wo_number || ""),
@@ -422,15 +427,21 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
       category: String(fields.category || ""),
       assigned_to: String(fields.assigned_to || ""),
       technician: String(fields.technician || ""),
+      technician_notes: String(fields.technician_notes || ""),
       status: String(fields.status || ""),
+      created_date: String(fields.created_date || ""),
       scheduled_date: String(fields.scheduled_date || ""),
       permission_to_enter: String(fields.permission_to_enter || ""),
       maintenance_limit: String(fields.maintenance_limit || ""),
+      pets: String(fields.pets || ""),
+      estimate_amount: String(fields.estimate_amount || ""),
       vendor_instructions: String(fields.vendor_instructions || ""),
       property_notes: String(fields.property_notes || ""),
+      created_by: String(fields.created_by || ""),
       labor_amount: String(fields.labor_amount || ""),
       materials_amount: String(fields.materials_amount || ""),
       total_amount: String(fields.total_amount || ""),
+      task_items: taskItems.length > 0 ? taskItems : undefined,
       line_items: lineItems.length > 0 ? lineItems : undefined,
     };
     setSelectedRow(row);

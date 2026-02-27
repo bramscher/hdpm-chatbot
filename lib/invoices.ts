@@ -8,6 +8,7 @@ import { getSupabaseAdmin } from './supabase';
 export interface LineItem {
   description: string;
   account?: string;        // GL account code from work order (e.g. "6500: Keys, Locks...")
+  type?: 'labor' | 'materials' | 'other';  // categorization for the line item
   amount: number;
 }
 
@@ -75,18 +76,24 @@ export interface WorkOrderRow {
   work_order_id?: string;
   // Scanned fields
   line_items?: LineItem[];
+  task_items?: string[];           // individual tasks from the Description section
   technician?: string;
+  technician_notes?: string;       // detailed paragraph notes from "Technician's Notes" section
   status?: string;
+  created_date?: string;
   scheduled_date?: string;
   permission_to_enter?: string;
   maintenance_limit?: string;
+  pets?: string;
+  estimate_amount?: string;
   vendor_instructions?: string;
   property_notes?: string;
+  created_by?: string;
   // Legacy aggregate amounts (still supported)
   labor_amount?: string;
   materials_amount?: string;
   total_amount?: string;
-  [key: string]: string | LineItem[] | undefined;
+  [key: string]: string | string[] | LineItem[] | undefined;
 }
 
 // ============================================
