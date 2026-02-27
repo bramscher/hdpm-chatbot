@@ -2,7 +2,7 @@
  * HUD Fair Market Rent (FMR) API Client
  *
  * Fetches annual FMR values by county for Central Oregon.
- * Free API — https://www.huduser.gov/portal/dataset/fmr-api.html
+ * API docs: https://www.huduser.gov/portal/dataset/fmr-api.html
  *
  * County mapping:
  *   Deschutes County → Bend, Redmond, Sisters
@@ -21,12 +21,16 @@ import type { UpsertBaselineInput } from '@/types/comps';
 
 const HUD_API_BASE = 'https://www.huduser.gov/hudapi/public/fmr';
 
-// FIPS codes for Central Oregon counties
+// County FIPS codes (10-digit: SS + CCC + 00000) for Central Oregon
+// Also try the Bend-Redmond MSA code for Deschutes County
 const COUNTIES = [
-  { fips: '4101700000', name: 'Deschutes County', county: 'Deschutes' }, // Bend MSA
-  { fips: '4101300000', name: 'Crook County', county: 'Crook' },
-  { fips: '4103100000', name: 'Jefferson County', county: 'Jefferson' },
+  { fips: 'METRO13460M13460', name: 'Bend-Redmond MSA', county: 'Deschutes', type: 'msa' },
+  { fips: '4101300099999', name: 'Crook County', county: 'Crook', type: 'county' },
+  { fips: '4103100099999', name: 'Jefferson County', county: 'Jefferson', type: 'county' },
 ];
+
+// Fallback FIPS if MSA doesn't work
+const DESCHUTES_COUNTY_FIPS = '4101700099999';
 
 // Area names to assign based on county
 const COUNTY_AREAS: Record<string, string[]> = {
@@ -38,7 +42,6 @@ const COUNTY_AREAS: Record<string, string[]> = {
 function getToken(): string | null {
   const token = process.env.HUD_API_TOKEN;
   if (!token) {
-    // HDPM-TODO: Set HUD_API_TOKEN in .env.local (free at huduser.gov)
     console.warn('[HUD] Missing API token — FMR sync will be skipped');
     return null;
   }
@@ -49,17 +52,21 @@ function getToken(): string | null {
 // API Types
 // ============================================
 
+interface FmrBasicData {
+  year?: number;
+  Efficiency?: number;
+  'One-Bedroom'?: number;
+  'Two-Bedroom'?: number;
+  'Three-Bedroom'?: number;
+  'Four-Bedroom'?: number;
+}
+
 interface HudFmrResponse {
   data?: {
-    basicdata?: {
-      year?: number;
-      Efficiency?: number;
-      'One-Bedroom'?: number;
-      'Two-Bedroom'?: number;
-      'Three-Bedroom'?: number;
-      'Four-Bedroom'?: number;
-    };
+    basicdata?: FmrBasicData | FmrBasicData[];
     county_name?: string;
+    metro_name?: string;
+    year?: number;
   };
 }
 
@@ -67,12 +74,15 @@ interface HudFmrResponse {
 // Fetch FMR Data
 // ============================================
 
-async function fetchFmrForCounty(
-  fips: string,
+async function fetchFmrData(
+  entityId: string,
   year: number,
   token: string
-): Promise<HudFmrResponse> {
-  const url = `${HUD_API_BASE}/statedata/${fips}?year=${year}`;
+): Promise<HudFmrResponse | null> {
+  // Try /data/ endpoint (county/metro level)
+  const url = `${HUD_API_BASE}/data/${entityId}?year=${year}`;
+  console.log(`[HUD] Fetching: ${url}`);
+
   const res = await fetch(url, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -82,23 +92,32 @@ async function fetchFmrForCounty(
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`HUD API error (${res.status}): ${text}`);
+    console.error(`[HUD] API error (${res.status}) for ${entityId}: ${text.substring(0, 200)}`);
+    return null;
   }
 
-  return res.json();
+  const json = await res.json();
+  return json;
 }
 
 // ============================================
 // Parse FMR values → bedroom map
 // ============================================
 
-function parseFmrValues(
-  basicdata: HudFmrResponse['data']
-): Map<number, number> {
-  const bd = basicdata?.basicdata;
-  if (!bd) return new Map();
-
+function parseFmrValues(data: HudFmrResponse | null): Map<number, number> {
   const map = new Map<number, number>();
+  if (!data?.data) return map;
+
+  // basicdata can be an object or array depending on endpoint
+  let bd: FmrBasicData | undefined;
+  if (Array.isArray(data.data.basicdata)) {
+    bd = data.data.basicdata[0];
+  } else {
+    bd = data.data.basicdata;
+  }
+
+  if (!bd) return map;
+
   if (bd.Efficiency) map.set(0, bd.Efficiency);
   if (bd['One-Bedroom']) map.set(1, bd['One-Bedroom']);
   if (bd['Two-Bedroom']) map.set(2, bd['Two-Bedroom']);
@@ -123,9 +142,16 @@ export async function fetchHudFmrBaselines(
   for (const county of COUNTIES) {
     try {
       console.log(`[HUD] Fetching FMR for ${county.name} (${dataYear})...`);
-      const response = await fetchFmrForCounty(county.fips, dataYear, token);
 
-      const fmrValues = parseFmrValues(response.data);
+      let response = await fetchFmrData(county.fips, dataYear, token);
+
+      // If MSA didn't work for Deschutes, try county FIPS
+      if (!response && county.county === 'Deschutes') {
+        console.log(`[HUD] MSA lookup failed, trying county FIPS for Deschutes...`);
+        response = await fetchFmrData(DESCHUTES_COUNTY_FIPS, dataYear, token);
+      }
+
+      const fmrValues = parseFmrValues(response);
       if (fmrValues.size === 0) {
         console.warn(`[HUD] No FMR data for ${county.name}`);
         continue;
