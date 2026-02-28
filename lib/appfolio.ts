@@ -668,3 +668,106 @@ export async function fetchAppFolioWorkOrders(): Promise<AppFolioWorkOrder[]> {
     createdAt: wo.CreatedAt || null,
   }));
 }
+
+// ============================================
+// Public: Fetch Single Work Order by AppFolio ID
+// (used by webhook handler — lightweight fetch)
+// ============================================
+
+export async function fetchWorkOrderById(
+  entityId: string
+): Promise<AppFolioWorkOrder | null> {
+  const config = getConfig();
+  if (!config) return null;
+
+  const { clientId, clientSecret, developerId } = config;
+
+  // Fetch work orders updated in the last 24 hours — the webhook just fired,
+  // so the record was recently updated. This keeps the response small.
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  try {
+    const res = await v0Fetch<V0WorkOrder>(
+      '/work_orders',
+      {
+        'filters[LastUpdatedAtFrom]': oneDayAgo,
+        'page[number]': '1',
+        'page[size]': '200',
+      },
+      clientId,
+      clientSecret,
+      developerId
+    );
+
+    const match = (res.data || []).find((wo) => wo.Id === entityId);
+    if (!match) {
+      console.warn(`[AppFolio] Work order ${entityId} not found in recent updates`);
+      return null;
+    }
+
+    return {
+      appfolioId: match.Id,
+      propertyId: match.PropertyId || null,
+      unitId: match.UnitId || null,
+      description: match.JobDescription || '',
+      status: mapWorkOrderStatus(match.Status || ''),
+      appfolioStatus: match.Status || '',
+      priority: match.Priority || null,
+      assignedTo: match.AssignedUsers?.join(', ') || null,
+      vendorId: match.VendorId || null,
+      scheduledStart: match.ScheduledStart || null,
+      scheduledEnd: match.ScheduledEnd || null,
+      completedDate: match.CompletedOn || null,
+      canceledDate: match.CanceledOn || null,
+      permissionToEnter: match.PermissionToEnter || false,
+      createdAt: match.CreatedAt || null,
+    };
+  } catch (err) {
+    console.error(`[AppFolio] Error fetching work order ${entityId}:`, err);
+    return null;
+  }
+}
+
+// ============================================
+// Public: Fetch Single Property by AppFolio ID
+// (used by webhook handler to get name/address)
+// ============================================
+
+export async function fetchPropertyById(
+  propertyId: string
+): Promise<{ name: string; address: string } | null> {
+  const config = getConfig();
+  if (!config) return null;
+
+  const { clientId, clientSecret, developerId } = config;
+
+  try {
+    // Fetch page 1 of properties (most PM companies have < 1000)
+    const res = await v0Fetch<V0Property>(
+      '/properties',
+      {
+        'filters[LastUpdatedAtFrom]': '1970-01-01T00:00:00Z',
+        'page[number]': '1',
+        'page[size]': '1000',
+      },
+      clientId,
+      clientSecret,
+      developerId
+    );
+
+    const match = (res.data || []).find((p) => p.Id === propertyId);
+    if (!match) return null;
+
+    const address = [match.Address1, match.Address2, match.City, match.State, match.Zip]
+      .filter(Boolean)
+      .join(', ');
+
+    return {
+      name: match.Name || match.Address1 || 'Unknown',
+      address,
+    };
+  } catch (err) {
+    console.error(`[AppFolio] Error fetching property ${propertyId}:`, err);
+    return null;
+  }
+}

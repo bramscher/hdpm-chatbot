@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
-import { ArrowLeft, Save, FileDown, Loader2, Plus, Trash2, Wrench, Package } from "lucide-react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import { ArrowLeft, Save, FileDown, Loader2, Trash2, Wrench, Package, Check, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { WorkOrderRow, HdmsInvoice, LineItem } from "@/lib/invoices";
@@ -44,7 +44,6 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
   const [propertyAddress, setPropertyAddress] = useState("");
   const [woReference, setWoReference] = useState("");
   const [completedDate, setCompletedDate] = useState("");
-  const [description, setDescription] = useState("");
   const [internalNotes, setInternalNotes] = useState("");
 
   // Line items
@@ -74,6 +73,21 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
   const [showTechNotes, setShowTechNotes] = useState(false);
   const [showTaskList, setShowTaskList] = useState(false);
 
+  // AI rewrite state
+  const [rewritingId, setRewritingId] = useState<string | null>(null);
+
+  // Auto-save state
+  const userHasEdited = useRef(false);
+  const savedInvoiceIdRef = useRef<string | null>(editInvoice?.id ?? null);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "unsaved" | "saving" | "saved">("idle");
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const isSavingRef = useRef(false);
+  const isGeneratingRef = useRef(false);
+
+  // Keep refs in sync with state
+  useEffect(() => { isSavingRef.current = isSaving; }, [isSaving]);
+  useEffect(() => { isGeneratingRef.current = isGenerating; }, [isGenerating]);
+
   // Computed totals
   const totalAmount = useMemo(() => {
     return lineItems.reduce((sum, li) => sum + (parseFloat(li.amount) || 0), 0);
@@ -87,14 +101,19 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
     return lineItems.filter((li) => li.type === "materials").reduce((sum, li) => sum + (parseFloat(li.amount) || 0), 0);
   }, [lineItems]);
 
-  // Pre-populate from work order or existing invoice
+  // ── Pre-populate from work order or existing invoice ──────────
   useEffect(() => {
+    // Reset auto-save state
+    userHasEdited.current = false;
+    setSaveStatus("idle");
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+
     if (editInvoice) {
+      savedInvoiceIdRef.current = editInvoice.id;
       setPropertyName(editInvoice.property_name);
       setPropertyAddress(editInvoice.property_address);
       setWoReference(editInvoice.wo_reference || "");
       setCompletedDate(editInvoice.completed_date || "");
-      setDescription(editInvoice.description);
       setInternalNotes(editInvoice.internal_notes || "");
 
       // Load line items from invoice if present
@@ -109,22 +128,43 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
           }))
         );
       } else {
+        // Legacy invoices without line items — put description into labor line
         const items: FormLineItem[] = [];
         if (editInvoice.labor_amount > 0) {
-          items.push({ id: newLineItemId(), type: "labor", account: "", description: "Labor", amount: editInvoice.labor_amount.toFixed(2) });
+          items.push({
+            id: newLineItemId(),
+            type: "labor",
+            account: "",
+            description: editInvoice.description || "Labor",
+            amount: editInvoice.labor_amount.toFixed(2),
+          });
         }
         if (editInvoice.materials_amount > 0) {
-          items.push({ id: newLineItemId(), type: "materials", account: "", description: "Materials", amount: editInvoice.materials_amount.toFixed(2) });
+          items.push({
+            id: newLineItemId(),
+            type: "materials",
+            account: "",
+            description: "Materials",
+            amount: editInvoice.materials_amount.toFixed(2),
+          });
         }
-        if (items.length === 0) items.push(blankLineItem());
+        if (items.length === 0) {
+          items.push({
+            id: newLineItemId(),
+            type: "labor",
+            account: "",
+            description: editInvoice.description || "",
+            amount: "0.00",
+          });
+        }
         setLineItems(items);
       }
     } else if (workOrder) {
+      savedInvoiceIdRef.current = null;
       setPropertyName(workOrder.property_name);
       setPropertyAddress(workOrder.property_address);
       setWoReference(workOrder.wo_number);
       setCompletedDate(workOrder.completed_date);
-      setDescription(workOrder.description);
 
       // Load line items from scanned PDF
       if (workOrder.line_items && workOrder.line_items.length > 0) {
@@ -159,18 +199,35 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
         ];
         setLineItems(items);
       } else {
-        // Fall back to legacy amounts
+        // Fall back to legacy amounts — put description into labor line
         const items: FormLineItem[] = [];
         if (workOrder.labor_amount && parseFloat(workOrder.labor_amount) > 0) {
-          items.push({ id: newLineItemId(), type: "labor", account: "", description: "Labor", amount: workOrder.labor_amount });
+          items.push({
+            id: newLineItemId(),
+            type: "labor",
+            account: "",
+            description: workOrder.description || "Labor",
+            amount: workOrder.labor_amount,
+          });
+        } else {
+          // No amounts yet — just put the description in a labor line
+          items.push({
+            id: newLineItemId(),
+            type: "labor",
+            account: "",
+            description: workOrder.description || "",
+            amount: "0.00",
+          });
         }
         if (workOrder.materials_amount && parseFloat(workOrder.materials_amount) > 0) {
-          items.push({ id: newLineItemId(), type: "materials", account: "", description: "Materials", amount: workOrder.materials_amount });
+          items.push({
+            id: newLineItemId(),
+            type: "materials",
+            account: "",
+            description: "Materials",
+            amount: workOrder.materials_amount,
+          });
         }
-        if (workOrder.total_amount && items.length === 0 && parseFloat(workOrder.total_amount) > 0) {
-          items.push({ id: newLineItemId(), type: "labor", account: "", description: "Work performed", amount: workOrder.total_amount });
-        }
-        if (items.length === 0) items.push(blankLineItem());
         setLineItems(items);
       }
 
@@ -201,17 +258,85 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
       if (workOrder.property_notes) noteParts.push(`Notes: ${workOrder.property_notes}`);
       if (workOrder.technician || workOrder.created_by) noteParts.push(`Tech: ${workOrder.technician || workOrder.created_by}`);
       if (noteParts.length > 0) setInternalNotes(noteParts.join("\n"));
+    } else {
+      savedInvoiceIdRef.current = null;
     }
   }, [workOrder, editInvoice]);
 
-  // Line item CRUD
+  // ── Auto-save effect (debounced 2s) ──────────
+  useEffect(() => {
+    if (!userHasEdited.current) return;
+    if (isSavingRef.current || isGeneratingRef.current) return;
+
+    // Need at least property name and one line item with a description
+    if (!propertyName.trim()) return;
+    const hasDesc = lineItems.some((li) => li.description.trim());
+    if (!hasDesc) return;
+
+    setSaveStatus("unsaved");
+
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+
+    autoSaveTimerRef.current = setTimeout(async () => {
+      if (isSavingRef.current || isGeneratingRef.current) return;
+
+      setSaveStatus("saving");
+      try {
+        const payload = buildSavePayload();
+
+        if (savedInvoiceIdRef.current) {
+          const res = await fetch(`/api/invoices/${savedInvoiceIdRef.current}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          setSaveStatus(res.ok ? "saved" : "unsaved");
+        } else {
+          const res = await fetch("/api/invoices", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+          if (res.ok) {
+            savedInvoiceIdRef.current = data.invoice.id;
+            setSaveStatus("saved");
+          } else {
+            setSaveStatus("unsaved");
+          }
+        }
+      } catch {
+        setSaveStatus("unsaved");
+      }
+    }, 2000);
+
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propertyName, propertyAddress, woReference, completedDate, internalNotes, lineItems]);
+
+  // ── Warn before page unload if unsaved ──────────
+  useEffect(() => {
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      if (userHasEdited.current && saveStatus !== "saved" && saveStatus !== "idle") {
+        e.preventDefault();
+      }
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [saveStatus]);
+
+  // ── Line item CRUD ──────────
   function updateLineItem(id: string, field: keyof Omit<FormLineItem, "id">, value: string) {
+    userHasEdited.current = true;
     setLineItems((prev) =>
       prev.map((li) => (li.id === id ? { ...li, [field]: value } : li))
     );
   }
 
   function removeLineItem(id: string) {
+    userHasEdited.current = true;
     setLineItems((prev) => {
       const filtered = prev.filter((li) => li.id !== id);
       return filtered.length === 0 ? [blankLineItem()] : filtered;
@@ -219,6 +344,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
   }
 
   function addLineItem(type: LineItemType = "labor") {
+    userHasEdited.current = true;
     setLineItems((prev) => [...prev, blankLineItem(type)]);
   }
 
@@ -229,49 +355,97 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
     return parsed.toISOString().split("T")[0];
   }
 
+  // ── Build save payload ──────────
+  function buildSavePayload() {
+    const validLineItems: LineItem[] = lineItems
+      .filter((li) => li.description.trim())
+      .map((li) => ({
+        description: li.description.trim(),
+        account: li.account.trim() || undefined,
+        type: li.type,
+        amount: parseFloat(li.amount) || 0,
+      }));
+
+    const computedTotal = validLineItems.reduce((sum, li) => sum + li.amount, 0);
+    const computedLabor = validLineItems.filter((li) => li.type === "labor").reduce((sum, li) => sum + li.amount, 0);
+    const computedMaterials = validLineItems.filter((li) => li.type === "materials").reduce((sum, li) => sum + li.amount, 0);
+
+    // Auto-compose description from labor line items (shown on PDF)
+    const laborDescs = validLineItems
+      .filter((li) => li.type === "labor" && li.description)
+      .map((li) => li.description);
+    const composedDescription =
+      laborDescs.join("; ") ||
+      validLineItems.map((li) => li.description).filter(Boolean).join("; ") ||
+      "Maintenance services performed";
+
+    return {
+      property_name: propertyName.trim(),
+      property_address: propertyAddress.trim(),
+      wo_reference: woReference.trim() || null,
+      completed_date: formatDateForInput(completedDate) || null,
+      description: composedDescription,
+      labor_amount: computedLabor,
+      materials_amount: computedMaterials,
+      total_amount: computedTotal,
+      line_items: validLineItems.length > 0 ? validLineItems : null,
+      internal_notes: internalNotes.trim() || null,
+    };
+  }
+
+  // ── AI rewrite handler ──────────
+  async function handleAiRewrite(lineItemId: string) {
+    const li = lineItems.find((l) => l.id === lineItemId);
+    if (!li || !li.description.trim()) return;
+
+    setRewritingId(lineItemId);
+    try {
+      const res = await fetch("/api/invoices/rewrite-description", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: li.description.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok && data.rewritten) {
+        userHasEdited.current = true;
+        setLineItems((prev) =>
+          prev.map((item) =>
+            item.id === lineItemId ? { ...item, description: data.rewritten } : item
+          )
+        );
+      }
+    } catch (err) {
+      console.error("AI rewrite failed:", err);
+    } finally {
+      setRewritingId(null);
+    }
+  }
+
+  // ── Manual save / generate PDF ──────────
   async function handleSave(generatePdf: boolean) {
     setError(null);
 
-    if (!propertyName.trim() || !propertyAddress.trim() || !description.trim()) {
-      setError("Property name, address, and description are required");
+    const hasDescription = lineItems.some((li) => li.description.trim());
+    if (!propertyName.trim() || !propertyAddress.trim() || !hasDescription) {
+      setError("Property name, address, and at least one line item description are required");
       return;
     }
+
+    // Cancel any pending auto-save
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
 
     const setter = generatePdf ? setIsGenerating : setIsSaving;
     setter(true);
 
     try {
-      // Build line items payload — include items with description even if $0 (task items)
-      const validLineItems: LineItem[] = lineItems
-        .filter((li) => li.description.trim())
-        .map((li) => ({
-          description: li.description.trim(),
-          account: li.account.trim() || undefined,
-          type: li.type,
-          amount: parseFloat(li.amount) || 0,
-        }));
-
-      const computedTotal = validLineItems.reduce((sum, li) => sum + li.amount, 0);
-      const computedLabor = validLineItems.filter((li) => li.type === "labor").reduce((sum, li) => sum + li.amount, 0);
-      const computedMaterials = validLineItems.filter((li) => li.type === "materials").reduce((sum, li) => sum + li.amount, 0);
-
-      const payload = {
-        property_name: propertyName.trim(),
-        property_address: propertyAddress.trim(),
-        wo_reference: woReference.trim() || null,
-        completed_date: formatDateForInput(completedDate) || null,
-        description: description.trim(),
-        labor_amount: computedLabor,
-        materials_amount: computedMaterials,
-        total_amount: computedTotal,
-        line_items: validLineItems.length > 0 ? validLineItems : null,
-        internal_notes: internalNotes.trim() || null,
-      };
+      const payload = buildSavePayload();
 
       let invoice: HdmsInvoice;
+      const existingId = savedInvoiceIdRef.current;
 
-      if (editInvoice) {
-        const res = await fetch(`/api/invoices/${editInvoice.id}`, {
+      if (existingId) {
+        // Update existing (from editInvoice or auto-saved new)
+        const res = await fetch(`/api/invoices/${existingId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -280,6 +454,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
         if (!res.ok) throw new Error(data.error);
         invoice = data.invoice;
       } else {
+        // Create new
         const res = await fetch("/api/invoices", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -288,6 +463,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
         invoice = data.invoice;
+        savedInvoiceIdRef.current = invoice.id;
       }
 
       if (generatePdf) {
@@ -305,6 +481,8 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
         }
       }
 
+      setSaveStatus("saved");
+      userHasEdited.current = false;
       onSaved(invoice);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -329,6 +507,28 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
         <h3 className="text-lg font-semibold text-gray-900">
           {editInvoice ? `Edit ${editInvoice.invoice_code}` : "New Invoice"}
         </h3>
+
+        {/* Auto-save status indicator */}
+        <div className="ml-auto">
+          {saveStatus === "saving" && (
+            <span className="flex items-center gap-1.5 text-xs text-gray-400">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Saving...
+            </span>
+          )}
+          {saveStatus === "saved" && (
+            <span className="flex items-center gap-1.5 text-xs text-emerald-500">
+              <Check className="h-3 w-3" />
+              Saved
+            </span>
+          )}
+          {saveStatus === "unsaved" && (
+            <span className="flex items-center gap-1.5 text-xs text-amber-500">
+              <div className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+              Unsaved changes
+            </span>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -346,7 +546,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             </label>
             <Input
               value={propertyName}
-              onChange={(e) => setPropertyName(e.target.value)}
+              onChange={(e) => { userHasEdited.current = true; setPropertyName(e.target.value); }}
               placeholder="Property name"
               disabled={isLoading}
               className="bg-white/70 backdrop-blur-sm"
@@ -358,7 +558,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             </label>
             <Input
               value={propertyAddress}
-              onChange={(e) => setPropertyAddress(e.target.value)}
+              onChange={(e) => { userHasEdited.current = true; setPropertyAddress(e.target.value); }}
               placeholder="Full address"
               disabled={isLoading}
               className="bg-white/70 backdrop-blur-sm"
@@ -374,7 +574,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             </label>
             <Input
               value={woReference}
-              onChange={(e) => setWoReference(e.target.value)}
+              onChange={(e) => { userHasEdited.current = true; setWoReference(e.target.value); }}
               placeholder="WO #"
               disabled={isLoading}
               className="bg-white/70 backdrop-blur-sm"
@@ -387,7 +587,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             <Input
               type="date"
               value={formatDateForInput(completedDate)}
-              onChange={(e) => setCompletedDate(e.target.value)}
+              onChange={(e) => { userHasEdited.current = true; setCompletedDate(e.target.value); }}
               disabled={isLoading}
               className="bg-white/70 backdrop-blur-sm"
             />
@@ -484,21 +684,6 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
           </div>
         )}
 
-        {/* Description */}
-        <div>
-          <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
-            Description of Work (shown on invoice)
-          </label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Clean, owner-facing description of the work performed..."
-            rows={4}
-            disabled={isLoading}
-            className="flex w-full rounded-xl border border-input bg-white/70 backdrop-blur-sm px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
-          />
-        </div>
-
         {/* ============================== */}
         {/* Line Items                     */}
         {/* ============================== */}
@@ -579,13 +764,33 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
                     disabled={isLoading}
                     className="h-8 text-xs bg-transparent border-gray-200/40"
                   />
-                  <Input
-                    value={li.description}
-                    onChange={(e) => updateLineItem(li.id, "description", e.target.value)}
-                    placeholder={`Line item ${idx + 1} description`}
-                    disabled={isLoading}
-                    className="h-8 text-xs bg-transparent border-gray-200/40"
-                  />
+                  {/* Description with AI rewrite button */}
+                  <div className="relative">
+                    <Input
+                      value={li.description}
+                      onChange={(e) => updateLineItem(li.id, "description", e.target.value)}
+                      placeholder={idx === 0 && li.type === "labor" ? "Describe the work performed..." : `Line item ${idx + 1} description`}
+                      disabled={isLoading || rewritingId === li.id}
+                      className={`h-8 text-xs bg-transparent border-gray-200/40 ${
+                        li.description.trim().length > 10 ? "pr-8" : ""
+                      }`}
+                    />
+                    {li.description.trim().length > 10 && (
+                      <button
+                        type="button"
+                        onClick={() => handleAiRewrite(li.id)}
+                        disabled={isLoading || rewritingId !== null}
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 h-5 w-5 flex items-center justify-center text-gray-300 hover:text-purple-500 disabled:hover:text-gray-300 transition-colors rounded"
+                        title="AI rewrite for professional invoice voice"
+                      >
+                        {rewritingId === li.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin text-purple-400" />
+                        ) : (
+                          <Sparkles className="h-3 w-3" />
+                        )}
+                      </button>
+                    )}
+                  </div>
                   <div className="relative">
                     <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
                     <Input
@@ -651,7 +856,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
           </label>
           <textarea
             value={internalNotes}
-            onChange={(e) => setInternalNotes(e.target.value)}
+            onChange={(e) => { userHasEdited.current = true; setInternalNotes(e.target.value); }}
             placeholder="Internal notes, vendor instructions, property notes..."
             rows={3}
             disabled={isLoading}

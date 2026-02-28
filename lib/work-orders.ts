@@ -240,3 +240,92 @@ export async function bulkUpsertWorkOrders(
 
   return insertedCount;
 }
+
+// ============================================
+// Lookup by AppFolio ID (for webhook handler)
+// ============================================
+
+export async function getWorkOrderByAppfolioId(
+  appfolioId: string
+): Promise<WorkOrder | null> {
+  const supabase = getSupabaseAdmin();
+
+  const { data, error } = await supabase
+    .from('work_orders')
+    .select('*')
+    .eq('appfolio_id', appfolioId)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null; // Not found
+    console.error('Error looking up work order by appfolio_id:', error);
+    return null;
+  }
+
+  return data as WorkOrder;
+}
+
+// ============================================
+// Single Upsert (for webhook real-time updates)
+// ============================================
+
+/**
+ * Upsert a single work order from a webhook notification.
+ * If the work order exists (by appfolio_id), update it.
+ * If not, insert a new row.
+ */
+export async function upsertSingleWorkOrder(
+  order: AppFolioWorkOrder,
+  propertyName: string,
+  propertyAddress: string | null
+): Promise<void> {
+  const supabase = getSupabaseAdmin();
+
+  const row = {
+    appfolio_id: order.appfolioId,
+    property_id: order.propertyId,
+    property_name: propertyName,
+    property_address: propertyAddress,
+    unit_id: order.unitId,
+    description: order.description || 'No description',
+    status: order.status,
+    appfolio_status: order.appfolioStatus,
+    priority: order.priority,
+    assigned_to: order.assignedTo,
+    vendor_id: order.vendorId,
+    scheduled_start: order.scheduledStart,
+    scheduled_end: order.scheduledEnd,
+    completed_date: order.completedDate,
+    canceled_date: order.canceledDate,
+    permission_to_enter: order.permissionToEnter,
+    synced_at: new Date().toISOString(),
+  };
+
+  // Check if exists
+  const existing = await getWorkOrderByAppfolioId(order.appfolioId);
+
+  if (existing) {
+    // Update
+    const { error } = await supabase
+      .from('work_orders')
+      .update(row)
+      .eq('id', existing.id);
+
+    if (error) {
+      console.error('[Webhook] Error updating work order:', error);
+      throw new Error(`Failed to update work order: ${error.message}`);
+    }
+    console.log(`[Webhook] Updated work order ${order.appfolioId}`);
+  } else {
+    // Insert
+    const { error } = await supabase
+      .from('work_orders')
+      .insert(row);
+
+    if (error) {
+      console.error('[Webhook] Error inserting work order:', error);
+      throw new Error(`Failed to insert work order: ${error.message}`);
+    }
+    console.log(`[Webhook] Inserted new work order ${order.appfolioId}`);
+  }
+}

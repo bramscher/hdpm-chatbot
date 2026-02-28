@@ -15,7 +15,8 @@ export default withAuth(
         if (
           pathname.startsWith("/login") ||
           pathname.startsWith("/api/auth") ||
-          pathname.startsWith("/api/sync")
+          pathname.startsWith("/api/sync") ||
+          pathname.startsWith("/api/webhooks")
         ) {
           return true;
         }

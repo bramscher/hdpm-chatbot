@@ -480,6 +480,8 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
   }
 
   function handleBackFromForm() {
+    // Refresh invoices in case auto-save created/updated drafts
+    fetchInvoices();
     if (editInvoice || fromPdfScan || fromWorkOrder) {
       setView("upload");
       setEditInvoice(null);
