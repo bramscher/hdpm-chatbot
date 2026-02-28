@@ -522,6 +522,13 @@ export async function searchAppFolioProperties(
 // v0 Work Order Types
 // ============================================
 
+interface V0AssignedUser {
+  Id: string;
+  FirstName?: string;
+  LastName?: string;
+  Name?: string;
+}
+
 interface V0WorkOrder {
   Id: string;
   PropertyId?: string;
@@ -529,7 +536,7 @@ interface V0WorkOrder {
   JobDescription?: string;
   Status?: string;
   Priority?: string;
-  AssignedUsers?: string[];
+  AssignedUsers?: V0AssignedUser[];
   VendorId?: string;
   ScheduledStart?: string;
   ScheduledEnd?: string;
@@ -661,7 +668,7 @@ export async function fetchAppFolioWorkOrders(
     status: mapWorkOrderStatus(wo.Status || ''),
     appfolioStatus: wo.Status || '',
     priority: wo.Priority || null,
-    assignedTo: wo.AssignedUsers?.join(', ') || null,
+    assignedTo: wo.AssignedUsers?.map(u => u.Name || `${u.FirstName || ''} ${u.LastName || ''}`.trim()).filter(Boolean).join(', ') || null,
     vendorId: wo.VendorId || null,
     scheduledStart: wo.ScheduledStart || null,
     scheduledEnd: wo.ScheduledEnd || null,
@@ -716,7 +723,7 @@ export async function fetchWorkOrderById(
       status: mapWorkOrderStatus(match.Status || ''),
       appfolioStatus: match.Status || '',
       priority: match.Priority || null,
-      assignedTo: match.AssignedUsers?.join(', ') || null,
+      assignedTo: match.AssignedUsers?.map(u => u.Name || `${u.FirstName || ''} ${u.LastName || ''}`.trim()).filter(Boolean).join(', ') || null,
       vendorId: match.VendorId || null,
       scheduledStart: match.ScheduledStart || null,
       scheduledEnd: match.ScheduledEnd || null,
