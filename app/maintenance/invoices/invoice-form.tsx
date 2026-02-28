@@ -284,7 +284,13 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             .then((data) => {
               if (data.materials && data.materials.length > 0) {
                 setLineItems((prev) => {
-                  const nonMaterialLines = prev.filter((li) => li.type !== "materials");
+                  const updatedLines = prev.map((li) => {
+                    if (li.type === "labor" && data.laborDescription) {
+                      return { ...li, description: data.laborDescription };
+                    }
+                    return li;
+                  });
+                  const nonMaterialLines = updatedLines.filter((li) => li.type !== "materials");
                   const materialLines: FormLineItem[] = data.materials.map(
                     (mat: { description: string; amount: string }) => ({
                       id: newLineItemId(),
@@ -374,7 +380,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
         setLineItems(items);
 
         // Try to extract individual materials from the description via AI
-        console.log("[InvoiceForm] Legacy/API path — description length:", workOrder.description?.length, "desc:", workOrder.description?.substring(0, 100));
+        console.log("[InvoiceForm] Legacy/API path — description length:", workOrder.description?.length);
         if (workOrder.description && workOrder.description.trim().length > 10) {
           console.log("[InvoiceForm] Calling extract-materials API...");
           setExtractingMaterials(true);
@@ -384,16 +390,22 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             body: JSON.stringify({ description: workOrder.description }),
           })
             .then((res) => {
-              console.log("[InvoiceForm] extract-materials response status:", res.status);
+              console.log("[InvoiceForm] extract-materials status:", res.status);
               return res.json();
             })
             .then((data) => {
-              console.log("[InvoiceForm] extract-materials data:", data);
+              console.log("[InvoiceForm] extract-materials result:", data);
               if (data.materials && data.materials.length > 0) {
-                // Replace the blank materials line with extracted individual materials
                 setLineItems((prev) => {
-                  // Keep all non-materials lines, replace materials lines
-                  const nonMaterialLines = prev.filter((li) => li.type !== "materials");
+                  // Update labor line description if AI separated it
+                  const updatedLines = prev.map((li) => {
+                    if (li.type === "labor" && data.laborDescription) {
+                      return { ...li, description: data.laborDescription };
+                    }
+                    return li;
+                  });
+                  // Remove placeholder materials lines, add extracted ones
+                  const nonMaterialLines = updatedLines.filter((li) => li.type !== "materials");
                   const materialLines: FormLineItem[] = data.materials.map(
                     (mat: { description: string; amount: string }) => ({
                       id: newLineItemId(),
@@ -407,7 +419,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
                       flatFeeKey: "",
                     })
                   );
-                  console.log("[InvoiceForm] Setting", materialLines.length, "material lines");
+                  console.log("[InvoiceForm] Setting", materialLines.length, "material lines, labor:", data.laborDescription?.substring(0, 60));
                   return [...nonMaterialLines, ...materialLines];
                 });
               } else {
@@ -416,13 +428,10 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             })
             .catch((err) => {
               console.error("[InvoiceForm] Material extraction failed:", err);
-              // Keep the default blank materials line — no action needed
             })
             .finally(() => {
               setExtractingMaterials(false);
             });
-        } else {
-          console.log("[InvoiceForm] Description too short for extraction, skipping");
         }
       }
 
