@@ -104,6 +104,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
 
   // AI rewrite state
   const [rewritingId, setRewritingId] = useState<string | null>(null);
+  const [extractingMaterials, setExtractingMaterials] = useState(false);
 
   // Auto-save state
   const userHasEdited = useRef(false);
@@ -270,6 +271,44 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
           });
         }
         setLineItems(items);
+
+        // If no parsed materials, try AI extraction from the description
+        if (parsedMaterialItems.length === 0 && workOrder.description && workOrder.description.trim().length > 10) {
+          setExtractingMaterials(true);
+          fetch("/api/invoices/extract-materials", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ description: workOrder.description }),
+          })
+            .then((res) => res.json())
+            .then((data) => {
+              if (data.materials && data.materials.length > 0) {
+                setLineItems((prev) => {
+                  const nonMaterialLines = prev.filter((li) => li.type !== "materials");
+                  const materialLines: FormLineItem[] = data.materials.map(
+                    (mat: { description: string; amount: string }) => ({
+                      id: newLineItemId(),
+                      type: "materials" as LineItemType,
+                      account: "",
+                      description: mat.description || "Material",
+                      amount: mat.amount && parseFloat(mat.amount) > 0 ? parseFloat(mat.amount).toFixed(2) : "0.00",
+                      qty: "",
+                      rate: "",
+                      rateType: "standard" as RateType,
+                      flatFeeKey: "",
+                    })
+                  );
+                  return [...nonMaterialLines, ...materialLines];
+                });
+              }
+            })
+            .catch((err) => {
+              console.error("Material extraction failed:", err);
+            })
+            .finally(() => {
+              setExtractingMaterials(false);
+            });
+        }
       } else if (parsedLineItems.length > 0) {
         // ── FINANCIAL WO (Details table) ──
         // Map each line item 1:1 — labor and materials already separated by parser
@@ -303,7 +342,8 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
         }
         setLineItems(items);
       } else {
-        // ── LEGACY FALLBACK (no line_items, no task_items) ──
+        // ── LEGACY / API FALLBACK (no line_items, no task_items) ──
+        // Start with labor + one blank materials line, then try AI extraction
         const items: FormLineItem[] = [];
         items.push({
           id: newLineItemId(),
@@ -332,6 +372,47 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
           flatFeeKey: "",
         });
         setLineItems(items);
+
+        // Try to extract individual materials from the description via AI
+        if (workOrder.description && workOrder.description.trim().length > 10) {
+          setExtractingMaterials(true);
+          fetch("/api/invoices/extract-materials", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ description: workOrder.description }),
+          })
+            .then((res) => res.json())
+            .then((data) => {
+              if (data.materials && data.materials.length > 0) {
+                // Replace the blank materials line with extracted individual materials
+                setLineItems((prev) => {
+                  // Keep all non-materials lines, replace materials lines
+                  const nonMaterialLines = prev.filter((li) => li.type !== "materials");
+                  const materialLines: FormLineItem[] = data.materials.map(
+                    (mat: { description: string; amount: string }) => ({
+                      id: newLineItemId(),
+                      type: "materials" as LineItemType,
+                      account: "",
+                      description: mat.description || "Material",
+                      amount: mat.amount && parseFloat(mat.amount) > 0 ? parseFloat(mat.amount).toFixed(2) : "0.00",
+                      qty: "",
+                      rate: "",
+                      rateType: "standard" as RateType,
+                      flatFeeKey: "",
+                    })
+                  );
+                  return [...nonMaterialLines, ...materialLines];
+                });
+              }
+            })
+            .catch((err) => {
+              console.error("Material extraction failed:", err);
+              // Keep the default blank materials line — no action needed
+            })
+            .finally(() => {
+              setExtractingMaterials(false);
+            });
+        }
       }
 
       // Store task items for reference
@@ -870,7 +951,13 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
               <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Line Items
               </label>
-              {unpricedCount > 0 && (
+              {extractingMaterials && (
+                <p className="text-[10px] text-blue-500 mt-0.5 flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Extracting materials from work order…
+                </p>
+              )}
+              {!extractingMaterials && unpricedCount > 0 && (
                 <p className="text-[10px] text-amber-600 mt-0.5">
                   {unpricedCount} item{unpricedCount !== 1 ? "s" : ""} need pricing
                 </p>
