@@ -358,10 +358,8 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
     if (!userHasEdited.current) return;
     if (isSavingRef.current || isGeneratingRef.current) return;
 
-    // Need at least property name and one line item with a description
+    // Need at least property name to auto-save
     if (!propertyName.trim()) return;
-    const hasDesc = lineItems.some((li) => li.description.trim());
-    if (!hasDesc) return;
 
     setSaveStatus("unsaved");
 
@@ -501,8 +499,9 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
 
   // ── Build save payload ──────────
   function buildSavePayload() {
+    // Save every line item that has ANY content — description, qty, or amount
     const validLineItems: LineItem[] = lineItems
-      .filter((li) => li.description.trim())
+      .filter((li) => li.description.trim() || (parseFloat(li.qty) || 0) > 0 || (parseFloat(li.amount) || 0) > 0)
       .map((li) => ({
         description: li.description.trim(),
         account: li.account.trim() || undefined,
@@ -571,9 +570,8 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
   async function handleSave(generatePdf: boolean) {
     setError(null);
 
-    const hasDescription = lineItems.some((li) => li.description.trim());
-    if (!propertyName.trim() || !propertyAddress.trim() || !hasDescription) {
-      setError("Property name, address, and at least one line item description are required");
+    if (!propertyName.trim() || !propertyAddress.trim()) {
+      setError("Property name and address are required");
       return;
     }
 
