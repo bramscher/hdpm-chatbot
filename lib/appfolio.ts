@@ -595,6 +595,7 @@ interface V0WorkOrder {
   Priority?: string;
   AssignedUsers?: V0AssignedUser[];
   VendorId?: string;
+  WorkOrderNumber?: string;
   ScheduledStart?: string;
   ScheduledEnd?: string;
   CompletedOn?: string;
@@ -610,6 +611,7 @@ export interface AppFolioWorkOrder {
   appfolioId: string;
   propertyId: string | null;
   unitId: string | null;
+  woNumber: string | null;
   description: string;
   status: WorkOrderStatus;
   appfolioStatus: string;
@@ -723,6 +725,7 @@ export async function fetchAppFolioWorkOrders(
     appfolioId: wo.Id,
     propertyId: wo.PropertyId || null,
     unitId: wo.UnitId || null,
+    woNumber: wo.WorkOrderNumber || null,
     description: wo.JobDescription || '',
     status: mapWorkOrderStatus(wo.Status || ''),
     appfolioStatus: wo.Status || '',
@@ -779,6 +782,7 @@ export async function fetchWorkOrderById(
       appfolioId: match.Id,
       propertyId: match.PropertyId || null,
       unitId: match.UnitId || null,
+      woNumber: match.WorkOrderNumber || null,
       description: match.JobDescription || '',
       status: mapWorkOrderStatus(match.Status || ''),
       appfolioStatus: match.Status || '',
