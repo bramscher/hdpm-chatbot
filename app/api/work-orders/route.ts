@@ -38,6 +38,11 @@ export async function GET(request: NextRequest) {
       filter.priority = priority.split(',');
     }
 
+    const vendorId = searchParams.get('vendor_id');
+    if (vendorId) {
+      filter.vendor_id = vendorId;
+    }
+
     const search = searchParams.get('search');
     if (search) {
       filter.search = search;

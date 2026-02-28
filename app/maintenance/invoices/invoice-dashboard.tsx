@@ -68,6 +68,10 @@ interface WorkOrderStats {
 
 const WO_PAGE_SIZE = 20;
 
+// HDMS vendor — default filter
+const HDMS_VENDOR_ID = "ea74594e-0c1f-11f1-ad37-0ec3c4e2b1e7";
+const HDMS_VENDOR_LABEL = "HDMS Only";
+
 // Granular AppFolio status styles
 const APPFOLIO_STATUS_STYLES: Record<string, { bg: string; text: string }> = {
   New: { bg: "bg-sky-100/80", text: "text-sky-700" },
@@ -177,6 +181,7 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
   const [woSyncMessage, setWoSyncMessage] = useState<string | null>(null);
   const [woAppfolioStatusFilter, setWoAppfolioStatusFilter] = useState<string[]>([]);
   const [woPriorityFilter, setWoPriorityFilter] = useState<string[]>([]);
+  const [woVendorFilter, setWoVendorFilter] = useState<string>(HDMS_VENDOR_ID);
   const [woSearchInput, setWoSearchInput] = useState("");
   const [woSearch, setWoSearch] = useState("");
   const [woSortField, setWoSortField] = useState<SortField>("created_at");
@@ -216,6 +221,7 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
       const params = new URLSearchParams();
       if (woAppfolioStatusFilter.length) params.set("appfolio_status", woAppfolioStatusFilter.join(","));
       if (woPriorityFilter.length) params.set("priority", woPriorityFilter.join(","));
+      if (woVendorFilter) params.set("vendor_id", woVendorFilter);
       if (woSearch) params.set("search", woSearch);
       const qs = params.toString();
       const res = await fetch(`/api/work-orders${qs ? `?${qs}` : ""}`);
@@ -229,7 +235,7 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
     } finally {
       setWoLoading(false);
     }
-  }, [woAppfolioStatusFilter, woPriorityFilter, woSearch]);
+  }, [woAppfolioStatusFilter, woPriorityFilter, woVendorFilter, woSearch]);
 
   useEffect(() => {
     fetchWorkOrders();
@@ -238,7 +244,7 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
   // Reset page when filters change
   useEffect(() => {
     setWoPage(1);
-  }, [woAppfolioStatusFilter, woPriorityFilter, woSearch]);
+  }, [woAppfolioStatusFilter, woPriorityFilter, woVendorFilter, woSearch]);
 
   // Search debounce
   useEffect(() => {
@@ -423,7 +429,7 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
     return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
   }
 
-  const woHasFilters = woAppfolioStatusFilter.length > 0 || woPriorityFilter.length > 0 || !!woSearch;
+  const woHasFilters = woAppfolioStatusFilter.length > 0 || woPriorityFilter.length > 0 || woVendorFilter !== HDMS_VENDOR_ID || !!woSearch;
 
   // ============================================
   // CSV / PDF handlers
@@ -675,6 +681,7 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                       onClick={() => {
                         setWoAppfolioStatusFilter([]);
                         setWoPriorityFilter([]);
+                        setWoVendorFilter(HDMS_VENDOR_ID);
                         setWoSearchInput("");
                       }}
                       className="text-gray-400 hover:text-gray-600 text-xs"
@@ -684,6 +691,35 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                   )}
                 </div>
 
+                <div className="flex items-center gap-4 flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-medium text-gray-400 uppercase">Vendor:</span>
+                    <div className="flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setWoVendorFilter(HDMS_VENDOR_ID)}
+                        className={`px-2.5 py-1 text-[10px] font-medium rounded-full transition-all duration-200 ${
+                          woVendorFilter === HDMS_VENDOR_ID
+                            ? "bg-emerald-100/80 text-emerald-700 ring-1 ring-emerald-300 shadow-sm"
+                            : "bg-white/50 text-gray-500 hover:bg-white/70 hover:text-gray-700"
+                        }`}
+                      >
+                        {HDMS_VENDOR_LABEL}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setWoVendorFilter("")}
+                        className={`px-2.5 py-1 text-[10px] font-medium rounded-full transition-all duration-200 ${
+                          woVendorFilter === ""
+                            ? "bg-emerald-100/80 text-emerald-700 ring-1 ring-emerald-300 shadow-sm"
+                            : "bg-white/50 text-gray-500 hover:bg-white/70 hover:text-gray-700"
+                        }`}
+                      >
+                        All Vendors
+                      </button>
+                    </div>
+                  </div>
+                </div>
                 <div className="flex items-center gap-4 flex-wrap">
                   <div className="flex items-center gap-1.5">
                     <span className="text-[10px] font-medium text-gray-400 uppercase">Status:</span>

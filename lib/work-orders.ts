@@ -42,6 +42,7 @@ export interface WorkOrderFilter {
   status?: ('open' | 'closed' | 'done')[];
   appfolio_status?: string[];
   priority?: string[];
+  vendor_id?: string;
   search?: string;
   date_from?: string;
   date_to?: string;
@@ -81,6 +82,10 @@ export async function getWorkOrders(
 
   if (filter?.priority?.length) {
     query = query.in('priority', filter.priority);
+  }
+
+  if (filter?.vendor_id) {
+    query = query.eq('vendor_id', filter.vendor_id);
   }
 
   if (filter?.search) {
@@ -140,6 +145,10 @@ export async function getWorkOrderStats(
 
   if (filter?.appfolio_status?.length) {
     query = query.in('appfolio_status', filter.appfolio_status);
+  }
+
+  if (filter?.vendor_id) {
+    query = query.eq('vendor_id', filter.vendor_id);
   }
 
   if (filter?.search) {
