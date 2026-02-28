@@ -56,6 +56,7 @@ interface WorkOrderStats {
 
 interface WorkOrderFilter {
   status?: ("open" | "closed" | "done")[];
+  appfolio_status?: string[];
   priority?: string[];
   search?: string;
 }
@@ -84,6 +85,35 @@ const STATUS_STYLES: Record<
     label: "Closed",
   },
 };
+
+// Granular AppFolio status styles
+const APPFOLIO_STATUS_STYLES: Record<
+  string,
+  { bg: string; text: string }
+> = {
+  New: { bg: "bg-sky-100/80", text: "text-sky-700" },
+  Assigned: { bg: "bg-blue-100/80", text: "text-blue-700" },
+  Scheduled: { bg: "bg-indigo-100/80", text: "text-indigo-700" },
+  "Estimate Requested": { bg: "bg-violet-100/80", text: "text-violet-700" },
+  Estimated: { bg: "bg-purple-100/80", text: "text-purple-700" },
+  Waiting: { bg: "bg-amber-100/80", text: "text-amber-700" },
+  "Work Completed": { bg: "bg-teal-100/80", text: "text-teal-700" },
+  Completed: { bg: "bg-emerald-100/80", text: "text-emerald-700" },
+  Canceled: { bg: "bg-gray-100/80", text: "text-gray-500" },
+};
+
+// Ordered list of all AppFolio statuses for the filter
+const APPFOLIO_STATUSES = [
+  "New",
+  "Assigned",
+  "Estimate Requested",
+  "Estimated",
+  "Scheduled",
+  "Waiting",
+  "Work Completed",
+  "Completed",
+  "Canceled",
+];
 
 const PRIORITY_STYLES: Record<string, { bg: string; text: string }> = {
   Emergency: { bg: "bg-red-100/80", text: "text-red-700" },
@@ -173,6 +203,7 @@ export function WorkOrderDashboard({
   function buildQuery(f: WorkOrderFilter): string {
     const params = new URLSearchParams();
     if (f.status?.length) params.set("status", f.status.join(","));
+    if (f.appfolio_status?.length) params.set("appfolio_status", f.appfolio_status.join(","));
     if (f.priority?.length) params.set("priority", f.priority.join(","));
     if (f.search) params.set("search", f.search);
     return params.toString();
@@ -248,7 +279,7 @@ export function WorkOrderDashboard({
           cmp = (a.property_name || "").localeCompare(b.property_name || "");
           break;
         case "status":
-          cmp = a.status.localeCompare(b.status);
+          cmp = (a.appfolio_status || "").localeCompare(b.appfolio_status || "");
           break;
         case "priority": {
           const order = { Emergency: 0, Urgent: 1, High: 2, Normal: 3, Low: 4 };
@@ -307,7 +338,7 @@ export function WorkOrderDashboard({
       wo.property_address || "",
       wo.description,
       wo.priority || "",
-      wo.status,
+      wo.appfolio_status || wo.status,
       wo.assigned_to || "",
       wo.created_at ? new Date(wo.created_at).toLocaleDateString() : "",
       wo.completed_date
@@ -343,6 +374,7 @@ export function WorkOrderDashboard({
 
   const hasFilters =
     (filter.status && filter.status.length > 0) ||
+    (filter.appfolio_status && filter.appfolio_status.length > 0) ||
     (filter.priority && filter.priority.length > 0) ||
     !!filter.search;
 
@@ -470,18 +502,17 @@ export function WorkOrderDashboard({
           )}
         </div>
 
-        {/* Status */}
+        {/* AppFolio Status */}
         <div>
           <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">
             Status
           </label>
-          <PillToggle<"open" | "closed" | "done">
-            options={["open", "done", "closed"]}
-            selected={filter.status || []}
+          <PillToggle<string>
+            options={APPFOLIO_STATUSES}
+            selected={filter.appfolio_status || []}
             onToggle={(s) =>
-              setFilter({ ...filter, status: toggle(filter.status, s) })
+              setFilter({ ...filter, appfolio_status: toggle(filter.appfolio_status, s) })
             }
-            labelFn={(s) => STATUS_STYLES[s]?.label || s}
           />
         </div>
 
@@ -607,7 +638,8 @@ export function WorkOrderDashboard({
                 </tr>
               ) : (
                 sorted.map((wo) => {
-                  const statusStyle = STATUS_STYLES[wo.status] || STATUS_STYLES.open;
+                  const afStatus = wo.appfolio_status || "New";
+                  const afStyle = APPFOLIO_STATUS_STYLES[afStatus] || { bg: "bg-blue-100/80", text: "text-blue-700" };
                   const priorityStyle =
                     PRIORITY_STYLES[wo.priority || "Normal"] ||
                     PRIORITY_STYLES.Normal;
@@ -648,12 +680,12 @@ export function WorkOrderDashboard({
                         </span>
                       </td>
 
-                      {/* Status */}
+                      {/* Status — show AppFolio status */}
                       <td className="px-4 py-3">
                         <span
-                          className={`inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded-full ${statusStyle.bg} ${statusStyle.text}`}
+                          className={`inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded-full ${afStyle.bg} ${afStyle.text}`}
                         >
-                          {statusStyle.label}
+                          {afStatus}
                         </span>
                       </td>
 

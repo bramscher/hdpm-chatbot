@@ -28,6 +28,11 @@ export async function GET(request: NextRequest) {
       filter.status = status.split(',') as ('open' | 'closed' | 'done')[];
     }
 
+    const appfolioStatus = searchParams.get('appfolio_status');
+    if (appfolioStatus) {
+      filter.appfolio_status = appfolioStatus.split(',');
+    }
+
     const priority = searchParams.get('priority');
     if (priority) {
       filter.priority = priority.split(',');

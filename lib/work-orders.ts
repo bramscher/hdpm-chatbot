@@ -40,6 +40,7 @@ export interface WorkOrder {
 
 export interface WorkOrderFilter {
   status?: ('open' | 'closed' | 'done')[];
+  appfolio_status?: string[];
   priority?: string[];
   search?: string;
   date_from?: string;
@@ -72,6 +73,10 @@ export async function getWorkOrders(
 
   if (filter?.status?.length) {
     query = query.in('status', filter.status);
+  }
+
+  if (filter?.appfolio_status?.length) {
+    query = query.in('appfolio_status', filter.appfolio_status);
   }
 
   if (filter?.priority?.length) {
@@ -131,7 +136,11 @@ export async function getWorkOrderStats(
 
   let query = supabase
     .from('work_orders')
-    .select('status');
+    .select('status, appfolio_status');
+
+  if (filter?.appfolio_status?.length) {
+    query = query.in('appfolio_status', filter.appfolio_status);
+  }
 
   if (filter?.search) {
     query = query.or(
