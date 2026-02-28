@@ -499,9 +499,8 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
 
   // ── Build save payload ──────────
   function buildSavePayload() {
-    // Save every line item that has ANY content — description, qty, or amount
+    // Save ALL line items the user has in the form — if they added it, keep it
     const validLineItems: LineItem[] = lineItems
-      .filter((li) => li.description.trim() || (parseFloat(li.qty) || 0) > 0 || (parseFloat(li.amount) || 0) > 0)
       .map((li) => ({
         description: li.description.trim(),
         account: li.account.trim() || undefined,
@@ -990,15 +989,15 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
                         updateLineItem(li.id, "rateType", li.rateType === "standard" ? "after-hours" : "standard")
                       }
                       disabled={isLoading}
-                      title={li.rateType === "after-hours" ? "After-hours rate (1.5×)" : "Standard rate"}
-                      className={`flex items-center justify-center h-8 w-full rounded-lg text-[9px] font-bold transition-all duration-200 ${
+                      title={li.rateType === "after-hours" ? "After-hours / Emergency rate (1.5×)" : "Click for overtime / after-hours rate"}
+                      className={`flex items-center justify-center h-8 w-full rounded-lg text-[10px] font-bold transition-all duration-200 ${
                         li.rateType === "after-hours"
-                          ? "bg-orange-100 text-orange-700 ring-1 ring-orange-300"
-                          : "bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                          ? "bg-orange-200 text-orange-800 ring-2 ring-orange-400 shadow-sm"
+                          : "bg-gray-100 text-gray-500 ring-1 ring-gray-300 hover:bg-orange-50 hover:text-orange-600 hover:ring-orange-300"
                       }`}
                     >
                       <Clock className="h-3 w-3 mr-0.5" />
-                      AH
+                      OT
                     </button>
                   ) : (
                     <span />
