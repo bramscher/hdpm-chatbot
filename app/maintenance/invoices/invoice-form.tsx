@@ -214,34 +214,26 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
       // Load line items from scanned PDF — full WO text goes into the labor
       // description so the user can reference it while editing.  The 2-row
       // textarea keeps the UI compact; PDF only prints what the user leaves.
-      if (workOrder.line_items && workOrder.line_items.length > 0) {
-        // Financial WO with pre-priced line items from Details table
-        setLineItems(
-          workOrder.line_items.map((li) => {
-            const type = (li.type as LineItemType) || "labor";
-            return {
-              id: newLineItemId(),
-              type,
-              account: li.account || "",
-              description: li.description,
-              amount: li.amount.toFixed(2),
-              qty: "",
-              rate: type === "labor" ? STANDARD_RATE.toFixed(2) : "",
-              rateType: "standard" as RateType,
-              flatFeeKey: "",
-            };
-          })
-        );
-      } else if (workOrder.task_items && workOrder.task_items.length > 0) {
-        // Task-list WO — labor line from tasks + individual material lines if parsed
+
+      // Separate any parsed line_items into labor vs materials
+      const parsedLineItems = workOrder.line_items || [];
+      const parsedLaborItems = parsedLineItems.filter((li) => (li.type as string) !== "materials");
+      const parsedMaterialItems = parsedLineItems.filter((li) => (li.type as string) === "materials");
+
+      if (workOrder.task_items && workOrder.task_items.length > 0) {
+        // ── TASK-LIST WO ──
+        // Labor: consolidated from task items + full WO description for reference
         const taskSummary = workOrder.task_items.join("; ");
+        const laborDesc = workOrder.description
+          ? `${workOrder.description}`
+          : `Labor – ${taskSummary}`;
         const items: FormLineItem[] = [
           {
             id: newLineItemId(),
             type: "labor",
             account: "",
-            description: `Labor – ${taskSummary}`,
-            amount: "0.00",
+            description: laborDesc,
+            amount: workOrder.labor_amount ? workOrder.labor_amount : "0.00",
             qty: "",
             rate: STANDARD_RATE.toFixed(2),
             rateType: "standard",
@@ -249,12 +241,9 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
           },
         ];
 
-        // If the parser extracted individual materials, add each as its own line
-        const materialItems = (workOrder.line_items || []).filter(
-          (li) => (li.type as string) === "materials"
-        );
-        if (materialItems.length > 0) {
-          for (const mat of materialItems) {
+        // Materials: one line per parsed material, or a blank line if none found
+        if (parsedMaterialItems.length > 0) {
+          for (const mat of parsedMaterialItems) {
             items.push({
               id: newLineItemId(),
               type: "materials",
@@ -268,7 +257,38 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             });
           }
         } else {
-          // No parsed materials — add a blank materials line
+          items.push({
+            id: newLineItemId(),
+            type: "materials",
+            account: "",
+            description: "Materials",
+            amount: workOrder.materials_amount ? workOrder.materials_amount : "0.00",
+            qty: "",
+            rate: "",
+            rateType: "standard",
+            flatFeeKey: "",
+          });
+        }
+        setLineItems(items);
+      } else if (parsedLineItems.length > 0) {
+        // ── FINANCIAL WO (Details table) ──
+        // Map each line item 1:1 — labor and materials already separated by parser
+        const items: FormLineItem[] = parsedLineItems.map((li) => {
+          const type = (li.type as LineItemType) || "labor";
+          return {
+            id: newLineItemId(),
+            type,
+            account: li.account || "",
+            description: li.description,
+            amount: li.amount.toFixed(2),
+            qty: "",
+            rate: type === "labor" ? STANDARD_RATE.toFixed(2) : "",
+            rateType: "standard" as RateType,
+            flatFeeKey: "",
+          };
+        });
+        // If no materials lines came from parser, add a blank one
+        if (parsedMaterialItems.length === 0) {
           items.push({
             id: newLineItemId(),
             type: "materials",
@@ -283,47 +303,34 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
         }
         setLineItems(items);
       } else {
-        // Fall back to legacy amounts — put description into labor line
+        // ── LEGACY FALLBACK (no line_items, no task_items) ──
         const items: FormLineItem[] = [];
-        if (workOrder.labor_amount && parseFloat(workOrder.labor_amount) > 0) {
-          items.push({
-            id: newLineItemId(),
-            type: "labor",
-            account: "",
-            description: workOrder.description || "Labor",
-            amount: workOrder.labor_amount,
-            qty: "",
-            rate: STANDARD_RATE.toFixed(2),
-            rateType: "standard",
-            flatFeeKey: "",
-          });
-        } else {
-          // No amounts yet — put full WO description so user can edit it down
-          items.push({
-            id: newLineItemId(),
-            type: "labor",
-            account: "",
-            description: workOrder.description || "",
-            amount: "0.00",
-            qty: "",
-            rate: STANDARD_RATE.toFixed(2),
-            rateType: "standard",
-            flatFeeKey: "",
-          });
-        }
-        if (workOrder.materials_amount && parseFloat(workOrder.materials_amount) > 0) {
-          items.push({
-            id: newLineItemId(),
-            type: "materials",
-            account: "",
-            description: "Materials",
-            amount: workOrder.materials_amount,
-            qty: "",
-            rate: "",
-            rateType: "standard",
-            flatFeeKey: "",
-          });
-        }
+        items.push({
+          id: newLineItemId(),
+          type: "labor",
+          account: "",
+          description: workOrder.description || "",
+          amount: workOrder.labor_amount && parseFloat(workOrder.labor_amount) > 0
+            ? workOrder.labor_amount
+            : "0.00",
+          qty: "",
+          rate: STANDARD_RATE.toFixed(2),
+          rateType: "standard",
+          flatFeeKey: "",
+        });
+        items.push({
+          id: newLineItemId(),
+          type: "materials",
+          account: "",
+          description: "Materials",
+          amount: workOrder.materials_amount && parseFloat(workOrder.materials_amount) > 0
+            ? workOrder.materials_amount
+            : "0.00",
+          qty: "",
+          rate: "",
+          rateType: "standard",
+          flatFeeKey: "",
+        });
         setLineItems(items);
       }
 
