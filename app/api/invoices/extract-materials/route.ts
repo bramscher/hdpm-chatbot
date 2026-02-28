@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     const anthropic = getAnthropic();
     const response = await anthropic.messages.create({
-      model: 'claude-3-5-haiku-20241022',
+      model: 'claude-3-haiku-20240307',
       max_tokens: 1000,
       messages: [
         {
