@@ -109,6 +109,16 @@ interface V0Unit {
   AppliancesIncluded?: string[];
 }
 
+interface V0Vendor {
+  Id: string;
+  CompanyName?: string;
+  FirstName?: string;
+  LastName?: string;
+  IsCompany?: boolean;
+  HiddenAt?: string | null;
+  LastUpdatedAt?: string;
+}
+
 // ============================================
 // Town detection from city
 // ============================================
@@ -444,6 +454,53 @@ export async function fetchAllPropertiesPublic(): Promise<V0Property[]> {
   return fetchAllProperties(config.clientId, config.clientSecret, config.developerId);
 }
 
+// ============================================
+// Public: Fetch All Vendors (for work order sync)
+// ============================================
+
+export async function fetchAllVendors(): Promise<Map<string, string>> {
+  const config = getConfig();
+  if (!config) return new Map();
+
+  const { clientId, clientSecret, developerId } = config;
+  const vendorMap = new Map<string, string>();
+  let pageNumber = 1;
+
+  // Fetch all vendors since the beginning of time
+  const sinceDate = '2000-01-01T00:00:00Z';
+
+  while (true) {
+    const res = await v0Fetch<V0Vendor>(
+      '/vendors',
+      {
+        'filters[LastUpdatedAtFrom]': sinceDate,
+        'page[number]': String(pageNumber),
+        'page[size]': '200',
+      },
+      clientId,
+      clientSecret,
+      developerId
+    );
+
+    const vendors = res.data || [];
+    console.log(`[AppFolio] Vendors page ${pageNumber}: ${vendors.length} vendors`);
+
+    for (const v of vendors) {
+      const name = v.CompanyName
+        || [v.FirstName, v.LastName].filter(Boolean).join(' ')
+        || 'Unknown Vendor';
+      vendorMap.set(v.Id, name);
+    }
+
+    if (vendors.length < 200 || !res.next_page_path) break;
+    pageNumber++;
+    if (pageNumber > 20) break; // safety limit
+  }
+
+  console.log(`[AppFolio] Total vendors fetched: ${vendorMap.size}`);
+  return vendorMap;
+}
+
 export async function searchAppFolioProperties(
   searchAddress: string
 ): Promise<AppFolioPropertyResult[]> {
@@ -559,6 +616,7 @@ export interface AppFolioWorkOrder {
   priority: string | null;
   assignedTo: string | null;
   vendorId: string | null;
+  vendorName: string | null;
   scheduledStart: string | null;
   scheduledEnd: string | null;
   completedDate: string | null;
@@ -583,7 +641,8 @@ function mapWorkOrderStatus(appfolioStatus: string): WorkOrderStatus {
 // ============================================
 
 export async function fetchAppFolioWorkOrders(
-  days = 90
+  days = 90,
+  vendorMap?: Map<string, string>
 ): Promise<AppFolioWorkOrder[]> {
   const config = getConfig();
   if (!config) return [];
@@ -670,6 +729,7 @@ export async function fetchAppFolioWorkOrders(
     priority: wo.Priority || null,
     assignedTo: wo.AssignedUsers?.map(u => u.Name || `${u.FirstName || ''} ${u.LastName || ''}`.trim()).filter(Boolean).join(', ') || null,
     vendorId: wo.VendorId || null,
+    vendorName: (wo.VendorId && vendorMap?.get(wo.VendorId)) || null,
     scheduledStart: wo.ScheduledStart || null,
     scheduledEnd: wo.ScheduledEnd || null,
     completedDate: wo.CompletedOn || null,
@@ -725,6 +785,7 @@ export async function fetchWorkOrderById(
       priority: match.Priority || null,
       assignedTo: match.AssignedUsers?.map(u => u.Name || `${u.FirstName || ''} ${u.LastName || ''}`.trim()).filter(Boolean).join(', ') || null,
       vendorId: match.VendorId || null,
+      vendorName: null, // Not resolved in single-fetch — webhook handler doesn't need it
       scheduledStart: match.ScheduledStart || null,
       scheduledEnd: match.ScheduledEnd || null,
       completedDate: match.CompletedOn || null,

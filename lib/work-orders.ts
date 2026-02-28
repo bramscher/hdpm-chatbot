@@ -28,6 +28,7 @@ export interface WorkOrder {
   appfolio_status: string | null;
   assigned_to: string | null;
   vendor_id: string | null;
+  vendor_name: string | null;
   scheduled_start: string | null;
   scheduled_end: string | null;
   completed_date: string | null;
@@ -216,6 +217,7 @@ export async function bulkUpsertWorkOrders(
       priority: wo.priority,
       assigned_to: wo.assignedTo,
       vendor_id: wo.vendorId,
+      vendor_name: wo.vendorName,
       scheduled_start: wo.scheduledStart,
       scheduled_end: wo.scheduledEnd,
       completed_date: wo.completedDate,
@@ -311,6 +313,7 @@ export async function upsertSingleWorkOrder(
     priority: order.priority,
     assigned_to: order.assignedTo,
     vendor_id: order.vendorId,
+    vendor_name: order.vendorName,
     scheduled_start: order.scheduledStart,
     scheduled_end: order.scheduledEnd,
     completed_date: order.completedDate,

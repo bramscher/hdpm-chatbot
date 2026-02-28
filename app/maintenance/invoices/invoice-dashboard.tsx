@@ -45,6 +45,7 @@ interface WorkOrder {
   appfolio_status: string | null;
   assigned_to: string | null;
   vendor_id: string | null;
+  vendor_name: string | null;
   scheduled_start: string | null;
   scheduled_end: string | null;
   completed_date: string | null;
@@ -808,7 +809,7 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                           </span>
                         </th>
                         <th className="text-left px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-widest hidden md:table-cell">
-                          Assigned To
+                          Vendor
                         </th>
                         <th
                           className="text-left px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-gray-600 hidden md:table-cell"
@@ -876,7 +877,7 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                                 </span>
                               </td>
                               <td className="px-4 py-2.5 text-gray-500 text-[11px] hidden md:table-cell truncate max-w-[140px]">
-                                {wo.assigned_to || "—"}
+                                {wo.vendor_name || "—"}
                               </td>
                               <td className="px-4 py-2.5 text-gray-500 text-[11px] hidden md:table-cell">
                                 {formatDate(wo.created_at)}

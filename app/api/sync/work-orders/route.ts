@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { fetchAppFolioWorkOrders, fetchAllPropertiesPublic } from '@/lib/appfolio';
+import { fetchAppFolioWorkOrders, fetchAllPropertiesPublic, fetchAllVendors } from '@/lib/appfolio';
 import { bulkUpsertWorkOrders } from '@/lib/work-orders';
 
 // Allow up to 300 seconds for the sync function (Vercel Pro supports up to 300s).
@@ -64,8 +64,11 @@ export async function POST(request: NextRequest) {
       `[Sync] Starting work orders sync (${isCron ? 'cron' : 'manual'}, last ${days} days)...`
     );
 
-    // Step 1: Fetch work orders from AppFolio
-    const workOrders = await fetchAppFolioWorkOrders(days);
+    // Step 1: Fetch vendors for vendor name resolution
+    const vendorMap = await fetchAllVendors();
+
+    // Step 2: Fetch work orders from AppFolio (with vendor names)
+    const workOrders = await fetchAppFolioWorkOrders(days, vendorMap);
     if (workOrders.length === 0) {
       return NextResponse.json({
         message: `No work orders updated in the last ${days} days`,
@@ -74,7 +77,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Step 2: Fetch all properties to build a propertyId → {name, address} map
+    // Step 3: Fetch all properties to build a propertyId → {name, address} map
     const properties = await fetchAllPropertiesPublic();
     const propertyMap = new Map<string, { name: string; address: string }>();
     for (const p of properties) {
@@ -87,7 +90,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Step 3: Bulk upsert into work_orders table
+    // Step 4: Bulk upsert into work_orders table
     const count = await bulkUpsertWorkOrders(workOrders, propertyMap);
 
     console.log(`[Sync] Work orders sync complete: ${count} work orders upserted`);
