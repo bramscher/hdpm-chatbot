@@ -727,7 +727,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
 
           <div className="rounded-xl border border-gray-200/60 bg-white/50 overflow-hidden">
             {/* Table header */}
-            <div className="grid grid-cols-[80px_1fr_2fr_100px_36px] gap-2 px-3 py-2 bg-gray-50/80 border-b border-gray-200/40 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
+            <div className="grid grid-cols-[80px_1fr_3fr_100px_36px] gap-2 px-3 py-2 bg-gray-50/80 border-b border-gray-200/40 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
               <span>Type</span>
               <span>Account</span>
               <span>Description</span>
@@ -743,7 +743,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
               return (
                 <div
                   key={li.id}
-                  className={`grid grid-cols-[80px_1fr_2fr_100px_36px] gap-2 px-3 py-1.5 border-b border-gray-100/60 last:border-b-0 items-center ${
+                  className={`grid grid-cols-[80px_1fr_3fr_100px_36px] gap-2 px-3 py-1.5 border-b border-gray-100/60 last:border-b-0 items-start ${
                     isUnpriced ? "bg-amber-50/30" : ""
                   }`}
                 >
@@ -766,12 +766,13 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
                   />
                   {/* Description with AI rewrite button */}
                   <div className="relative">
-                    <Input
+                    <textarea
                       value={li.description}
                       onChange={(e) => updateLineItem(li.id, "description", e.target.value)}
-                      placeholder={idx === 0 && li.type === "labor" ? "Describe the work performed..." : `Line item ${idx + 1} description`}
+                      placeholder={idx === 0 && li.type === "labor" ? "Describe the work performed...\n• Bullet points supported" : `Line item ${idx + 1} description`}
                       disabled={isLoading || rewritingId === li.id}
-                      className={`h-8 text-xs bg-transparent border-gray-200/40 ${
+                      rows={4}
+                      className={`w-full text-xs bg-transparent border border-gray-200/40 rounded-md px-3 py-2 resize-y leading-relaxed focus:outline-none focus:ring-2 focus:ring-emerald-600/30 disabled:opacity-50 ${
                         li.description.trim().length > 10 ? "pr-8" : ""
                       }`}
                     />
@@ -780,7 +781,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
                         type="button"
                         onClick={() => handleAiRewrite(li.id)}
                         disabled={isLoading || rewritingId !== null}
-                        className="absolute right-1.5 top-1/2 -translate-y-1/2 h-5 w-5 flex items-center justify-center text-gray-300 hover:text-purple-500 disabled:hover:text-gray-300 transition-colors rounded"
+                        className="absolute right-1.5 top-2 h-5 w-5 flex items-center justify-center text-gray-300 hover:text-purple-500 disabled:hover:text-gray-300 transition-colors rounded"
                         title="AI rewrite for professional invoice voice"
                       >
                         {rewritingId === li.id ? (

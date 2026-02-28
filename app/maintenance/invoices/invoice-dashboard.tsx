@@ -14,6 +14,7 @@ import {
   Download,
   ChevronLeft,
   ChevronRight,
+  Plus,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -778,7 +779,7 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-gray-100/80">
-                        <th className="text-left px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
+                        <th className="text-left px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-widest whitespace-nowrap w-[80px]">
                           WO #
                         </th>
                         <th
@@ -819,8 +820,7 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                             Created <WoSortIcon field="created_at" />
                           </span>
                         </th>
-                        <th className="text-left px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
-                          Action
+                        <th className="text-center px-2 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-widest w-[44px]">
                         </th>
                       </tr>
                     </thead>
@@ -850,7 +850,7 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                               key={wo.id}
                               className="border-b border-gray-50/80 hover:bg-white/40 transition-colors"
                             >
-                              <td className="px-4 py-2.5 text-gray-600 font-mono text-[11px]">
+                              <td className="px-4 py-2.5 text-gray-600 font-mono text-[11px] whitespace-nowrap">
                                 {wo.wo_number || wo.appfolio_id.slice(0, 8)}
                               </td>
                               <td className="px-4 py-2.5">
@@ -863,8 +863,10 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                                   </span>
                                 )}
                               </td>
-                              <td className="px-4 py-2.5 text-gray-500 text-[11px] max-w-[200px] truncate hidden lg:table-cell">
-                                {wo.description}
+                              <td className="px-4 py-2.5 text-gray-500 text-[11px] max-w-[280px] hidden lg:table-cell">
+                                <span className="line-clamp-3 leading-relaxed">
+                                  {wo.description}
+                                </span>
                               </td>
                               <td className="px-4 py-2.5">
                                 <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded-full ${priorityStyle.bg} ${priorityStyle.text}`}>
@@ -882,14 +884,14 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                               <td className="px-4 py-2.5 text-gray-500 text-[11px] hidden md:table-cell">
                                 {formatDate(wo.created_at)}
                               </td>
-                              <td className="px-4 py-2.5">
+                              <td className="px-2 py-2.5 text-center">
                                 <button
                                   type="button"
                                   onClick={() => handleCreateInvoiceFromWo(wo)}
-                                  className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 hover:text-emerald-800 transition-colors"
+                                  title="Create Invoice"
+                                  className="inline-flex items-center justify-center h-7 w-7 rounded-lg bg-emerald-50/80 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-800 transition-colors"
                                 >
-                                  <FileText className="h-3 w-3" />
-                                  Create Invoice
+                                  <Plus className="h-4 w-4" />
                                 </button>
                               </td>
                             </tr>
