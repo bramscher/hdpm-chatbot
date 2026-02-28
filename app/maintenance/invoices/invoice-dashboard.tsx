@@ -3,18 +3,17 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   ArrowLeft,
-  Receipt,
+  Wrench,
   RefreshCw,
   Search,
-  Wrench,
   FileText,
   Loader2,
-  ChevronDown,
-  ChevronRight,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
   Download,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -64,14 +63,35 @@ interface WorkOrderStats {
 }
 
 // ============================================
-// Style maps
+// Constants
 // ============================================
 
-const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  open: { bg: "bg-blue-100/80", text: "text-blue-700", label: "Open" },
-  done: { bg: "bg-emerald-100/80", text: "text-emerald-700", label: "Done" },
-  closed: { bg: "bg-gray-100/80", text: "text-gray-500", label: "Closed" },
+const WO_PAGE_SIZE = 20;
+
+// Granular AppFolio status styles
+const APPFOLIO_STATUS_STYLES: Record<string, { bg: string; text: string }> = {
+  New: { bg: "bg-sky-100/80", text: "text-sky-700" },
+  Assigned: { bg: "bg-blue-100/80", text: "text-blue-700" },
+  Scheduled: { bg: "bg-indigo-100/80", text: "text-indigo-700" },
+  "Estimate Requested": { bg: "bg-violet-100/80", text: "text-violet-700" },
+  Estimated: { bg: "bg-purple-100/80", text: "text-purple-700" },
+  Waiting: { bg: "bg-amber-100/80", text: "text-amber-700" },
+  "Work Completed": { bg: "bg-teal-100/80", text: "text-teal-700" },
+  Completed: { bg: "bg-emerald-100/80", text: "text-emerald-700" },
+  Canceled: { bg: "bg-gray-100/80", text: "text-gray-500" },
 };
+
+const APPFOLIO_STATUSES = [
+  "New",
+  "Assigned",
+  "Estimate Requested",
+  "Estimated",
+  "Scheduled",
+  "Waiting",
+  "Work Completed",
+  "Completed",
+  "Canceled",
+];
 
 const PRIORITY_STYLES: Record<string, { bg: string; text: string }> = {
   Emergency: { bg: "bg-red-100/80", text: "text-red-700" },
@@ -129,7 +149,8 @@ function PillToggle<T extends string>({
 // Main Dashboard
 // ============================================
 
-type View = "upload" | "table" | "form";
+type View = "main" | "table" | "form";
+type Tab = "work-orders" | "invoices";
 
 interface InvoiceDashboardProps {
   userEmail: string;
@@ -138,7 +159,8 @@ interface InvoiceDashboardProps {
 
 export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps) {
   const searchParams = useSearchParams();
-  const [view, setView] = useState<View>("upload");
+  const [view, setView] = useState<View>("main");
+  const [activeTab, setActiveTab] = useState<Tab>("work-orders");
   const [parsedRows, setParsedRows] = useState<WorkOrderRow[]>([]);
   const [selectedRow, setSelectedRow] = useState<WorkOrderRow | null>(null);
   const [editInvoice, setEditInvoice] = useState<HdmsInvoice | null>(null);
@@ -148,18 +170,18 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
   const [isLoadingInvoices, setIsLoadingInvoices] = useState(true);
 
   // Work orders state
-  const [woExpanded, setWoExpanded] = useState(true);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [woStats, setWoStats] = useState<WorkOrderStats | null>(null);
   const [woLoading, setWoLoading] = useState(true);
   const [woSyncing, setWoSyncing] = useState(false);
   const [woSyncMessage, setWoSyncMessage] = useState<string | null>(null);
-  const [woStatusFilter, setWoStatusFilter] = useState<("open" | "closed" | "done")[]>([]);
+  const [woAppfolioStatusFilter, setWoAppfolioStatusFilter] = useState<string[]>([]);
   const [woPriorityFilter, setWoPriorityFilter] = useState<string[]>([]);
   const [woSearchInput, setWoSearchInput] = useState("");
   const [woSearch, setWoSearch] = useState("");
   const [woSortField, setWoSortField] = useState<SortField>("created_at");
   const [woSortDir, setWoSortDir] = useState<"asc" | "desc">("desc");
+  const [woPage, setWoPage] = useState(1);
 
   // ============================================
   // Invoice fetching
@@ -192,7 +214,7 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
     setWoLoading(true);
     try {
       const params = new URLSearchParams();
-      if (woStatusFilter.length) params.set("status", woStatusFilter.join(","));
+      if (woAppfolioStatusFilter.length) params.set("appfolio_status", woAppfolioStatusFilter.join(","));
       if (woPriorityFilter.length) params.set("priority", woPriorityFilter.join(","));
       if (woSearch) params.set("search", woSearch);
       const qs = params.toString();
@@ -207,11 +229,16 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
     } finally {
       setWoLoading(false);
     }
-  }, [woStatusFilter, woPriorityFilter, woSearch]);
+  }, [woAppfolioStatusFilter, woPriorityFilter, woSearch]);
 
   useEffect(() => {
     fetchWorkOrders();
   }, [fetchWorkOrders]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setWoPage(1);
+  }, [woAppfolioStatusFilter, woPriorityFilter, woSearch]);
 
   // Search debounce
   useEffect(() => {
@@ -302,7 +329,7 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
           cmp = (a.property_name || "").localeCompare(b.property_name || "");
           break;
         case "status":
-          cmp = a.status.localeCompare(b.status);
+          cmp = (a.appfolio_status || "").localeCompare(b.appfolio_status || "");
           break;
         case "priority": {
           const order = { Emergency: 0, Urgent: 1, High: 2, Normal: 3, Low: 4 };
@@ -322,6 +349,10 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
     });
     return arr;
   }, [workOrders, woSortField, woSortDir]);
+
+  // Pagination
+  const totalWoPages = Math.max(1, Math.ceil(sortedWo.length / WO_PAGE_SIZE));
+  const paginatedWo = sortedWo.slice((woPage - 1) * WO_PAGE_SIZE, woPage * WO_PAGE_SIZE);
 
   function handleWoSort(field: SortField) {
     if (woSortField === field) {
@@ -372,7 +403,7 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
       wo.property_address || "",
       wo.description,
       wo.priority || "",
-      wo.status,
+      wo.appfolio_status || wo.status,
       wo.assigned_to || "",
       wo.created_at ? new Date(wo.created_at).toLocaleDateString() : "",
       wo.completed_date ? new Date(wo.completed_date).toLocaleDateString() : "",
@@ -388,11 +419,11 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
   }
 
   function formatDate(dateStr: string | null): string {
-    if (!dateStr) return "—";
+    if (!dateStr) return "\u2014";
     return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
   }
 
-  const woHasFilters = woStatusFilter.length > 0 || woPriorityFilter.length > 0 || !!woSearch;
+  const woHasFilters = woAppfolioStatusFilter.length > 0 || woPriorityFilter.length > 0 || !!woSearch;
 
   // ============================================
   // CSV / PDF handlers
@@ -404,7 +435,6 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
   }
 
   function handlePdfScanned(fields: Record<string, unknown>) {
-    // Parse line_items from the scanned PDF response
     const rawLineItems = Array.isArray(fields.line_items) ? fields.line_items : [];
     const lineItems = rawLineItems.map((li: Record<string, unknown>) => ({
       account: String(li.account || ""),
@@ -413,7 +443,6 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
       amount: parseFloat(String(li.amount || "0")) || 0,
     }));
 
-    // Parse task_items array
     const rawTaskItems = Array.isArray(fields.task_items) ? fields.task_items : [];
     const taskItems = rawTaskItems.map((t: unknown) => String(t)).filter(Boolean);
 
@@ -462,12 +491,14 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
   function handleEditInvoice(invoice: HdmsInvoice) {
     setEditInvoice(invoice);
     setSelectedRow(null);
+    setActiveTab("invoices");
     setView("form");
   }
 
   function handleInvoiceSaved() {
     fetchInvoices();
-    setView("upload");
+    setActiveTab("invoices");
+    setView("main");
     setSelectedRow(null);
     setEditInvoice(null);
     setFromPdfScan(false);
@@ -475,15 +506,14 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
   }
 
   function handleBackToUpload() {
-    setView("upload");
+    setView("main");
     setParsedRows([]);
   }
 
   function handleBackFromForm() {
-    // Refresh invoices in case auto-save created/updated drafts
     fetchInvoices();
     if (editInvoice || fromPdfScan || fromWorkOrder) {
-      setView("upload");
+      setView("main");
       setEditInvoice(null);
       setFromPdfScan(false);
       setFromWorkOrder(false);
@@ -508,152 +538,209 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
           Back to Home
         </Link>
 
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-green-700 flex items-center justify-center shadow-glow">
-            <Receipt className="h-6 w-6 text-white" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-green-700 flex items-center justify-center shadow-glow">
+              <Wrench className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Maintenance</h1>
+              <p className="text-sm text-gray-500">
+                High Desert Maintenance Services
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Invoice Generator</h1>
-            <p className="text-sm text-gray-500">
-              High Desert Maintenance Services
-            </p>
+
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={handleWoSync}
+              disabled={woSyncing}
+              size="sm"
+              className="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-glow hover:shadow-glow-lg transition-all duration-200"
+            >
+              {woSyncing ? (
+                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-1.5" />
+              )}
+              {woSyncing ? "Syncing..." : "Sync Now"}
+            </Button>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      {view === "upload" && (
-        <div className="space-y-6">
-          {/* CSV / PDF Upload */}
-          <CsvUploader onParsed={handleCsvParsed} onPdfScanned={handlePdfScanned} />
+      {/* Sync message */}
+      {woSyncMessage && (
+        <div className="glass rounded-xl px-4 py-2.5 text-sm text-emerald-700 bg-emerald-50/60 mb-6">
+          {woSyncMessage}
+        </div>
+      )}
 
-          {/* ============================== */}
-          {/* AppFolio Work Orders Section   */}
-          {/* ============================== */}
-          <div className="glass glass-shine rounded-2xl overflow-hidden">
-            {/* Section header */}
+      {/* Main Content */}
+      {view === "main" && (
+        <div className="space-y-6">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-3 gap-4">
+            {[
+              {
+                label: "Open",
+                value: woStats?.open ?? 0,
+                textColor: "text-blue-700",
+              },
+              {
+                label: "Done",
+                value: woStats?.done ?? 0,
+                textColor: "text-emerald-700",
+              },
+              {
+                label: "Closed",
+                value: woStats?.closed ?? 0,
+                textColor: "text-gray-600",
+              },
+            ].map((card) => (
+              <div key={card.label} className="glass glass-shine rounded-2xl p-5">
+                {woLoading ? (
+                  <div className="animate-pulse space-y-2">
+                    <div className="h-3 w-16 bg-gray-200 rounded" />
+                    <div className="h-8 w-12 bg-gray-200 rounded" />
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">
+                      {card.label}
+                    </p>
+                    <p className={`text-3xl font-bold ${card.textColor}`}>
+                      {card.value}
+                    </p>
+                    <p className="text-[10px] text-gray-300 mt-1">
+                      of {woStats?.total ?? 0} total
+                    </p>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Tab Bar */}
+          <div className="glass glass-shine rounded-2xl px-2 py-1.5 flex gap-1">
             <button
               type="button"
-              onClick={() => setWoExpanded(!woExpanded)}
-              className="w-full flex items-center justify-between px-5 py-4 hover:bg-white/30 transition-colors"
+              onClick={() => setActiveTab("work-orders")}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                activeTab === "work-orders"
+                  ? "bg-white/80 text-emerald-700 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-white/30"
+              }`}
             >
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center">
-                  <Wrench className="h-4 w-4 text-white" />
-                </div>
-                <div className="text-left">
-                  <span className="text-sm font-semibold text-gray-800">
-                    AppFolio Work Orders
-                  </span>
-                  <span className="block text-[10px] text-gray-400">
-                    Select a work order to create an invoice
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                {woStats && !woLoading && (
-                  <div className="flex items-center gap-2 text-[10px]">
-                    <span className="text-blue-600 font-medium">{woStats.open} open</span>
-                    <span className="text-gray-300">•</span>
-                    <span className="text-emerald-600 font-medium">{woStats.done} done</span>
-                    <span className="text-gray-300">•</span>
-                    <span className="text-gray-400">{woStats.closed} closed</span>
-                  </div>
-                )}
-                {woExpanded ? (
-                  <ChevronDown className="h-4 w-4 text-gray-400" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 text-gray-400" />
-                )}
-              </div>
+              <Wrench className="h-4 w-4" />
+              Work Orders
+              {!woLoading && (
+                <span className={`text-xs font-normal ${activeTab === "work-orders" ? "text-emerald-500" : "text-gray-400"}`}>
+                  ({sortedWo.length})
+                </span>
+              )}
             </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("invoices")}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                activeTab === "invoices"
+                  ? "bg-white/80 text-emerald-700 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-white/30"
+              }`}
+            >
+              <FileText className="h-4 w-4" />
+              Invoices
+              {!isLoadingInvoices && (
+                <span className={`text-xs font-normal ${activeTab === "invoices" ? "text-emerald-500" : "text-gray-400"}`}>
+                  ({invoices.length})
+                </span>
+              )}
+            </button>
+          </div>
 
-            {woExpanded && (
-              <div className="border-t border-white/30">
-                {/* Sync bar */}
-                <div className="flex items-center justify-between px-5 py-3 bg-white/20">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      onClick={(e) => { e.stopPropagation(); handleWoSync(); }}
-                      disabled={woSyncing}
-                      size="sm"
-                      className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white text-xs h-7 px-3"
-                    >
-                      {woSyncing ? (
-                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                      ) : (
-                        <RefreshCw className="h-3 w-3 mr-1" />
-                      )}
-                      {woSyncing ? "Syncing..." : "Sync Now"}
-                    </Button>
-                    {woSyncMessage && (
-                      <span className="text-[11px] text-emerald-600">{woSyncMessage}</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
+          {/* ============================== */}
+          {/* Work Orders Tab                */}
+          {/* ============================== */}
+          {activeTab === "work-orders" && (
+            <div className="space-y-6">
+              {/* Filters */}
+              <div className="glass glass-shine rounded-2xl px-5 py-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-gray-700">Filters</span>
+                  {woHasFilters && (
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={handleWoExportCsv}
-                      disabled={sortedWo.length === 0}
-                      className="text-gray-400 hover:text-gray-600 text-[10px] h-7"
+                      onClick={() => {
+                        setWoAppfolioStatusFilter([]);
+                        setWoPriorityFilter([]);
+                        setWoSearchInput("");
+                      }}
+                      className="text-gray-400 hover:text-gray-600 text-xs"
                     >
-                      <Download className="h-3 w-3 mr-1" />
-                      CSV
+                      Reset
                     </Button>
-                  </div>
+                  )}
                 </div>
 
-                {/* Filters row */}
-                <div className="px-5 py-3 space-y-2.5 bg-white/10 border-t border-white/20">
-                  <div className="flex items-center gap-4 flex-wrap">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-medium text-gray-400 uppercase">Status:</span>
-                      <PillToggle<"open" | "closed" | "done">
-                        options={["open", "done", "closed"]}
-                        selected={woStatusFilter}
-                        onToggle={(s) => setWoStatusFilter(toggle(woStatusFilter, s))}
-                        labelFn={(s) => STATUS_STYLES[s]?.label || s}
-                      />
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-medium text-gray-400 uppercase">Priority:</span>
-                      <PillToggle<string>
-                        options={["Emergency", "Urgent", "High", "Normal", "Low"]}
-                        selected={woPriorityFilter}
-                        onToggle={(p) => setWoPriorityFilter(toggle(woPriorityFilter, p))}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="relative max-w-xs flex-1">
-                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
-                      <Input
-                        type="text"
-                        placeholder="Search property, address, WO#..."
-                        value={woSearchInput}
-                        onChange={(e) => setWoSearchInput(e.target.value)}
-                        className="pl-7 h-7 text-xs bg-white/70"
-                      />
-                    </div>
-                    {woHasFilters && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => { setWoStatusFilter([]); setWoPriorityFilter([]); setWoSearchInput(""); }}
-                        className="text-gray-400 hover:text-gray-600 text-[10px] h-7"
-                      >
-                        Reset
-                      </Button>
-                    )}
+                <div className="flex items-center gap-4 flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-medium text-gray-400 uppercase">Status:</span>
+                    <PillToggle<string>
+                      options={APPFOLIO_STATUSES}
+                      selected={woAppfolioStatusFilter}
+                      onToggle={(s) => setWoAppfolioStatusFilter(toggle(woAppfolioStatusFilter, s))}
+                    />
                   </div>
                 </div>
+                <div className="flex items-center gap-4 flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-medium text-gray-400 uppercase">Priority:</span>
+                    <PillToggle<string>
+                      options={["Emergency", "Urgent", "High", "Normal", "Low"]}
+                      selected={woPriorityFilter}
+                      onToggle={(p) => setWoPriorityFilter(toggle(woPriorityFilter, p))}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="relative max-w-xs flex-1">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
+                    <Input
+                      type="text"
+                      placeholder="Search property, address, WO#..."
+                      value={woSearchInput}
+                      onChange={(e) => setWoSearchInput(e.target.value)}
+                      className="pl-7 h-8 text-xs bg-white/70"
+                    />
+                  </div>
+                </div>
+              </div>
 
-                {/* Table */}
+              {/* Work Orders Table */}
+              <div className="glass glass-shine rounded-2xl overflow-hidden">
+                {/* Table header bar */}
+                <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/30">
+                  <span className="text-sm font-semibold text-gray-700">
+                    {sortedWo.length} Work Order{sortedWo.length !== 1 ? "s" : ""}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleWoExportCsv}
+                    disabled={sortedWo.length === 0}
+                    className="text-gray-400 hover:text-gray-600 text-xs"
+                  >
+                    <Download className="h-3.5 w-3.5 mr-1.5" />
+                    CSV
+                  </Button>
+                </div>
+
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-gray-100/80 border-t border-t-white/20">
+                      <tr className="border-b border-gray-100/80">
                         <th className="text-left px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
                           WO #
                         </th>
@@ -701,20 +788,21 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                       {woLoading ? (
                         <tr>
                           <td colSpan={7} className="px-4 py-10 text-center">
-                            <Loader2 className="h-5 w-5 animate-spin text-blue-500 mx-auto" />
+                            <Loader2 className="h-5 w-5 animate-spin text-emerald-500 mx-auto" />
                           </td>
                         </tr>
-                      ) : sortedWo.length === 0 ? (
+                      ) : paginatedWo.length === 0 ? (
                         <tr>
                           <td colSpan={7} className="px-4 py-10 text-center text-gray-400 text-xs">
                             {woHasFilters
                               ? "No work orders match the current filters"
-                              : "No work orders yet — click Sync Now to pull from AppFolio"}
+                              : "No work orders yet \u2014 click Sync Now to pull from AppFolio"}
                           </td>
                         </tr>
                       ) : (
-                        sortedWo.map((wo) => {
-                          const statusStyle = STATUS_STYLES[wo.status] || STATUS_STYLES.open;
+                        paginatedWo.map((wo) => {
+                          const afStatus = wo.appfolio_status || "New";
+                          const afStyle = APPFOLIO_STATUS_STYLES[afStatus] || { bg: "bg-blue-100/80", text: "text-blue-700" };
                           const priorityStyle = PRIORITY_STYLES[wo.priority || "Normal"] || PRIORITY_STYLES.Normal;
 
                           return (
@@ -744,8 +832,8 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                                 </span>
                               </td>
                               <td className="px-4 py-2.5">
-                                <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded-full ${statusStyle.bg} ${statusStyle.text}`}>
-                                  {statusStyle.label}
+                                <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded-full ${afStyle.bg} ${afStyle.text}`}>
+                                  {afStatus}
                                 </span>
                               </td>
                               <td className="px-4 py-2.5 text-gray-500 text-[11px] hidden md:table-cell">
@@ -769,24 +857,63 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                   </table>
                 </div>
 
+                {/* Pagination */}
+                {!woLoading && sortedWo.length > WO_PAGE_SIZE && (
+                  <div className="flex items-center justify-between px-5 py-3 border-t border-white/30">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setWoPage(Math.max(1, woPage - 1))}
+                      disabled={woPage <= 1}
+                      className="text-gray-500 hover:text-gray-700 text-xs h-7"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+                      Prev
+                    </Button>
+                    <span className="text-xs text-gray-500">
+                      Page {woPage} of {totalWoPages}
+                      <span className="text-gray-300 ml-2">
+                        ({(woPage - 1) * WO_PAGE_SIZE + 1}\u2013{Math.min(woPage * WO_PAGE_SIZE, sortedWo.length)} of {sortedWo.length})
+                      </span>
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setWoPage(Math.min(totalWoPages, woPage + 1))}
+                      disabled={woPage >= totalWoPages}
+                      className="text-gray-500 hover:text-gray-700 text-xs h-7"
+                    >
+                      Next
+                      <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                    </Button>
+                  </div>
+                )}
+
                 {/* Footer */}
                 {!woLoading && sortedWo.length > 0 && (
                   <div className="px-5 py-2.5 text-center text-[10px] text-gray-300 border-t border-white/20">
-                    {sortedWo.length} work order{sortedWo.length !== 1 ? "s" : ""} • Last synced{" "}
+                    Last synced{" "}
                     {workOrders[0]?.synced_at ? formatDate(workOrders[0].synced_at) : "never"}
                   </div>
                 )}
               </div>
-            )}
-          </div>
 
-          {/* Invoice List */}
-          <InvoiceList
-            invoices={invoices}
-            onRefresh={fetchInvoices}
-            onEdit={handleEditInvoice}
-            isLoading={isLoadingInvoices}
-          />
+              {/* File Drop Zone — below work orders table */}
+              <CsvUploader onParsed={handleCsvParsed} onPdfScanned={handlePdfScanned} />
+            </div>
+          )}
+
+          {/* ============================== */}
+          {/* Invoices Tab                   */}
+          {/* ============================== */}
+          {activeTab === "invoices" && (
+            <InvoiceList
+              invoices={invoices}
+              onRefresh={fetchInvoices}
+              onEdit={handleEditInvoice}
+              isLoading={isLoadingInvoices}
+            />
+          )}
         </div>
       )}
 
