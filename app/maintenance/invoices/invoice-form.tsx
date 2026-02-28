@@ -394,7 +394,10 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
               return res.json();
             })
             .then((data) => {
-              console.log("[InvoiceForm] extract-materials result:", data);
+              console.log("[InvoiceForm] extract-materials result:", JSON.stringify(data));
+              if (data.error) {
+                console.error("[InvoiceForm] extract-materials ERROR:", data.error);
+              }
               if (data.materials && data.materials.length > 0) {
                 setLineItems((prev) => {
                   // Update labor line description if AI separated it

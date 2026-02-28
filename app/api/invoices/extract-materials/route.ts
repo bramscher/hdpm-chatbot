@@ -86,7 +86,9 @@ ${description.trim()}`,
     }
   } catch (error) {
     console.error('[extract-materials] Error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to extract materials';
-    return NextResponse.json({ error: message }, { status: 500 });
+    const message = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : undefined;
+    console.error('[extract-materials] Stack:', stack);
+    return NextResponse.json({ error: message, detail: stack?.substring(0, 500) }, { status: 500 });
   }
 }
