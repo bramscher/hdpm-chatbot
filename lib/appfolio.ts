@@ -566,7 +566,7 @@ export interface AppFolioWorkOrder {
 
 function mapWorkOrderStatus(appfolioStatus: string): WorkOrderStatus {
   const s = (appfolioStatus || '').toLowerCase().trim();
-  if (s === 'completed' || s === 'complete') return 'done';
+  if (s === 'completed' || s === 'complete' || s === 'work completed') return 'done';
   if (s === 'canceled' || s === 'cancelled' || s === 'closed') return 'closed';
   return 'open'; // "Open", "In Progress", etc.
 }

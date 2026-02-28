@@ -3,8 +3,9 @@ import { getServerSession } from 'next-auth';
 import { fetchAppFolioWorkOrders, fetchAllPropertiesPublic } from '@/lib/appfolio';
 import { bulkUpsertWorkOrders } from '@/lib/work-orders';
 
-// Allow up to 60 seconds for the sync function (Vercel Pro)
-export const maxDuration = 60;
+// Allow up to 300 seconds for the sync function (Vercel Pro supports up to 300s).
+// AppFolio v0 API is slow (~20s per page of 200 work orders), so we need headroom.
+export const maxDuration = 300;
 
 /**
  * GET /api/sync/work-orders
