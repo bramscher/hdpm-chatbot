@@ -50,11 +50,13 @@ export async function POST(request: NextRequest) {
       property_name: property_name.trim(),
       property_address: property_address.trim(),
       wo_reference: body.wo_reference?.trim() || undefined,
+      work_order_id: body.work_order_id?.trim() || undefined,
       completed_date: body.completed_date || undefined,
       description: description.trim(),
       labor_amount: labor,
       materials_amount: materials,
       total_amount: total,
+      line_items: body.line_items?.length ? body.line_items : undefined,
       internal_notes: body.internal_notes?.trim() || undefined,
       created_by: session.user.email!,
     });

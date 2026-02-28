@@ -55,7 +55,7 @@ function blankLineItem(type: LineItemType = "labor"): FormLineItem {
     description: "",
     amount: "0.00",
     qty: "",
-    rate: STANDARD_RATE.toFixed(2),
+    rate: type === "labor" ? STANDARD_RATE.toFixed(2) : "",
     rateType: "standard",
     flatFeeKey: "",
   };
@@ -155,7 +155,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             description: li.description,
             amount: li.amount.toFixed(2),
             qty: li.qty ? String(li.qty) : "",
-            rate: li.unit_price ? li.unit_price.toFixed(2) : STANDARD_RATE.toFixed(2),
+            rate: li.unit_price ? li.unit_price.toFixed(2) : ((li.type || "labor") === "labor" ? STANDARD_RATE.toFixed(2) : ""),
             rateType: "standard" as RateType,
             flatFeeKey: "",
           }))
@@ -184,7 +184,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             description: "Materials",
             amount: editInvoice.materials_amount.toFixed(2),
             qty: "",
-            rate: STANDARD_RATE.toFixed(2),
+            rate: "",
             rateType: "standard",
             flatFeeKey: "",
           });
@@ -215,17 +215,20 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
       if (workOrder.line_items && workOrder.line_items.length > 0) {
         // Financial WO with pre-priced line items from Details table
         setLineItems(
-          workOrder.line_items.map((li) => ({
-            id: newLineItemId(),
-            type: (li.type as LineItemType) || "labor",
-            account: li.account || "",
-            description: li.description,
-            amount: li.amount.toFixed(2),
-            qty: "",
-            rate: STANDARD_RATE.toFixed(2),
-            rateType: "standard" as RateType,
-            flatFeeKey: "",
-          }))
+          workOrder.line_items.map((li) => {
+            const type = (li.type as LineItemType) || "labor";
+            return {
+              id: newLineItemId(),
+              type,
+              account: li.account || "",
+              description: li.description,
+              amount: li.amount.toFixed(2),
+              qty: "",
+              rate: type === "labor" ? STANDARD_RATE.toFixed(2) : "",
+              rateType: "standard" as RateType,
+              flatFeeKey: "",
+            };
+          })
         );
       } else if (workOrder.task_items && workOrder.task_items.length > 0) {
         // Task-list WO — roll all tasks into a single Labor line + a Materials line
@@ -249,7 +252,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             description: "Materials",
             amount: "0.00",
             qty: "",
-            rate: STANDARD_RATE.toFixed(2),
+            rate: "",
             rateType: "standard",
             flatFeeKey: "",
           },
@@ -292,7 +295,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             description: "Materials",
             amount: workOrder.materials_amount,
             qty: "",
-            rate: STANDARD_RATE.toFixed(2),
+            rate: "",
             rateType: "standard",
             flatFeeKey: "",
           });
@@ -446,10 +449,12 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
         }
         // When switching type TO materials, clear labor-specific fields
         if (field === "type" && value === "materials") {
+          updated.rate = "";
           updated.rateType = "standard";
         }
         // When switching type TO other, clear specifics
         if (field === "type" && value === "other") {
+          updated.rate = "";
           updated.rateType = "standard";
           updated.flatFeeKey = "";
         }
@@ -868,12 +873,12 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
 
           <div className="rounded-xl border border-gray-200/60 bg-white/50 overflow-hidden">
             {/* Table header */}
-            <div className="grid grid-cols-[80px_1fr_60px_80px_40px_90px_36px] gap-2 px-3 py-2 bg-gray-50/80 border-b border-gray-200/40 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
+            <div className="grid grid-cols-[80px_1fr_60px_80px_48px_90px_36px] gap-2 px-3 py-2 bg-gray-50/80 border-b border-gray-200/40 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
               <span>Type</span>
               <span>Description</span>
               <span>Qty</span>
               <span>Price</span>
-              <span />
+              <span className="text-center">OT</span>
               <span className="text-right">Extended</span>
               <span />
             </div>
@@ -888,7 +893,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
               return (
                 <div
                   key={li.id}
-                  className={`grid grid-cols-[80px_1fr_60px_80px_40px_90px_36px] gap-2 px-3 py-1.5 border-b border-gray-100/60 last:border-b-0 items-start ${
+                  className={`grid grid-cols-[80px_1fr_60px_80px_48px_90px_36px] gap-2 px-3 py-1.5 border-b border-gray-100/60 last:border-b-0 items-start ${
                     isUnpriced ? "bg-amber-50/30" : ""
                   }`}
                 >
@@ -1031,7 +1036,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             {/* Subtotals + Total row */}
             <div className="bg-gray-50/80 border-t border-gray-200/60 px-3 py-2.5 space-y-1">
               {(laborTotal > 0 || materialsTotal > 0) && (laborTotal !== totalAmount) && (
-                <div className="grid grid-cols-[80px_1fr_60px_80px_40px_90px_36px] gap-2 items-center">
+                <div className="grid grid-cols-[80px_1fr_60px_80px_48px_90px_36px] gap-2 items-center">
                   <span />
                   <div className="flex justify-end gap-6 text-[10px] text-gray-400">
                     {laborTotal > 0 && (
@@ -1048,7 +1053,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
                   <span />
                 </div>
               )}
-              <div className="grid grid-cols-[80px_1fr_60px_80px_40px_90px_36px] gap-2 items-center">
+              <div className="grid grid-cols-[80px_1fr_60px_80px_48px_90px_36px] gap-2 items-center">
                 <span />
                 <span />
                 <span />
