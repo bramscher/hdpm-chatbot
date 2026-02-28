@@ -211,13 +211,9 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
       setWoReference(workOrder.wo_number);
       setCompletedDate(workOrder.completed_date);
 
-      // Load line items from scanned PDF
-      // Helper: truncate a description to at most 2 lines
-      const truncate2Lines = (text: string): string => {
-        const lines = text.split('\n').filter(l => l.trim());
-        return lines.slice(0, 2).join('\n');
-      };
-
+      // Load line items from scanned PDF — full WO text goes into the labor
+      // description so the user can reference it while editing.  The 2-row
+      // textarea keeps the UI compact; PDF only prints what the user leaves.
       if (workOrder.line_items && workOrder.line_items.length > 0) {
         // Financial WO with pre-priced line items from Details table
         setLineItems(
@@ -227,7 +223,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
               id: newLineItemId(),
               type,
               account: li.account || "",
-              description: truncate2Lines(li.description),
+              description: li.description,
               amount: li.amount.toFixed(2),
               qty: "",
               rate: type === "labor" ? STANDARD_RATE.toFixed(2) : "",
@@ -238,7 +234,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
         );
       } else if (workOrder.task_items && workOrder.task_items.length > 0) {
         // Task-list WO — roll all tasks into a single Labor line + a Materials line
-        const taskSummary = workOrder.task_items.slice(0, 2).join("; ");
+        const taskSummary = workOrder.task_items.join("; ");
         const items: FormLineItem[] = [
           {
             id: newLineItemId(),
@@ -272,7 +268,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             id: newLineItemId(),
             type: "labor",
             account: "",
-            description: "Labor",
+            description: workOrder.description || "Labor",
             amount: workOrder.labor_amount,
             qty: "",
             rate: STANDARD_RATE.toFixed(2),
@@ -280,12 +276,12 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             flatFeeKey: "",
           });
         } else {
-          // No amounts yet — start with empty labor line; WO narrative is in internal notes for reference
+          // No amounts yet — put full WO description so user can edit it down
           items.push({
             id: newLineItemId(),
             type: "labor",
             account: "",
-            description: "",
+            description: workOrder.description || "",
             amount: "0.00",
             qty: "",
             rate: STANDARD_RATE.toFixed(2),
