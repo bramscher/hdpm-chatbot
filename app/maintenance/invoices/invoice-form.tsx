@@ -154,8 +154,8 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             account: li.account || "",
             description: li.description,
             amount: li.amount.toFixed(2),
-            qty: "",
-            rate: STANDARD_RATE.toFixed(2),
+            qty: li.qty ? String(li.qty) : "",
+            rate: li.unit_price ? li.unit_price.toFixed(2) : STANDARD_RATE.toFixed(2),
             rateType: "standard" as RateType,
             flatFeeKey: "",
           }))
@@ -502,6 +502,8 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
         description: li.description.trim(),
         account: li.account.trim() || undefined,
         type: li.type,
+        qty: parseFloat(li.qty) || undefined,
+        unit_price: parseFloat(li.rate) || undefined,
         amount: parseFloat(li.amount) || 0,
       }));
 

@@ -174,27 +174,35 @@ export function generateInvoicePdf(invoice: HdmsInvoice): Buffer {
     ? invoice.line_items
     : [];
 
-  // Column layout: Type (60) | Account (100) | Description (flex) | Amount (80)
+  // Column layout: Type (55) | Description (flex) | Qty (45) | Price (65) | Extended (75)
   const COL_TYPE_W = 55;
-  const COL_ACCT_W = 90;
-  const COL_AMT_W = 75;
-  const COL_DESC_W = CONTENT_W - COL_TYPE_W - COL_ACCT_W - COL_AMT_W;
+  const COL_QTY_W = 45;
+  const COL_PRICE_W = 65;
+  const COL_EXT_W = 75;
+  const COL_DESC_W = CONTENT_W - COL_TYPE_W - COL_QTY_W - COL_PRICE_W - COL_EXT_W;
 
   const COL_TYPE_X = MARGIN;
-  const COL_ACCT_X = COL_TYPE_X + COL_TYPE_W;
-  const COL_DESC_X = COL_ACCT_X + COL_ACCT_W;
-  const COL_AMT_X = MARGIN + CONTENT_W; // right-aligned
+  const COL_DESC_X = COL_TYPE_X + COL_TYPE_W;
+  const COL_QTY_X = COL_DESC_X + COL_DESC_W;
+  const COL_PRICE_X = COL_QTY_X + COL_QTY_W;
+  const COL_EXT_X = MARGIN + CONTENT_W; // right-aligned
 
   if (lineItems.length > 0) {
+    // Check if any items have qty data (to decide whether to show qty/price columns)
+    const hasQtyData = lineItems.some(li => li.qty && li.qty > 0);
+
     // Table header
     checkPageBreak(40);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
     doc.setTextColor(LABEL);
     doc.text('TYPE', COL_TYPE_X, y);
-    doc.text('ACCOUNT', COL_ACCT_X, y);
     doc.text('DESCRIPTION', COL_DESC_X, y);
-    doc.text('AMOUNT', COL_AMT_X, y, { align: 'right' });
+    if (hasQtyData) {
+      doc.text('QTY', COL_QTY_X + COL_QTY_W, y, { align: 'right' });
+      doc.text('PRICE', COL_PRICE_X + COL_PRICE_W, y, { align: 'right' });
+    }
+    doc.text('AMOUNT', COL_EXT_X, y, { align: 'right' });
     y += 8;
 
     doc.setDrawColor(DARK);
@@ -213,7 +221,8 @@ export function generateInvoicePdf(invoice: HdmsInvoice): Buffer {
       else if (type === 'materials') materialsSubtotal += amount;
 
       // Wrap description text
-      const descWrapped = doc.splitTextToSize(item.description, COL_DESC_W - 6);
+      const descColW = hasQtyData ? COL_DESC_W - 6 : (CONTENT_W - COL_TYPE_W - COL_EXT_W - 6);
+      const descWrapped = doc.splitTextToSize(item.description, descColW);
       const rowHeight = Math.max(descWrapped.length * 12, 14);
 
       checkPageBreak(rowHeight + 10);
@@ -226,16 +235,6 @@ export function generateInvoicePdf(invoice: HdmsInvoice): Buffer {
       else doc.setTextColor(MID);
       doc.text(capitalize(type), COL_TYPE_X, y);
 
-      // Account
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(MID);
-      const acctText = item.account || '';
-      if (acctText) {
-        const truncAcct = acctText.length > 14 ? acctText.substring(0, 14) + '…' : acctText;
-        doc.text(truncAcct, COL_ACCT_X, y);
-      }
-
       // Description (wrapped)
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(10);
@@ -244,12 +243,24 @@ export function generateInvoicePdf(invoice: HdmsInvoice): Buffer {
         doc.text(descWrapped[i], COL_DESC_X, y + (i * 12));
       }
 
-      // Amount
+      // Qty and Unit Price
+      if (hasQtyData && item.qty && item.qty > 0) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(MID);
+        doc.text(String(item.qty), COL_QTY_X + COL_QTY_W, y, { align: 'right' });
+
+        if (item.unit_price && item.unit_price > 0) {
+          doc.text(formatCurrency(item.unit_price), COL_PRICE_X + COL_PRICE_W, y, { align: 'right' });
+        }
+      }
+
+      // Extended Amount
       if (amount > 0) {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
         doc.setTextColor(DARK);
-        doc.text(formatCurrency(amount), COL_AMT_X, y, { align: 'right' });
+        doc.text(formatCurrency(amount), COL_EXT_X, y, { align: 'right' });
       }
 
       y += rowHeight;
@@ -272,13 +283,13 @@ export function generateInvoicePdf(invoice: HdmsInvoice): Buffer {
       doc.setTextColor(BLUE_LABEL);
       doc.text('Labor Subtotal', MARGIN + CONTENT_W - 160, y);
       doc.setTextColor(DARK);
-      doc.text(formatCurrency(laborSubtotal), COL_AMT_X, y, { align: 'right' });
+      doc.text(formatCurrency(laborSubtotal), COL_EXT_X, y, { align: 'right' });
       y += 14;
 
       doc.setTextColor(AMBER_LABEL);
       doc.text('Materials Subtotal', MARGIN + CONTENT_W - 160, y);
       doc.setTextColor(DARK);
-      doc.text(formatCurrency(materialsSubtotal), COL_AMT_X, y, { align: 'right' });
+      doc.text(formatCurrency(materialsSubtotal), COL_EXT_X, y, { align: 'right' });
       y += 14;
     }
   } else {

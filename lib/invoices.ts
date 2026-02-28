@@ -9,7 +9,9 @@ export interface LineItem {
   description: string;
   account?: string;        // GL account code from work order (e.g. "6500: Keys, Locks...")
   type?: 'labor' | 'materials' | 'other';  // categorization for the line item
-  amount: number;
+  qty?: number;            // quantity (hours for labor, count for materials)
+  unit_price?: number;     // per-unit price (hourly rate for labor, per-item for materials)
+  amount: number;          // extended amount (qty × unit_price, or manual entry)
 }
 
 export interface HdmsInvoice {
