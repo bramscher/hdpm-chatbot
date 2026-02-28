@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { ArrowLeft, Save, FileDown, Loader2, Trash2, Wrench, Package, Check, Sparkles } from "lucide-react";
+import { ArrowLeft, Save, FileDown, Loader2, Trash2, Wrench, Package, Check, Sparkles, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { WorkOrderRow, HdmsInvoice, LineItem } from "@/lib/invoices";
@@ -14,6 +14,19 @@ interface InvoiceFormProps {
 }
 
 type LineItemType = "labor" | "materials" | "other";
+type RateType = "standard" | "after-hours";
+
+// ── Labor rate constants ──────────
+const STANDARD_RATE = 95;
+const AFTER_HOURS_MULTIPLIER = 1.5;
+const AFTER_HOURS_RATE = STANDARD_RATE * AFTER_HOURS_MULTIPLIER; // $142.50
+
+// ── Flat fee jobs lookup (user will populate) ──────────
+const FLAT_FEE_JOBS: { key: string; label: string; amount: number; description: string }[] = [
+  // Examples — user will provide actual list:
+  // { key: "winterize", label: "Winterize Sprinklers", amount: 75, description: "Winterize sprinkler system — blow out lines" },
+  // { key: "swamp-startup", label: "Swamp Cooler Startup", amount: 125, description: "Seasonal swamp cooler startup and inspection" },
+];
 
 interface FormLineItem {
   id: string;
@@ -21,6 +34,12 @@ interface FormLineItem {
   account: string;
   description: string;
   amount: string;
+  // Labor-specific
+  qty: string;
+  rate: string;
+  rateType: RateType;
+  // Materials-specific
+  flatFeeKey: string;
 }
 
 let nextLineItemId = 1;
@@ -29,7 +48,17 @@ function newLineItemId(): string {
 }
 
 function blankLineItem(type: LineItemType = "labor"): FormLineItem {
-  return { id: newLineItemId(), type, account: "", description: "", amount: "0.00" };
+  return {
+    id: newLineItemId(),
+    type,
+    account: "",
+    description: "",
+    amount: "0.00",
+    qty: "",
+    rate: STANDARD_RATE.toFixed(2),
+    rateType: "standard",
+    flatFeeKey: "",
+  };
 }
 
 const TYPE_STYLES: Record<LineItemType, { bg: string; text: string; label: string; icon: typeof Wrench }> = {
@@ -125,6 +154,10 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             account: li.account || "",
             description: li.description,
             amount: li.amount.toFixed(2),
+            qty: "",
+            rate: STANDARD_RATE.toFixed(2),
+            rateType: "standard" as RateType,
+            flatFeeKey: "",
           }))
         );
       } else {
@@ -137,6 +170,10 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             account: "",
             description: editInvoice.description || "Labor",
             amount: editInvoice.labor_amount.toFixed(2),
+            qty: "",
+            rate: STANDARD_RATE.toFixed(2),
+            rateType: "standard",
+            flatFeeKey: "",
           });
         }
         if (editInvoice.materials_amount > 0) {
@@ -146,6 +183,10 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             account: "",
             description: "Materials",
             amount: editInvoice.materials_amount.toFixed(2),
+            qty: "",
+            rate: STANDARD_RATE.toFixed(2),
+            rateType: "standard",
+            flatFeeKey: "",
           });
         }
         if (items.length === 0) {
@@ -155,6 +196,10 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             account: "",
             description: editInvoice.description || "",
             amount: "0.00",
+            qty: "",
+            rate: STANDARD_RATE.toFixed(2),
+            rateType: "standard",
+            flatFeeKey: "",
           });
         }
         setLineItems(items);
@@ -176,6 +221,10 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             account: li.account || "",
             description: li.description,
             amount: li.amount.toFixed(2),
+            qty: "",
+            rate: STANDARD_RATE.toFixed(2),
+            rateType: "standard" as RateType,
+            flatFeeKey: "",
           }))
         );
       } else if (workOrder.task_items && workOrder.task_items.length > 0) {
@@ -188,6 +237,10 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             account: "",
             description: `Labor – ${taskSummary}`,
             amount: "0.00",
+            qty: "",
+            rate: STANDARD_RATE.toFixed(2),
+            rateType: "standard",
+            flatFeeKey: "",
           },
           {
             id: newLineItemId(),
@@ -195,6 +248,10 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             account: "",
             description: "Materials",
             amount: "0.00",
+            qty: "",
+            rate: STANDARD_RATE.toFixed(2),
+            rateType: "standard",
+            flatFeeKey: "",
           },
         ];
         setLineItems(items);
@@ -208,6 +265,10 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             account: "",
             description: workOrder.description || "Labor",
             amount: workOrder.labor_amount,
+            qty: "",
+            rate: STANDARD_RATE.toFixed(2),
+            rateType: "standard",
+            flatFeeKey: "",
           });
         } else {
           // No amounts yet — just put the description in a labor line
@@ -217,6 +278,10 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             account: "",
             description: workOrder.description || "",
             amount: "0.00",
+            qty: "",
+            rate: STANDARD_RATE.toFixed(2),
+            rateType: "standard",
+            flatFeeKey: "",
           });
         }
         if (workOrder.materials_amount && parseFloat(workOrder.materials_amount) > 0) {
@@ -226,6 +291,10 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             account: "",
             description: "Materials",
             amount: workOrder.materials_amount,
+            qty: "",
+            rate: STANDARD_RATE.toFixed(2),
+            rateType: "standard",
+            flatFeeKey: "",
           });
         }
         setLineItems(items);
@@ -252,12 +321,30 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
         createdBy: workOrder.created_by || undefined,
       });
 
-      // Pre-fill internal notes with useful context
+      // Pre-fill internal notes with comprehensive WO reference
       const noteParts: string[] = [];
-      if (workOrder.vendor_instructions) noteParts.push(`Vendor: ${workOrder.vendor_instructions}`);
-      if (workOrder.property_notes) noteParts.push(`Notes: ${workOrder.property_notes}`);
-      if (workOrder.technician || workOrder.created_by) noteParts.push(`Tech: ${workOrder.technician || workOrder.created_by}`);
-      if (noteParts.length > 0) setInternalNotes(noteParts.join("\n"));
+      noteParts.push("=== WORK ORDER REFERENCE ===");
+      if (workOrder.wo_number) noteParts.push(`WO#: ${workOrder.wo_number}`);
+      noteParts.push(`Property: ${workOrder.property_name}`);
+      if (workOrder.property_address) noteParts.push(`Address: ${workOrder.property_address}`);
+      if (workOrder.unit) noteParts.push(`Unit: ${workOrder.unit}`);
+      if (workOrder.status) noteParts.push(`Status: ${workOrder.status}`);
+      if (workOrder.category) noteParts.push(`Category: ${workOrder.category}`);
+      if (workOrder.assigned_to) noteParts.push(`Assigned To: ${workOrder.assigned_to}`);
+      if (workOrder.created_date) noteParts.push(`Created: ${workOrder.created_date}`);
+      if (workOrder.scheduled_date) noteParts.push(`Scheduled: ${workOrder.scheduled_date}`);
+      if (workOrder.completed_date) noteParts.push(`Completed: ${workOrder.completed_date}`);
+      if (workOrder.permission_to_enter) noteParts.push(`Permission to Enter: ${workOrder.permission_to_enter}`);
+      if (workOrder.maintenance_limit) noteParts.push(`Maintenance Limit: $${workOrder.maintenance_limit}`);
+      if (workOrder.estimate_amount) noteParts.push(`Estimate: $${workOrder.estimate_amount}`);
+      if (workOrder.pets) noteParts.push(`Pets: ${workOrder.pets}`);
+      if (workOrder.technician || workOrder.created_by) noteParts.push(`Technician: ${workOrder.technician || workOrder.created_by}`);
+      if (workOrder.vendor_instructions) noteParts.push(`\nVendor Instructions:\n${workOrder.vendor_instructions}`);
+      if (workOrder.property_notes) noteParts.push(`\nProperty Notes:\n${workOrder.property_notes}`);
+      if (workOrder.technician_notes) noteParts.push(`\nTechnician Notes:\n${workOrder.technician_notes}`);
+      if (workOrder.description) noteParts.push(`\nDescription:\n${workOrder.description}`);
+      if (workOrder.task_items?.length) noteParts.push(`\nTasks:\n${workOrder.task_items.map((t) => `• ${t}`).join("\n")}`);
+      setInternalNotes(noteParts.join("\n"));
     } else {
       savedInvoiceIdRef.current = null;
     }
@@ -331,7 +418,44 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
   function updateLineItem(id: string, field: keyof Omit<FormLineItem, "id">, value: string) {
     userHasEdited.current = true;
     setLineItems((prev) =>
-      prev.map((li) => (li.id === id ? { ...li, [field]: value } : li))
+      prev.map((li) => {
+        if (li.id !== id) return li;
+        const updated = { ...li, [field]: value };
+
+        // When toggling rateType (labor-only), also update the rate
+        if (field === "rateType" && updated.type === "labor") {
+          updated.rate = value === "after-hours"
+            ? AFTER_HOURS_RATE.toFixed(2)
+            : STANDARD_RATE.toFixed(2);
+        }
+
+        // Auto-calculate amount = qty × rate for ALL line types
+        if (field === "qty" || field === "rate" || field === "rateType") {
+          const q = parseFloat(updated.qty) || 0;
+          const r = parseFloat(updated.rate) || 0;
+          if (q > 0 && r > 0) {
+            updated.amount = (q * r).toFixed(2);
+          }
+        }
+
+        // When switching type TO labor, set default rate fields
+        if (field === "type" && value === "labor") {
+          updated.rate = STANDARD_RATE.toFixed(2);
+          updated.rateType = "standard";
+          updated.flatFeeKey = "";
+        }
+        // When switching type TO materials, clear labor-specific fields
+        if (field === "type" && value === "materials") {
+          updated.rateType = "standard";
+        }
+        // When switching type TO other, clear specifics
+        if (field === "type" && value === "other") {
+          updated.rateType = "standard";
+          updated.flatFeeKey = "";
+        }
+
+        return updated;
+      })
     );
   }
 
@@ -346,6 +470,21 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
   function addLineItem(type: LineItemType = "labor") {
     userHasEdited.current = true;
     setLineItems((prev) => [...prev, blankLineItem(type)]);
+  }
+
+  // ── Flat fee selection ──────────
+  function handleFlatFeeSelect(lineItemId: string, feeKey: string) {
+    userHasEdited.current = true;
+    const job = FLAT_FEE_JOBS.find((j) => j.key === feeKey);
+    setLineItems((prev) =>
+      prev.map((li) => {
+        if (li.id !== lineItemId) return li;
+        if (job) {
+          return { ...li, flatFeeKey: feeKey, description: job.description, amount: job.amount.toFixed(2) };
+        }
+        return { ...li, flatFeeKey: "" };
+      })
+    );
   }
 
   function formatDateForInput(dateStr: string): string {
@@ -727,11 +866,13 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
 
           <div className="rounded-xl border border-gray-200/60 bg-white/50 overflow-hidden">
             {/* Table header */}
-            <div className="grid grid-cols-[80px_1fr_3fr_100px_36px] gap-2 px-3 py-2 bg-gray-50/80 border-b border-gray-200/40 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
+            <div className="grid grid-cols-[80px_1fr_60px_80px_40px_90px_36px] gap-2 px-3 py-2 bg-gray-50/80 border-b border-gray-200/40 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
               <span>Type</span>
-              <span>Account</span>
               <span>Description</span>
-              <span className="text-right">Amount</span>
+              <span>Qty</span>
+              <span>Price</span>
+              <span />
+              <span className="text-right">Extended</span>
               <span />
             </div>
 
@@ -739,14 +880,17 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             {lineItems.map((li, idx) => {
               const typeStyle = TYPE_STYLES[li.type];
               const isUnpriced = li.description.trim() && (parseFloat(li.amount) || 0) === 0;
+              const isLabor = li.type === "labor";
+              const isMaterials = li.type === "materials";
 
               return (
                 <div
                   key={li.id}
-                  className={`grid grid-cols-[80px_1fr_3fr_100px_36px] gap-2 px-3 py-1.5 border-b border-gray-100/60 last:border-b-0 items-start ${
+                  className={`grid grid-cols-[80px_1fr_60px_80px_40px_90px_36px] gap-2 px-3 py-1.5 border-b border-gray-100/60 last:border-b-0 items-start ${
                     isUnpriced ? "bg-amber-50/30" : ""
                   }`}
                 >
+                  {/* Type selector */}
                   <select
                     value={li.type}
                     onChange={(e) => updateLineItem(li.id, "type", e.target.value)}
@@ -757,19 +901,29 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
                     <option value="materials">Materials</option>
                     <option value="other">Other</option>
                   </select>
-                  <Input
-                    value={li.account}
-                    onChange={(e) => updateLineItem(li.id, "account", e.target.value)}
-                    placeholder="Account"
-                    disabled={isLoading}
-                    className="h-8 text-xs bg-transparent border-gray-200/40"
-                  />
-                  {/* Description with AI rewrite button */}
+
+                  {/* Description */}
                   <div className="relative">
+                    {/* Flat fee dropdown for materials */}
+                    {isMaterials && FLAT_FEE_JOBS.length > 0 && (
+                      <select
+                        value={li.flatFeeKey}
+                        onChange={(e) => handleFlatFeeSelect(li.id, e.target.value)}
+                        disabled={isLoading}
+                        className="w-full h-7 text-[10px] font-medium rounded-lg border border-amber-200/60 bg-amber-50/40 text-amber-700 px-2 mb-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-600/30"
+                      >
+                        <option value="">Custom entry</option>
+                        {FLAT_FEE_JOBS.map((job) => (
+                          <option key={job.key} value={job.key}>
+                            {job.label} — ${job.amount}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     <textarea
                       value={li.description}
                       onChange={(e) => updateLineItem(li.id, "description", e.target.value)}
-                      placeholder={idx === 0 && li.type === "labor" ? "Describe the work performed...\n• Bullet points supported" : `Line item ${idx + 1} description`}
+                      placeholder={idx === 0 && isLabor ? "Describe the work performed...\n• Bullet points supported" : isMaterials ? "Parts / materials description" : `Line item ${idx + 1} description`}
                       disabled={isLoading || rewritingId === li.id}
                       rows={4}
                       className={`w-full text-xs bg-transparent border border-gray-200/40 rounded-md px-3 py-2 resize-y leading-relaxed focus:outline-none focus:ring-2 focus:ring-emerald-600/30 disabled:opacity-50 ${
@@ -792,6 +946,57 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
                       </button>
                     )}
                   </div>
+
+                  {/* Qty — all line types */}
+                  <Input
+                    type="number"
+                    step={isLabor ? "0.25" : "1"}
+                    min="0"
+                    value={li.qty}
+                    onChange={(e) => updateLineItem(li.id, "qty", e.target.value)}
+                    placeholder={isLabor ? "Hrs" : "Qty"}
+                    disabled={isLoading}
+                    className="h-8 text-xs text-center bg-transparent border-gray-200/40"
+                  />
+
+                  {/* Unit Price — all line types */}
+                  <div className="relative">
+                    <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]">$</span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={li.rate}
+                      onChange={(e) => updateLineItem(li.id, "rate", e.target.value)}
+                      placeholder={isLabor ? "/hr" : "ea"}
+                      disabled={isLoading}
+                      className="h-8 text-xs pl-4 text-right bg-transparent border-gray-200/40"
+                    />
+                  </div>
+
+                  {/* After-hours toggle — labor only; empty spacer for others */}
+                  {isLabor ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateLineItem(li.id, "rateType", li.rateType === "standard" ? "after-hours" : "standard")
+                      }
+                      disabled={isLoading}
+                      title={li.rateType === "after-hours" ? "After-hours rate (1.5×)" : "Standard rate"}
+                      className={`flex items-center justify-center h-8 w-full rounded-lg text-[9px] font-bold transition-all duration-200 ${
+                        li.rateType === "after-hours"
+                          ? "bg-orange-100 text-orange-700 ring-1 ring-orange-300"
+                          : "bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                      }`}
+                    >
+                      <Clock className="h-3 w-3 mr-0.5" />
+                      AH
+                    </button>
+                  ) : (
+                    <span />
+                  )}
+
+                  {/* Extended Amount (qty × price) */}
                   <div className="relative">
                     <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
                     <Input
@@ -806,6 +1011,8 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
                       }`}
                     />
                   </div>
+
+                  {/* Delete */}
                   <button
                     type="button"
                     onClick={() => removeLineItem(li.id)}
@@ -822,8 +1029,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             {/* Subtotals + Total row */}
             <div className="bg-gray-50/80 border-t border-gray-200/60 px-3 py-2.5 space-y-1">
               {(laborTotal > 0 || materialsTotal > 0) && (laborTotal !== totalAmount) && (
-                <div className="grid grid-cols-[80px_1fr_2fr_100px_36px] gap-2 items-center">
-                  <span />
+                <div className="grid grid-cols-[80px_1fr_60px_80px_40px_90px_36px] gap-2 items-center">
                   <span />
                   <div className="flex justify-end gap-6 text-[10px] text-gray-400">
                     {laborTotal > 0 && (
@@ -835,9 +1041,14 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
                   </div>
                   <span />
                   <span />
+                  <span />
+                  <span />
+                  <span />
                 </div>
               )}
-              <div className="grid grid-cols-[80px_1fr_2fr_100px_36px] gap-2 items-center">
+              <div className="grid grid-cols-[80px_1fr_60px_80px_40px_90px_36px] gap-2 items-center">
+                <span />
+                <span />
                 <span />
                 <span />
                 <span className="text-right text-xs font-semibold text-gray-600">Total</span>
@@ -859,7 +1070,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             value={internalNotes}
             onChange={(e) => { userHasEdited.current = true; setInternalNotes(e.target.value); }}
             placeholder="Internal notes, vendor instructions, property notes..."
-            rows={3}
+            rows={6}
             disabled={isLoading}
             className="flex w-full rounded-xl border border-input bg-white/70 backdrop-blur-sm px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
           />
