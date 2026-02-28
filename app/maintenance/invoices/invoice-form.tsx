@@ -515,13 +515,16 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
     const computedLabor = validLineItems.filter((li) => li.type === "labor").reduce((sum, li) => sum + li.amount, 0);
     const computedMaterials = validLineItems.filter((li) => li.type === "materials").reduce((sum, li) => sum + li.amount, 0);
 
-    // Auto-compose description from labor line items (shown on PDF)
-    const laborDescs = validLineItems
-      .filter((li) => li.type === "labor" && li.description)
-      .map((li) => li.description);
+    // Short summary for the invoice description field (used for search, not shown on PDF when line items exist)
+    const allDescs = validLineItems
+      .filter((li) => li.description)
+      .map((li) => {
+        // Truncate long descriptions to first line or 80 chars for the summary
+        const first = li.description.split('\n')[0].trim();
+        return first.length > 80 ? first.slice(0, 77) + '...' : first;
+      });
     const composedDescription =
-      laborDescs.join("; ") ||
-      validLineItems.map((li) => li.description).filter(Boolean).join("; ") ||
+      allDescs.join("; ") ||
       "Maintenance services performed";
 
     return {

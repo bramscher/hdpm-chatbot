@@ -149,30 +149,32 @@ export function generateInvoicePdf(invoice: HdmsInvoice): Buffer {
 
   y += propBoxH + 20;
 
-  // ── Description ─────────────────────────────
-  checkPageBreak(60);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(LABEL);
-  doc.text('DESCRIPTION OF WORK', MARGIN, y);
-  y += 14;
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  doc.setTextColor(DARK);
-  const descLines = doc.splitTextToSize(String(invoice.description), CONTENT_W);
-  // Render description in chunks if it's very long
-  for (let i = 0; i < descLines.length; i++) {
-    checkPageBreak(14);
-    doc.text(descLines[i], MARGIN, y);
-    y += 14;
-  }
-  y += 8;
-
   // ── Line Items Table ────────────────────────
   const lineItems: LineItem[] = invoice.line_items && invoice.line_items.length > 0
     ? invoice.line_items
     : [];
+
+  // Only show the "DESCRIPTION OF WORK" block for legacy invoices without line items.
+  // When line items exist, each row already has its own description column.
+  if (lineItems.length === 0) {
+    checkPageBreak(60);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(LABEL);
+    doc.text('DESCRIPTION OF WORK', MARGIN, y);
+    y += 14;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(DARK);
+    const descLines = doc.splitTextToSize(String(invoice.description), CONTENT_W);
+    for (let i = 0; i < descLines.length; i++) {
+      checkPageBreak(14);
+      doc.text(descLines[i], MARGIN, y);
+      y += 14;
+    }
+    y += 8;
+  }
 
   // Column layout: Type (55) | Description (flex) | Qty (45) | Price (65) | Extended (75)
   const COL_TYPE_W = 55;
