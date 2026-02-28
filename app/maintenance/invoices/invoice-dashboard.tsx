@@ -807,6 +807,9 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                             Status <WoSortIcon field="status" />
                           </span>
                         </th>
+                        <th className="text-left px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-widest hidden md:table-cell">
+                          Assigned To
+                        </th>
                         <th
                           className="text-left px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-gray-600 hidden md:table-cell"
                           onClick={() => handleWoSort("created_at")}
@@ -823,13 +826,13 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                     <tbody>
                       {woLoading ? (
                         <tr>
-                          <td colSpan={7} className="px-4 py-10 text-center">
+                          <td colSpan={8} className="px-4 py-10 text-center">
                             <Loader2 className="h-5 w-5 animate-spin text-emerald-500 mx-auto" />
                           </td>
                         </tr>
                       ) : paginatedWo.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="px-4 py-10 text-center text-gray-400 text-xs">
+                          <td colSpan={8} className="px-4 py-10 text-center text-gray-400 text-xs">
                             {woHasFilters
                               ? "No work orders match the current filters"
                               : "No work orders yet \u2014 click Sync Now to pull from AppFolio"}
@@ -871,6 +874,9 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                                 <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded-full ${afStyle.bg} ${afStyle.text}`}>
                                   {afStatus}
                                 </span>
+                              </td>
+                              <td className="px-4 py-2.5 text-gray-500 text-[11px] hidden md:table-cell truncate max-w-[140px]">
+                                {wo.assigned_to || "—"}
                               </td>
                               <td className="px-4 py-2.5 text-gray-500 text-[11px] hidden md:table-cell">
                                 {formatDate(wo.created_at)}
