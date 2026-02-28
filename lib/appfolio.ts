@@ -575,17 +575,20 @@ function mapWorkOrderStatus(appfolioStatus: string): WorkOrderStatus {
 // Public: Fetch Work Orders (paginated)
 // ============================================
 
-export async function fetchAppFolioWorkOrders(): Promise<AppFolioWorkOrder[]> {
+export async function fetchAppFolioWorkOrders(
+  days = 90
+): Promise<AppFolioWorkOrder[]> {
   const config = getConfig();
   if (!config) return [];
 
   const { clientId, clientSecret, developerId } = config;
 
-  // Use a recent date — 1970 causes a 533 "Data unavailable" error.
-  // Fetch last 2 years of work orders.
-  const twoYearsAgo = new Date();
-  twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
-  const lastUpdatedFrom = twoYearsAgo.toISOString();
+  // Fetch work orders updated within the given window.
+  // Default 90 days — keeps Sync Now fast. Webhooks handle real-time updates.
+  // (1970 causes a 533 "Data unavailable" error, so always use a recent date.)
+  const sinceDate = new Date();
+  sinceDate.setDate(sinceDate.getDate() - days);
+  const lastUpdatedFrom = sinceDate.toISOString();
 
   const pageSize = 200;
 

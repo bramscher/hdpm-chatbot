@@ -3,17 +3,20 @@ import { getServerSession } from 'next-auth';
 import { fetchAppFolioWorkOrders, fetchAllPropertiesPublic } from '@/lib/appfolio';
 import { bulkUpsertWorkOrders } from '@/lib/work-orders';
 
+// Allow up to 60 seconds for the sync function (Vercel Pro)
+export const maxDuration = 60;
+
 /**
  * GET /api/sync/work-orders
  *
- * Debug endpoint — test AppFolio work order API connectivity.
- * TEMPORARILY PUBLIC for diagnostics. TODO: add auth back once API is working.
+ * Health check — test AppFolio work order API connectivity.
  */
 export async function GET() {
   try {
     console.log('[Sync] GET — testing AppFolio work orders API...');
 
-    const workOrders = await fetchAppFolioWorkOrders();
+    // Only fetch last 7 days for the test endpoint (fast)
+    const workOrders = await fetchAppFolioWorkOrders(7);
 
     return NextResponse.json({
       message: 'AppFolio work orders API test',
@@ -31,7 +34,12 @@ export async function GET() {
  * POST /api/sync/work-orders
  *
  * Sync work orders from AppFolio.
- * Auth: CRON_SECRET (for nightly cron) OR session auth (for manual "Sync Now" button).
+ * Auth: CRON_SECRET (for daily cron) OR session auth (for manual "Sync Now" button).
+ *
+ * Now that webhooks handle real-time updates, this sync is a safety-net catchup:
+ *   - Cron (daily at 8am): fetches last 7 days to fill any missed webhooks
+ *   - Manual "Sync Now": fetches last 90 days for a broader refresh
+ *   - Optional: ?days=365 query param to override the window
  */
 export async function POST(request: NextRequest) {
   try {
@@ -46,14 +54,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`[Sync] Starting work orders sync (${isCron ? 'cron' : 'manual'})...`);
+    // Determine sync window
+    const url = new URL(request.url);
+    const daysParam = url.searchParams.get('days');
+    const days = daysParam ? parseInt(daysParam, 10) : isCron ? 7 : 90;
 
-    // Step 1: Fetch all work orders from AppFolio
-    const workOrders = await fetchAppFolioWorkOrders();
+    console.log(
+      `[Sync] Starting work orders sync (${isCron ? 'cron' : 'manual'}, last ${days} days)...`
+    );
+
+    // Step 1: Fetch work orders from AppFolio
+    const workOrders = await fetchAppFolioWorkOrders(days);
     if (workOrders.length === 0) {
       return NextResponse.json({
-        message: 'No work orders found (API not configured or no work orders)',
+        message: `No work orders updated in the last ${days} days`,
         synced: 0,
+        days,
       });
     }
 
@@ -80,6 +96,7 @@ export async function POST(request: NextRequest) {
       synced: count,
       total_fetched: workOrders.length,
       properties_mapped: propertyMap.size,
+      days,
     });
   } catch (error) {
     console.error('[Sync] Work orders sync error:', error);
