@@ -212,6 +212,12 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
       setCompletedDate(workOrder.completed_date);
 
       // Load line items from scanned PDF
+      // Helper: truncate a description to at most 2 lines
+      const truncate2Lines = (text: string): string => {
+        const lines = text.split('\n').filter(l => l.trim());
+        return lines.slice(0, 2).join('\n');
+      };
+
       if (workOrder.line_items && workOrder.line_items.length > 0) {
         // Financial WO with pre-priced line items from Details table
         setLineItems(
@@ -221,7 +227,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
               id: newLineItemId(),
               type,
               account: li.account || "",
-              description: li.description,
+              description: truncate2Lines(li.description),
               amount: li.amount.toFixed(2),
               qty: "",
               rate: type === "labor" ? STANDARD_RATE.toFixed(2) : "",
@@ -232,7 +238,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
         );
       } else if (workOrder.task_items && workOrder.task_items.length > 0) {
         // Task-list WO — roll all tasks into a single Labor line + a Materials line
-        const taskSummary = workOrder.task_items.join("; ");
+        const taskSummary = workOrder.task_items.slice(0, 2).join("; ");
         const items: FormLineItem[] = [
           {
             id: newLineItemId(),
@@ -932,23 +938,23 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
                       onChange={(e) => updateLineItem(li.id, "description", e.target.value)}
                       placeholder={idx === 0 && isLabor ? "Describe the work performed...\n• Bullet points supported" : isMaterials ? "Parts / materials description" : `Line item ${idx + 1} description`}
                       disabled={isLoading || rewritingId === li.id}
-                      rows={4}
+                      rows={2}
                       className={`w-full text-xs bg-transparent border border-gray-200/40 rounded-md px-3 py-2 resize-y leading-relaxed focus:outline-none focus:ring-2 focus:ring-emerald-600/30 disabled:opacity-50 ${
-                        li.description.trim().length > 10 ? "pr-8" : ""
+                        li.description.trim().length > 3 ? "pr-10" : ""
                       }`}
                     />
-                    {li.description.trim().length > 10 && (
+                    {li.description.trim().length > 3 && (
                       <button
                         type="button"
                         onClick={() => handleAiRewrite(li.id)}
                         disabled={isLoading || rewritingId !== null}
-                        className="absolute right-1.5 top-2 h-5 w-5 flex items-center justify-center text-gray-300 hover:text-purple-500 disabled:hover:text-gray-300 transition-colors rounded"
+                        className="absolute right-1 top-1 h-7 w-7 flex items-center justify-center text-purple-300 hover:text-purple-600 hover:bg-purple-50 disabled:hover:text-gray-300 disabled:hover:bg-transparent transition-colors rounded-md border border-transparent hover:border-purple-200"
                         title="AI rewrite for professional invoice voice"
                       >
                         {rewritingId === li.id ? (
-                          <Loader2 className="h-3 w-3 animate-spin text-purple-400" />
+                          <Loader2 className="h-4 w-4 animate-spin text-purple-500" />
                         ) : (
-                          <Sparkles className="h-3 w-3" />
+                          <Sparkles className="h-4 w-4" />
                         )}
                       </button>
                     )}
@@ -992,8 +998,8 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
                       title={li.rateType === "after-hours" ? "After-hours / Emergency rate (1.5×)" : "Click for overtime / after-hours rate"}
                       className={`flex items-center justify-center h-8 w-full rounded-lg text-[10px] font-bold transition-all duration-200 ${
                         li.rateType === "after-hours"
-                          ? "bg-orange-200 text-orange-800 ring-2 ring-orange-400 shadow-sm"
-                          : "bg-gray-100 text-gray-500 ring-1 ring-gray-300 hover:bg-orange-50 hover:text-orange-600 hover:ring-orange-300"
+                          ? "bg-red-100 text-red-700 ring-2 ring-red-400 shadow-sm"
+                          : "bg-emerald-50 text-emerald-500 ring-1 ring-emerald-300 hover:bg-red-50 hover:text-red-500 hover:ring-red-300"
                       }`}
                     >
                       <Clock className="h-3 w-3 mr-0.5" />
