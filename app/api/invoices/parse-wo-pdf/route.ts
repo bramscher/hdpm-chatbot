@@ -136,7 +136,7 @@ Return this exact JSON structure:
 
 Rules:
 - FINANCIAL WOs: line_items MUST contain every row from the Details table.
-- TASK-LIST WOs (no Details table): Do NOT create individual line items per task. Instead, put all tasks into task_items and set line_items to an empty array []. The UI will create consolidated Labor and Materials lines.
+- TASK-LIST WOs (no Details table): Put labor tasks into task_items. The UI will create a consolidated "Labor" line from task_items. However, if MATERIALS are mentioned anywhere in the work order (description, technician notes, task list, or any other section) with specific item names and optionally prices, extract EACH material as a SEPARATE entry in line_items with type "materials". Examples of materials: faucet cartridge, door stop, light bulb, O-ring, filter, outlet cover, breaker, etc. Include the cost if mentioned, otherwise use "0" for the amount.
 - task_items: ALWAYS extract every individual task line from the Description section as separate strings. These are usually short lines like "Fix plug in living room" or "Replace door stop in hall bathroom".
 - technician_notes: Extract the FULL text of any paragraph-form notes about completed work. These often appear after the task list and describe what was actually done in detail.
 - For the property_name, use the complex/property name (e.g. "Slivka 151 - Slivka 151") not the management company name.

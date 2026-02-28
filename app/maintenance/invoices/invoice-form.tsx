@@ -233,7 +233,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
           })
         );
       } else if (workOrder.task_items && workOrder.task_items.length > 0) {
-        // Task-list WO — roll all tasks into a single Labor line + a Materials line
+        // Task-list WO — labor line from tasks + individual material lines if parsed
         const taskSummary = workOrder.task_items.join("; ");
         const items: FormLineItem[] = [
           {
@@ -247,7 +247,29 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             rateType: "standard",
             flatFeeKey: "",
           },
-          {
+        ];
+
+        // If the parser extracted individual materials, add each as its own line
+        const materialItems = (workOrder.line_items || []).filter(
+          (li) => (li.type as string) === "materials"
+        );
+        if (materialItems.length > 0) {
+          for (const mat of materialItems) {
+            items.push({
+              id: newLineItemId(),
+              type: "materials",
+              account: mat.account || "",
+              description: mat.description,
+              amount: (mat.amount || 0).toFixed(2),
+              qty: "",
+              rate: "",
+              rateType: "standard",
+              flatFeeKey: "",
+            });
+          }
+        } else {
+          // No parsed materials — add a blank materials line
+          items.push({
             id: newLineItemId(),
             type: "materials",
             account: "",
@@ -257,8 +279,8 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             rate: "",
             rateType: "standard",
             flatFeeKey: "",
-          },
-        ];
+          });
+        }
         setLineItems(items);
       } else {
         // Fall back to legacy amounts — put description into labor line
