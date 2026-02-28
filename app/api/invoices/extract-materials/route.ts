@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession();
     if (!session?.user?.email?.endsWith('@highdesertpm.com')) {
+      console.log('[extract-materials] Unauthorized request');
       return NextResponse.json(
         { error: 'Unauthorized. Please sign in with your company Microsoft account.' },
         { status: 401 }
@@ -21,7 +22,10 @@ export async function POST(request: NextRequest) {
     }
 
     const { description } = await request.json();
+    console.log(`[extract-materials] Input description (${description?.length || 0} chars): ${description?.substring(0, 200)}`);
+
     if (!description?.trim()) {
+      console.log('[extract-materials] Empty description, returning []');
       return NextResponse.json({ materials: [] });
     }
 
@@ -32,19 +36,28 @@ export async function POST(request: NextRequest) {
       messages: [
         {
           role: 'user',
-          content: `You are parsing a property maintenance work order description to extract any MATERIALS mentioned. Extract ONLY physical materials/parts/supplies — NOT labor tasks.
+          content: `You are parsing a property maintenance work order description to extract materials, parts, and supplies that would be used for the work described.
 
-Return a JSON array of materials found. Each material should have:
-- "description": the material name/description (e.g. "Faucet cartridge", "Door stop", "Light bulb")
-- "amount": the cost as a number string if mentioned, otherwise "0"
+IMPORTANT: Extract materials that are MENTIONED or IMPLIED by the tasks. For example:
+- "Replace faucet" → material: "Faucet"
+- "Install new door stop in bathroom" → material: "Door stop"
+- "Replace toilet flapper and fill valve" → materials: "Toilet flapper", "Fill valve"
+- "Fix leaking P-trap under kitchen sink" → material: "P-trap" (if replacement is implied)
+- "Replace smoke detector batteries" → material: "Smoke detector batteries"
+- "Install new outlet cover" → material: "Outlet cover"
+- "Replace air filter" → material: "Air filter"
+- "Patch drywall in bedroom" → material: "Drywall patch kit"
+- "Touch up paint in living room" → material: "Paint"
 
-If NO materials are mentioned, return an empty array [].
+Look for ANY physical items, parts, fixtures, or supplies referenced in the text. Each distinct material should be its own entry.
 
-Examples of materials: faucet cartridge, door stop, light bulb, O-ring, filter, outlet cover, breaker, smoke detector, thermostat, toilet flapper, fill valve, supply line, P-trap, garbage disposal, faucet, showerhead, caulk, paint, drywall patch, etc.
+Return a JSON array. Each item should have:
+- "description": the material/part name (capitalize first letter, be specific)
+- "amount": cost as a number string if mentioned in the text, otherwise "0"
 
-Examples of NOT materials (these are labor/tasks): replace, install, fix, repair, adjust, inspect, clean, tighten, test, diagnose, etc.
+If the description is purely about inspection, diagnosis, or cleaning with no parts needed, return [].
 
-Return ONLY valid JSON array, no other text.
+Return ONLY the JSON array, no other text.
 
 Work Order Description:
 ${description.trim()}`,
@@ -54,8 +67,11 @@ ${description.trim()}`,
 
     const content = response.content[0];
     if (content.type !== 'text') {
+      console.log('[extract-materials] Non-text response from AI');
       return NextResponse.json({ materials: [] });
     }
+
+    console.log(`[extract-materials] AI response: ${content.text.substring(0, 300)}`);
 
     let jsonStr = content.text.trim();
     // Handle markdown code blocks
@@ -67,14 +83,17 @@ ${description.trim()}`,
     try {
       const materials = JSON.parse(jsonStr);
       if (!Array.isArray(materials)) {
+        console.log('[extract-materials] Response is not an array');
         return NextResponse.json({ materials: [] });
       }
+      console.log(`[extract-materials] Extracted ${materials.length} materials:`, materials);
       return NextResponse.json({ materials });
-    } catch {
+    } catch (parseErr) {
+      console.error('[extract-materials] JSON parse error:', parseErr, 'Raw:', jsonStr);
       return NextResponse.json({ materials: [] });
     }
   } catch (error) {
-    console.error('Extract materials error:', error);
+    console.error('[extract-materials] Error:', error);
     const message = error instanceof Error ? error.message : 'Failed to extract materials';
     return NextResponse.json({ error: message }, { status: 500 });
   }

@@ -374,15 +374,21 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
         setLineItems(items);
 
         // Try to extract individual materials from the description via AI
+        console.log("[InvoiceForm] Legacy/API path — description length:", workOrder.description?.length, "desc:", workOrder.description?.substring(0, 100));
         if (workOrder.description && workOrder.description.trim().length > 10) {
+          console.log("[InvoiceForm] Calling extract-materials API...");
           setExtractingMaterials(true);
           fetch("/api/invoices/extract-materials", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ description: workOrder.description }),
           })
-            .then((res) => res.json())
+            .then((res) => {
+              console.log("[InvoiceForm] extract-materials response status:", res.status);
+              return res.json();
+            })
             .then((data) => {
+              console.log("[InvoiceForm] extract-materials data:", data);
               if (data.materials && data.materials.length > 0) {
                 // Replace the blank materials line with extracted individual materials
                 setLineItems((prev) => {
@@ -401,17 +407,22 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
                       flatFeeKey: "",
                     })
                   );
+                  console.log("[InvoiceForm] Setting", materialLines.length, "material lines");
                   return [...nonMaterialLines, ...materialLines];
                 });
+              } else {
+                console.log("[InvoiceForm] No materials found by AI");
               }
             })
             .catch((err) => {
-              console.error("Material extraction failed:", err);
+              console.error("[InvoiceForm] Material extraction failed:", err);
               // Keep the default blank materials line — no action needed
             })
             .finally(() => {
               setExtractingMaterials(false);
             });
+        } else {
+          console.log("[InvoiceForm] Description too short for extraction, skipping");
         }
       }
 
