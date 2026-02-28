@@ -266,7 +266,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             id: newLineItemId(),
             type: "labor",
             account: "",
-            description: workOrder.description || "Labor",
+            description: "Labor",
             amount: workOrder.labor_amount,
             qty: "",
             rate: STANDARD_RATE.toFixed(2),
@@ -274,12 +274,12 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             flatFeeKey: "",
           });
         } else {
-          // No amounts yet — just put the description in a labor line
+          // No amounts yet — start with empty labor line; WO narrative is in internal notes for reference
           items.push({
             id: newLineItemId(),
             type: "labor",
             account: "",
-            description: workOrder.description || "",
+            description: "",
             amount: "0.00",
             qty: "",
             rate: STANDARD_RATE.toFixed(2),
