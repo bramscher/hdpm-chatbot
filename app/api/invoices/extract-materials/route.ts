@@ -35,21 +35,28 @@ export async function POST(request: NextRequest) {
       messages: [
         {
           role: 'user',
-          content: `You are parsing a property maintenance work order description for an invoice system. Separate the description into LABOR (services/tasks performed) and MATERIALS (physical parts, supplies, appliances, fixtures purchased/used).
+          content: `You are parsing a property maintenance work order description for an invoice system. Separate each line/item into LABOR or MATERIALS.
 
-RULES:
-- Each line or item in the description is either a labor task OR a material.
-- Physical items, appliances, parts, fixtures, supplies = MATERIALS. Examples: "GE 30-in Electric Range", "6 FT 50 Amp Range Cord", "faucet cartridge", "door stop", "smoke detector", "toilet flapper", "fill valve", "light bulb", "air filter", "P-trap", "garbage disposal", "caulk", "paint", "drywall patch"
-- Service tasks like "Haul Away", "Install", "Replace", "Repair", "Diagnose", "Clean", "Inspect" = LABOR
-- If a line is like "Replace faucet cartridge" — "Replace" is labor, "Faucet cartridge" is the material. Split them.
-- If a line is purely a product name/model (e.g. "GE 30-in 4 Burners Electric Range White") — that's a material.
+CRITICAL: Preserve the FULL original text of each line. Do NOT shorten, summarize, or reduce descriptions. Copy them exactly as written.
 
-Return a JSON object with:
+CLASSIFICATION RULES:
+- Lines that are product names, model numbers, part descriptions, appliances, fixtures, supplies → MATERIALS
+  Examples: "GE 30-in 4 Burners 5.0 cu ft Freestanding Electric Range White" → material with FULL description
+  "6 FT 50 Amp Range Cord" → material with FULL description
+  "Moen Adler single handle faucet" → material with FULL description
+- Lines that are service/task descriptions → LABOR
+  Examples: "Haul Away" → labor, "Install and hook up range" → labor, "Replace kitchen faucet and supply lines" → labor
+- If a line contains BOTH a task AND a specific product/part, keep the FULL line as a material.
+  Example: "Replace toilet flapper - Korky 2\" universal" → material: "Toilet flapper - Korky 2\" universal"
+- If a line is purely a task with no specific part named → LABOR
+  Example: "Diagnose leak under sink" → labor
+
+Return a JSON object:
 {
   "materials": [
-    { "description": "material name", "amount": "cost if mentioned, otherwise 0" }
+    { "description": "FULL original text of the material line", "amount": "cost if mentioned, otherwise 0" }
   ],
-  "laborDescription": "remaining labor/task descriptions combined, or empty string if none"
+  "laborDescription": "ALL labor lines combined with newlines between them, preserving full text. Empty string if no labor lines."
 }
 
 Return ONLY valid JSON, no other text.
