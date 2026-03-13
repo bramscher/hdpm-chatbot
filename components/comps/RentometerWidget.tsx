@@ -66,7 +66,7 @@ export function RentometerWidget({ onCompCreated }: RentometerWidgetProps) {
           <div className="w-6 h-6 rounded-lg bg-purple-100 flex items-center justify-center">
             <Search className="h-3.5 w-3.5 text-purple-600" />
           </div>
-          <span className="text-sm font-semibold text-gray-700">
+          <span className="text-sm font-semibold text-charcoal-700">
             Rentometer Lookup
           </span>
           <span className="text-[10px] text-purple-500 font-medium bg-purple-50 px-1.5 py-0.5 rounded-full">
@@ -74,9 +74,9 @@ export function RentometerWidget({ onCompCreated }: RentometerWidgetProps) {
           </span>
         </div>
         {expanded ? (
-          <ChevronUp className="h-4 w-4 text-gray-400" />
+          <ChevronUp className="h-4 w-4 text-charcoal-400" />
         ) : (
-          <ChevronDown className="h-4 w-4 text-gray-400" />
+          <ChevronDown className="h-4 w-4 text-charcoal-400" />
         )}
       </button>
 
@@ -85,7 +85,7 @@ export function RentometerWidget({ onCompCreated }: RentometerWidgetProps) {
         <div className="px-5 pb-5 space-y-4 border-t border-white/30 pt-4">
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
-              <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1.5">
+              <label className="block text-[10px] font-semibold text-charcoal-400 uppercase tracking-widest mb-1.5">
                 Address
               </label>
               <Input
@@ -97,14 +97,14 @@ export function RentometerWidget({ onCompCreated }: RentometerWidgetProps) {
               />
             </div>
             <div>
-              <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1.5">
+              <label className="block text-[10px] font-semibold text-charcoal-400 uppercase tracking-widest mb-1.5">
                 City
               </label>
               <select
                 value={city}
                 onChange={(e) => setCity(e.target.value as Town)}
                 disabled={loading}
-                className="flex h-9 w-full rounded-xl border border-input bg-white/70 backdrop-blur-sm px-2 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-9 w-full rounded-xl border border-input bg-white/70 backdrop-blur-sm px-2 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terra-600/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {SUPPORTED_CITIES.map((c) => (
                   <option key={c} value={c}>
@@ -117,14 +117,14 @@ export function RentometerWidget({ onCompCreated }: RentometerWidgetProps) {
 
           <div className="flex items-end gap-3">
             <div>
-              <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1.5">
+              <label className="block text-[10px] font-semibold text-charcoal-400 uppercase tracking-widest mb-1.5">
                 Bedrooms
               </label>
               <select
                 value={bedrooms}
                 onChange={(e) => setBedrooms(e.target.value)}
                 disabled={loading}
-                className="flex h-9 w-24 rounded-xl border border-input bg-white/70 backdrop-blur-sm px-2 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-9 w-24 rounded-xl border border-input bg-white/70 backdrop-blur-sm px-2 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terra-600/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <option value="0">Studio</option>
                 <option value="1">1 BR</option>
@@ -168,18 +168,18 @@ export function RentometerWidget({ onCompCreated }: RentometerWidgetProps) {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <span className="block text-[10px] text-gray-400 uppercase tracking-widest">
+                  <span className="block text-[10px] text-charcoal-400 uppercase tracking-widest">
                     Median
                   </span>
-                  <span className="text-lg font-bold text-gray-900">
+                  <span className="text-lg font-bold text-charcoal-900">
                     ${result.median.toLocaleString()}
                   </span>
                 </div>
                 <div>
-                  <span className="block text-[10px] text-gray-400 uppercase tracking-widest">
+                  <span className="block text-[10px] text-charcoal-400 uppercase tracking-widest">
                     Mean
                   </span>
-                  <span className="text-lg font-bold text-gray-900">
+                  <span className="text-lg font-bold text-charcoal-900">
                     ${result.mean.toLocaleString()}
                   </span>
                 </div>
@@ -187,12 +187,12 @@ export function RentometerWidget({ onCompCreated }: RentometerWidgetProps) {
 
               {/* Percentile bar */}
               <div>
-                <div className="flex justify-between text-[10px] text-gray-400 mb-1">
+                <div className="flex justify-between text-[10px] text-charcoal-400 mb-1">
                   <span>${result.percentile_25.toLocaleString()}</span>
                   <span>25th – 75th percentile</span>
                   <span>${result.percentile_75.toLocaleString()}</span>
                 </div>
-                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div className="h-2 bg-charcoal-200 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-purple-400 to-purple-600 rounded-full"
                     style={{
@@ -209,13 +209,13 @@ export function RentometerWidget({ onCompCreated }: RentometerWidgetProps) {
                     }}
                   />
                 </div>
-                <div className="flex justify-between text-[10px] text-gray-300 mt-0.5">
+                <div className="flex justify-between text-[10px] text-charcoal-300 mt-0.5">
                   <span>Min: ${result.min.toLocaleString()}</span>
                   <span>Max: ${result.max.toLocaleString()}</span>
                 </div>
               </div>
 
-              <p className="text-[10px] text-gray-400 italic">
+              <p className="text-[10px] text-charcoal-400 italic">
                 Result cached as a comp for 30 days
               </p>
             </div>

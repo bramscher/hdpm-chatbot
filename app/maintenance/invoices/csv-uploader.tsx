@@ -143,23 +143,23 @@ export function CsvUploader({ onParsed, onPdfScanned }: CsvUploaderProps) {
 
       {/* Upload Zone */}
       {isUploading ? (
-        <div className="rounded-2xl border-2 border-emerald-400 bg-emerald-50/60 p-10 text-center">
+        <div className="rounded-2xl border-2 border-terra-400 bg-terra-50/60 p-10 text-center">
           <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-emerald-100/80 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-xl bg-terra-100/80 flex items-center justify-center">
               {uploadType === "pdf" ? (
-                <ScanLine className="h-6 w-6 text-emerald-700 animate-pulse" />
+                <ScanLine className="h-6 w-6 text-terra-700 animate-pulse" />
               ) : (
-                <FileText className="h-6 w-6 text-emerald-700 animate-pulse" />
+                <FileText className="h-6 w-6 text-terra-700 animate-pulse" />
               )}
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-700">
+              <p className="text-sm font-medium text-charcoal-700">
                 {uploadType === "pdf"
                   ? `Scanning ${fileName}...`
                   : `Parsing ${fileName}...`}
               </p>
               {uploadType === "pdf" && (
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-charcoal-400 mt-1">
                   Extracting work order details with AI
                 </p>
               )}
@@ -174,19 +174,19 @@ export function CsvUploader({ onParsed, onPdfScanned }: CsvUploaderProps) {
           className={cn(
             "rounded-2xl border-2 border-dashed p-8 text-center transition-all duration-200 ease-spring",
             isDragging
-              ? "border-emerald-500 bg-emerald-50/60 scale-[1.01]"
-              : "border-gray-300/50 bg-white/40 backdrop-blur-sm hover:border-emerald-400 hover:bg-white/60"
+              ? "border-terra-500 bg-terra-50/60 scale-[1.01]"
+              : "border-charcoal-300/50 bg-white/40 backdrop-blur-sm hover:border-terra-400 hover:bg-white/60"
           )}
         >
           <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-emerald-100/80 flex items-center justify-center">
-              <Upload className="h-6 w-6 text-emerald-700" />
+            <div className="w-12 h-12 rounded-xl bg-terra-100/80 flex items-center justify-center">
+              <Upload className="h-6 w-6 text-terra-700" />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-700">
+              <p className="text-sm font-medium text-charcoal-700">
                 Drop a file here, or choose an option below
               </p>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-charcoal-400 mt-1">
                 Supports CSV exports and Work Order PDFs
               </p>
             </div>
@@ -208,7 +208,7 @@ export function CsvUploader({ onParsed, onPdfScanned }: CsvUploaderProps) {
                   e.stopPropagation();
                   pdfInputRef.current?.click();
                 }}
-                className="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-glow hover:shadow-glow-lg transition-all duration-200"
+                className="bg-gradient-to-r from-terra-600 to-green-700 hover:from-terra-700 hover:to-green-800 text-white shadow-glow hover:shadow-glow-lg transition-all duration-200"
               >
                 <ScanLine className="h-4 w-4 mr-1.5" />
                 Scan Work Order PDF

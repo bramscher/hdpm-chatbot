@@ -20,27 +20,27 @@ interface StatCardProps {
 
 function StatCard({ icon, label, value, subtitle, highlight }: StatCardProps) {
   return (
-    <div className="glass glass-shine rounded-2xl p-5 flex items-start gap-4">
+    <div className="bg-white rounded-xl border border-sand-200 p-5 shadow-card flex items-start gap-4">
       <div
         className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
           highlight
-            ? "bg-gradient-to-br from-emerald-500 to-green-700 shadow-glow"
-            : "bg-gray-100"
+            ? "bg-terra-50"
+            : "bg-sand-100"
         }`}
       >
-        <div className={highlight ? "text-white" : "text-gray-500"}>
+        <div className={highlight ? "text-terra-600" : "text-charcoal-500"}>
           {icon}
         </div>
       </div>
       <div className="min-w-0">
-        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-0.5">
+        <p className="text-[11px] font-semibold text-charcoal-400 uppercase tracking-wider mb-0.5">
           {label}
         </p>
-        <p className="text-2xl font-bold text-gray-900 tracking-tight">
+        <p className="text-2xl font-bold text-charcoal-900 tracking-tight">
           {value}
         </p>
         {subtitle && (
-          <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>
+          <p className="text-xs text-charcoal-400 mt-0.5">{subtitle}</p>
         )}
       </div>
     </div>
@@ -49,12 +49,12 @@ function StatCard({ icon, label, value, subtitle, highlight }: StatCardProps) {
 
 function SkeletonCard() {
   return (
-    <div className="glass rounded-2xl p-5 animate-pulse">
+    <div className="bg-white rounded-xl border border-sand-200 p-5 animate-pulse">
       <div className="flex items-start gap-4">
-        <div className="w-10 h-10 rounded-xl bg-gray-200" />
+        <div className="w-10 h-10 rounded-xl bg-sand-200" />
         <div className="flex-1">
-          <div className="h-3 w-16 bg-gray-200 rounded mb-2" />
-          <div className="h-7 w-24 bg-gray-200 rounded" />
+          <div className="h-3 w-16 bg-sand-200 rounded mb-2" />
+          <div className="h-7 w-24 bg-sand-200 rounded" />
         </div>
       </div>
     </div>

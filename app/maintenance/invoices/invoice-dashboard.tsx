@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
-  ArrowLeft,
   Wrench,
   RefreshCw,
   Search,
@@ -16,7 +15,7 @@ import {
   ChevronRight,
   Plus,
 } from "lucide-react";
-import Link from "next/link";
+
 import { useSearchParams } from "next/navigation";
 import { WorkOrderRow, HdmsInvoice } from "@/lib/invoices";
 import { Button } from "@/components/ui/button";
@@ -83,8 +82,8 @@ const APPFOLIO_STATUS_STYLES: Record<string, { bg: string; text: string }> = {
   Estimated: { bg: "bg-purple-100/80", text: "text-purple-700" },
   Waiting: { bg: "bg-amber-100/80", text: "text-amber-700" },
   "Work Completed": { bg: "bg-teal-100/80", text: "text-teal-700" },
-  Completed: { bg: "bg-emerald-100/80", text: "text-emerald-700" },
-  Canceled: { bg: "bg-gray-100/80", text: "text-gray-500" },
+  Completed: { bg: "bg-terra-100/80", text: "text-terra-700" },
+  Canceled: { bg: "bg-charcoal-100/80", text: "text-charcoal-500" },
 };
 
 const APPFOLIO_STATUSES = [
@@ -103,8 +102,8 @@ const PRIORITY_STYLES: Record<string, { bg: string; text: string }> = {
   Emergency: { bg: "bg-red-100/80", text: "text-red-700" },
   Urgent: { bg: "bg-red-100/80", text: "text-red-700" },
   High: { bg: "bg-orange-100/80", text: "text-orange-700" },
-  Normal: { bg: "bg-gray-100/80", text: "text-gray-600" },
-  Low: { bg: "bg-gray-50/80", text: "text-gray-400" },
+  Normal: { bg: "bg-charcoal-100/80", text: "text-charcoal-600" },
+  Low: { bg: "bg-charcoal-50/80", text: "text-charcoal-400" },
 };
 
 // ============================================
@@ -139,8 +138,8 @@ function PillToggle<T extends string>({
             onClick={() => onToggle(opt)}
             className={`px-2.5 py-1 text-[10px] font-medium rounded-full transition-all duration-200 ${
               isActive
-                ? "bg-emerald-100/80 text-emerald-700 ring-1 ring-emerald-300 shadow-sm"
-                : "bg-white/50 text-gray-500 hover:bg-white/70 hover:text-gray-700"
+                ? "bg-terra-100/80 text-terra-700 ring-1 ring-terra-300 shadow-sm"
+                : "bg-charcoal-50 text-charcoal-500 hover:bg-charcoal-100 hover:text-charcoal-700"
             }`}
           >
             {labelFn ? labelFn(opt) : opt}
@@ -372,11 +371,11 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
   }
 
   function WoSortIcon({ field }: { field: SortField }) {
-    if (woSortField !== field) return <ArrowUpDown className="h-3 w-3 text-gray-300" />;
+    if (woSortField !== field) return <ArrowUpDown className="h-3 w-3 text-charcoal-300" />;
     return woSortDir === "asc" ? (
-      <ArrowUp className="h-3 w-3 text-emerald-600" />
+      <ArrowUp className="h-3 w-3 text-terra-600" />
     ) : (
-      <ArrowDown className="h-3 w-3 text-emerald-600" />
+      <ArrowDown className="h-3 w-3 text-terra-600" />
     );
   }
 
@@ -537,49 +536,29 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
   return (
     <div className="max-w-5xl mx-auto">
       {/* Page Header */}
-      <div className="mb-8">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-emerald-700 transition-colors mb-4"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Home
-        </Link>
+      <div className="mb-8 flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-charcoal-900 tracking-tight">Maintenance</h1>
 
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-green-700 flex items-center justify-center shadow-glow">
-              <Wrench className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Maintenance</h1>
-              <p className="text-sm text-gray-500">
-                High Desert Maintenance Services
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              onClick={handleWoSync}
-              disabled={woSyncing}
-              size="sm"
-              className="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-glow hover:shadow-glow-lg transition-all duration-200"
-            >
-              {woSyncing ? (
-                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4 mr-1.5" />
-              )}
-              {woSyncing ? "Syncing..." : "Sync Now"}
-            </Button>
-          </div>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={handleWoSync}
+            disabled={woSyncing}
+            size="sm"
+            className="bg-terra-500 hover:bg-terra-600 text-white shadow-sm transition-all duration-200"
+          >
+            {woSyncing ? (
+              <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-1.5" />
+            )}
+            {woSyncing ? "Syncing..." : "Sync Now"}
+          </Button>
         </div>
       </div>
 
       {/* Sync message */}
       {woSyncMessage && (
-        <div className="glass rounded-xl px-4 py-2.5 text-sm text-emerald-700 bg-emerald-50/60 mb-6">
+        <div className="bg-white rounded-xl border border-sand-200 shadow-card px-4 py-2.5 text-sm text-terra-700 mb-6">
           {woSyncMessage}
         </div>
       )}
@@ -598,29 +577,29 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
               {
                 label: "Done",
                 value: woStats?.done ?? 0,
-                textColor: "text-emerald-700",
+                textColor: "text-terra-700",
               },
               {
                 label: "Closed",
                 value: woStats?.closed ?? 0,
-                textColor: "text-gray-600",
+                textColor: "text-charcoal-600",
               },
             ].map((card) => (
-              <div key={card.label} className="glass glass-shine rounded-2xl p-5">
+              <div key={card.label} className="bg-white rounded-xl border border-sand-200 shadow-card p-5">
                 {woLoading ? (
                   <div className="animate-pulse space-y-2">
-                    <div className="h-3 w-16 bg-gray-200 rounded" />
-                    <div className="h-8 w-12 bg-gray-200 rounded" />
+                    <div className="h-3 w-16 bg-charcoal-200 rounded" />
+                    <div className="h-8 w-12 bg-charcoal-200 rounded" />
                   </div>
                 ) : (
                   <>
-                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">
+                    <p className="text-[11px] font-semibold text-charcoal-400 uppercase tracking-wider mb-1">
                       {card.label}
                     </p>
                     <p className={`text-3xl font-bold ${card.textColor}`}>
                       {card.value}
                     </p>
-                    <p className="text-[10px] text-gray-300 mt-1">
+                    <p className="text-[10px] text-charcoal-300 mt-1">
                       of {woStats?.total ?? 0} total
                     </p>
                   </>
@@ -630,20 +609,20 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
           </div>
 
           {/* Tab Bar */}
-          <div className="glass glass-shine rounded-2xl px-2 py-1.5 flex gap-1">
+          <div className="bg-white rounded-xl border border-sand-200 shadow-card px-2 py-1.5 flex gap-1">
             <button
               type="button"
               onClick={() => setActiveTab("work-orders")}
               className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
                 activeTab === "work-orders"
-                  ? "bg-white/80 text-emerald-700 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-white/30"
+                  ? "bg-white text-charcoal-900 shadow-sm border border-sand-200"
+                  : "text-charcoal-400 hover:text-charcoal-600"
               }`}
             >
               <Wrench className="h-4 w-4" />
               Work Orders
               {!woLoading && (
-                <span className={`text-xs font-normal ${activeTab === "work-orders" ? "text-emerald-500" : "text-gray-400"}`}>
+                <span className={`text-xs font-normal ${activeTab === "work-orders" ? "text-charcoal-500" : "text-charcoal-400"}`}>
                   ({sortedWo.length})
                 </span>
               )}
@@ -653,14 +632,14 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
               onClick={() => setActiveTab("invoices")}
               className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
                 activeTab === "invoices"
-                  ? "bg-white/80 text-emerald-700 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-white/30"
+                  ? "bg-white text-charcoal-900 shadow-sm border border-sand-200"
+                  : "text-charcoal-400 hover:text-charcoal-600"
               }`}
             >
               <FileText className="h-4 w-4" />
               Invoices
               {!isLoadingInvoices && (
-                <span className={`text-xs font-normal ${activeTab === "invoices" ? "text-emerald-500" : "text-gray-400"}`}>
+                <span className={`text-xs font-normal ${activeTab === "invoices" ? "text-charcoal-500" : "text-charcoal-400"}`}>
                   ({invoices.length})
                 </span>
               )}
@@ -673,9 +652,9 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
           {activeTab === "work-orders" && (
             <div className="space-y-6">
               {/* Filters */}
-              <div className="glass glass-shine rounded-2xl px-5 py-4 space-y-3">
+              <div className="bg-white rounded-xl border border-sand-200 shadow-card px-5 py-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-gray-700">Filters</span>
+                  <span className="text-sm font-semibold text-charcoal-700">Filters</span>
                   {woHasFilters && (
                     <Button
                       variant="ghost"
@@ -686,7 +665,7 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                         setWoVendorFilter(HDMS_VENDOR_ID);
                         setWoSearchInput("");
                       }}
-                      className="text-gray-400 hover:text-gray-600 text-xs"
+                      className="text-charcoal-400 hover:text-charcoal-600 text-xs"
                     >
                       Reset
                     </Button>
@@ -695,15 +674,15 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
 
                 <div className="flex items-center gap-4 flex-wrap">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-medium text-gray-400 uppercase">Vendor:</span>
+                    <span className="text-[10px] font-medium text-charcoal-400 uppercase">Vendor:</span>
                     <div className="flex gap-1.5">
                       <button
                         type="button"
                         onClick={() => setWoVendorFilter(HDMS_VENDOR_ID)}
                         className={`px-2.5 py-1 text-[10px] font-medium rounded-full transition-all duration-200 ${
                           woVendorFilter === HDMS_VENDOR_ID
-                            ? "bg-emerald-100/80 text-emerald-700 ring-1 ring-emerald-300 shadow-sm"
-                            : "bg-white/50 text-gray-500 hover:bg-white/70 hover:text-gray-700"
+                            ? "bg-terra-100/80 text-terra-700 ring-1 ring-terra-300 shadow-sm"
+                            : "bg-charcoal-50 text-charcoal-500 hover:bg-charcoal-100 hover:text-charcoal-700"
                         }`}
                       >
                         {HDMS_VENDOR_LABEL}
@@ -713,8 +692,8 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                         onClick={() => setWoVendorFilter("")}
                         className={`px-2.5 py-1 text-[10px] font-medium rounded-full transition-all duration-200 ${
                           woVendorFilter === ""
-                            ? "bg-emerald-100/80 text-emerald-700 ring-1 ring-emerald-300 shadow-sm"
-                            : "bg-white/50 text-gray-500 hover:bg-white/70 hover:text-gray-700"
+                            ? "bg-terra-100/80 text-terra-700 ring-1 ring-terra-300 shadow-sm"
+                            : "bg-charcoal-50 text-charcoal-500 hover:bg-charcoal-100 hover:text-charcoal-700"
                         }`}
                       >
                         All Vendors
@@ -724,7 +703,7 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                 </div>
                 <div className="flex items-center gap-4 flex-wrap">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-medium text-gray-400 uppercase">Status:</span>
+                    <span className="text-[10px] font-medium text-charcoal-400 uppercase">Status:</span>
                     <PillToggle<string>
                       options={APPFOLIO_STATUSES}
                       selected={woAppfolioStatusFilter}
@@ -734,7 +713,7 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                 </div>
                 <div className="flex items-center gap-4 flex-wrap">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-medium text-gray-400 uppercase">Priority:</span>
+                    <span className="text-[10px] font-medium text-charcoal-400 uppercase">Priority:</span>
                     <PillToggle<string>
                       options={["Emergency", "Urgent", "High", "Normal", "Low"]}
                       selected={woPriorityFilter}
@@ -744,23 +723,23 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="relative max-w-xs flex-1">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-charcoal-400" />
                     <Input
                       type="text"
                       placeholder="Search property, address, WO#..."
                       value={woSearchInput}
                       onChange={(e) => setWoSearchInput(e.target.value)}
-                      className="pl-7 h-8 text-xs bg-white/70"
+                      className="pl-7 h-8 text-xs bg-white border border-sand-200"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Work Orders Table */}
-              <div className="glass glass-shine rounded-2xl overflow-hidden">
+              <div className="bg-white rounded-xl border border-sand-200 shadow-card overflow-hidden">
                 {/* Table header bar */}
-                <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/30">
-                  <span className="text-sm font-semibold text-gray-700">
+                <div className="flex items-center justify-between px-5 py-3.5 border-b border-sand-200">
+                  <span className="text-sm font-semibold text-charcoal-700">
                     {sortedWo.length} Work Order{sortedWo.length !== 1 ? "s" : ""}
                   </span>
                   <Button
@@ -768,7 +747,7 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                     size="sm"
                     onClick={handleWoExportCsv}
                     disabled={sortedWo.length === 0}
-                    className="text-gray-400 hover:text-gray-600 text-xs"
+                    className="text-charcoal-400 hover:text-charcoal-600 text-xs"
                   >
                     <Download className="h-3.5 w-3.5 mr-1.5" />
                     CSV
@@ -778,23 +757,23 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-gray-100/80">
-                        <th className="text-left px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-widest whitespace-nowrap w-[80px]">
+                      <tr className="border-b border-charcoal-100/80">
+                        <th className="text-left px-4 py-2 text-[11px] font-semibold text-charcoal-400 uppercase tracking-wider whitespace-nowrap w-[80px]">
                           WO #
                         </th>
                         <th
-                          className="text-left px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-gray-600"
+                          className="text-left px-4 py-2 text-[11px] font-semibold text-charcoal-400 uppercase tracking-wider cursor-pointer hover:text-charcoal-600"
                           onClick={() => handleWoSort("property_name")}
                         >
                           <span className="inline-flex items-center gap-1">
                             Property <WoSortIcon field="property_name" />
                           </span>
                         </th>
-                        <th className="text-left px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-widest hidden lg:table-cell">
+                        <th className="text-left px-4 py-2 text-[11px] font-semibold text-charcoal-400 uppercase tracking-wider hidden lg:table-cell">
                           Description
                         </th>
                         <th
-                          className="text-left px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-gray-600"
+                          className="text-left px-4 py-2 text-[11px] font-semibold text-charcoal-400 uppercase tracking-wider cursor-pointer hover:text-charcoal-600"
                           onClick={() => handleWoSort("priority")}
                         >
                           <span className="inline-flex items-center gap-1">
@@ -802,25 +781,25 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                           </span>
                         </th>
                         <th
-                          className="text-left px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-gray-600"
+                          className="text-left px-4 py-2 text-[11px] font-semibold text-charcoal-400 uppercase tracking-wider cursor-pointer hover:text-charcoal-600"
                           onClick={() => handleWoSort("status")}
                         >
                           <span className="inline-flex items-center gap-1">
                             Status <WoSortIcon field="status" />
                           </span>
                         </th>
-                        <th className="text-left px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-widest hidden md:table-cell">
+                        <th className="text-left px-4 py-2 text-[11px] font-semibold text-charcoal-400 uppercase tracking-wider hidden md:table-cell">
                           Vendor
                         </th>
                         <th
-                          className="text-left px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-gray-600 hidden md:table-cell"
+                          className="text-left px-4 py-2 text-[11px] font-semibold text-charcoal-400 uppercase tracking-wider cursor-pointer hover:text-charcoal-600 hidden md:table-cell"
                           onClick={() => handleWoSort("created_at")}
                         >
                           <span className="inline-flex items-center gap-1">
                             Created <WoSortIcon field="created_at" />
                           </span>
                         </th>
-                        <th className="text-center px-2 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-widest w-[44px]">
+                        <th className="text-center px-2 py-2 text-[11px] font-semibold text-charcoal-400 uppercase tracking-wider w-[44px]">
                         </th>
                       </tr>
                     </thead>
@@ -828,12 +807,12 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                       {woLoading ? (
                         <tr>
                           <td colSpan={8} className="px-4 py-10 text-center">
-                            <Loader2 className="h-5 w-5 animate-spin text-emerald-500 mx-auto" />
+                            <Loader2 className="h-5 w-5 animate-spin text-terra-500 mx-auto" />
                           </td>
                         </tr>
                       ) : paginatedWo.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="px-4 py-10 text-center text-gray-400 text-xs">
+                          <td colSpan={8} className="px-4 py-10 text-center text-charcoal-400 text-xs">
                             {woHasFilters
                               ? "No work orders match the current filters"
                               : "No work orders yet \u2014 click Sync Now to pull from AppFolio"}
@@ -848,22 +827,22 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                           return (
                             <tr
                               key={wo.id}
-                              className="border-b border-gray-50/80 hover:bg-white/40 transition-colors"
+                              className="border-b border-charcoal-50/80 hover:bg-charcoal-50 transition-colors"
                             >
-                              <td className="px-4 py-2.5 text-gray-600 font-mono text-[11px] whitespace-nowrap">
+                              <td className="px-4 py-2.5 text-charcoal-600 font-mono text-[11px] whitespace-nowrap">
                                 {wo.wo_number || wo.appfolio_id.slice(0, 8)}
                               </td>
                               <td className="px-4 py-2.5">
-                                <span className="font-medium text-gray-800 text-xs">
+                                <span className="font-medium text-charcoal-800 text-xs">
                                   {wo.property_name}
                                 </span>
                                 {wo.property_address && (
-                                  <span className="block text-[10px] text-gray-400 truncate max-w-[180px]">
+                                  <span className="block text-[10px] text-charcoal-400 truncate max-w-[180px]">
                                     {wo.property_address}
                                   </span>
                                 )}
                               </td>
-                              <td className="px-4 py-2.5 text-gray-500 text-[11px] max-w-[280px] hidden lg:table-cell">
+                              <td className="px-4 py-2.5 text-charcoal-500 text-[11px] max-w-[280px] hidden lg:table-cell">
                                 <span className="line-clamp-3 leading-relaxed">
                                   {wo.description}
                                 </span>
@@ -878,10 +857,10 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                                   {afStatus}
                                 </span>
                               </td>
-                              <td className="px-4 py-2.5 text-gray-500 text-[11px] hidden md:table-cell truncate max-w-[140px]">
+                              <td className="px-4 py-2.5 text-charcoal-500 text-[11px] hidden md:table-cell truncate max-w-[140px]">
                                 {wo.vendor_name || "—"}
                               </td>
-                              <td className="px-4 py-2.5 text-gray-500 text-[11px] hidden md:table-cell">
+                              <td className="px-4 py-2.5 text-charcoal-500 text-[11px] hidden md:table-cell">
                                 {formatDate(wo.created_at)}
                               </td>
                               <td className="px-2 py-2.5 text-center">
@@ -889,7 +868,7 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                                   type="button"
                                   onClick={() => handleCreateInvoiceFromWo(wo)}
                                   title="Create Invoice"
-                                  className="inline-flex items-center justify-center h-7 w-7 rounded-lg bg-emerald-50/80 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-800 transition-colors"
+                                  className="inline-flex items-center justify-center h-7 w-7 rounded-lg bg-terra-50/80 text-terra-600 hover:bg-terra-100 hover:text-terra-800 transition-colors"
                                 >
                                   <Plus className="h-4 w-4" />
                                 </button>
@@ -904,20 +883,20 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
 
                 {/* Pagination */}
                 {!woLoading && sortedWo.length > WO_PAGE_SIZE && (
-                  <div className="flex items-center justify-between px-5 py-3 border-t border-white/30">
+                  <div className="flex items-center justify-between px-5 py-3 border-t border-sand-200">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => setWoPage(Math.max(1, woPage - 1))}
                       disabled={woPage <= 1}
-                      className="text-gray-500 hover:text-gray-700 text-xs h-7"
+                      className="text-charcoal-500 hover:text-charcoal-700 text-xs h-7"
                     >
                       <ChevronLeft className="h-3.5 w-3.5 mr-1" />
                       Prev
                     </Button>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-charcoal-500">
                       Page {woPage} of {totalWoPages}
-                      <span className="text-gray-300 ml-2">
+                      <span className="text-charcoal-300 ml-2">
                         ({(woPage - 1) * WO_PAGE_SIZE + 1}\u2013{Math.min(woPage * WO_PAGE_SIZE, sortedWo.length)} of {sortedWo.length})
                       </span>
                     </span>
@@ -926,7 +905,7 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
                       size="sm"
                       onClick={() => setWoPage(Math.min(totalWoPages, woPage + 1))}
                       disabled={woPage >= totalWoPages}
-                      className="text-gray-500 hover:text-gray-700 text-xs h-7"
+                      className="text-charcoal-500 hover:text-charcoal-700 text-xs h-7"
                     >
                       Next
                       <ChevronRight className="h-3.5 w-3.5 ml-1" />
@@ -936,7 +915,7 @@ export function InvoiceDashboard({ userEmail, userName }: InvoiceDashboardProps)
 
                 {/* Footer */}
                 {!woLoading && sortedWo.length > 0 && (
-                  <div className="px-5 py-2.5 text-center text-[10px] text-gray-300 border-t border-white/20">
+                  <div className="px-5 py-2.5 text-center text-[10px] text-charcoal-300 border-t border-sand-200">
                     Last synced{" "}
                     {workOrders[0]?.synced_at ? formatDate(workOrders[0].synced_at) : "never"}
                   </div>

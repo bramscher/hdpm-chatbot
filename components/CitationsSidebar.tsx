@@ -21,7 +21,7 @@ export function CitationsSidebar({
 
   if (isCollapsed) {
     return (
-      <div className="w-12 border-l border-emerald-300/40 flex flex-col items-center py-4 bg-gradient-to-b from-emerald-100/90 via-emerald-50/70 to-green-50/80 backdrop-blur-xl shadow-[inset_8px_0_20px_-6px_rgba(61,122,61,0.15)]">
+      <div className="w-12 border-l border-terra-300/40 flex flex-col items-center py-4 bg-gradient-to-b from-terra-100/90 via-terra-50/70 to-green-50/80 backdrop-blur-xl shadow-[inset_8px_0_20px_-6px_rgba(61,122,61,0.15)]">
         <Button
           variant="ghost"
           size="icon"
@@ -33,8 +33,8 @@ export function CitationsSidebar({
         </Button>
         {sources.length > 0 && (
           <div className="flex flex-col items-center gap-2">
-            <BookOpen className="h-5 w-5 text-emerald-700" />
-            <span className="text-xs font-bold text-emerald-700">{sources.length}</span>
+            <BookOpen className="h-5 w-5 text-terra-700" />
+            <span className="text-xs font-bold text-terra-700">{sources.length}</span>
           </div>
         )}
       </div>
@@ -42,14 +42,14 @@ export function CitationsSidebar({
   }
 
   return (
-    <div className="w-72 border-l border-emerald-300/40 flex flex-col bg-gradient-to-b from-emerald-100/90 via-emerald-50/70 to-green-50/80 backdrop-blur-xl shadow-[inset_8px_0_20px_-6px_rgba(61,122,61,0.15)]">
+    <div className="w-72 border-l border-terra-300/40 flex flex-col bg-gradient-to-b from-terra-100/90 via-terra-50/70 to-green-50/80 backdrop-blur-xl shadow-[inset_8px_0_20px_-6px_rgba(61,122,61,0.15)]">
       {/* Header */}
-      <div className="p-4 border-b border-emerald-200/30 flex items-center justify-between">
+      <div className="p-4 border-b border-terra-200/30 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <BookOpen className="h-5 w-5 text-green-700" />
-          <h3 className="font-semibold text-emerald-900">Legal Sources</h3>
+          <h3 className="font-semibold text-terra-900">Legal Sources</h3>
           {sources.length > 0 && (
-            <span className="text-xs px-2 py-0.5 bg-emerald-100/80 text-emerald-700 rounded-full font-medium">
+            <span className="text-xs px-2 py-0.5 bg-terra-100/80 text-terra-700 rounded-full font-medium">
               {sources.length}
             </span>
           )}
@@ -69,9 +69,9 @@ export function CitationsSidebar({
       <div className="flex-1 overflow-y-auto p-3">
         {sources.length === 0 ? (
           <div className="text-center py-8 px-4">
-            <BookOpen className="h-10 w-10 mx-auto text-gray-300 mb-3" />
-            <p className="text-sm text-gray-500 font-medium">No sources yet</p>
-            <p className="text-xs text-gray-400 mt-1">
+            <BookOpen className="h-10 w-10 mx-auto text-charcoal-300 mb-3" />
+            <p className="text-sm text-charcoal-500 font-medium">No sources yet</p>
+            <p className="text-xs text-charcoal-400 mt-1">
               Ask a question to see relevant ORS 90 citations
             </p>
           </div>
@@ -85,8 +85,8 @@ export function CitationsSidebar({
                 className={cn(
                   "p-3 rounded-xl cursor-pointer transition-all duration-200 ease-spring",
                   highlightedCitation === index
-                    ? "bg-emerald-100/80 border-2 border-emerald-500 shadow-md shadow-emerald-300/50"
-                    : "bg-white/60 backdrop-blur-sm border border-white/30 hover:border-emerald-400/50 hover:shadow-sm"
+                    ? "bg-terra-100/80 border-2 border-terra-500 shadow-md shadow-terra-300/50"
+                    : "bg-white/60 backdrop-blur-sm border border-white/30 hover:border-terra-400/50 hover:shadow-sm"
                 )}
               >
                 <div className="flex items-start gap-3">
@@ -94,8 +94,8 @@ export function CitationsSidebar({
                     className={cn(
                       "flex items-center justify-center w-7 h-7 rounded-lg text-sm font-bold shrink-0",
                       highlightedCitation === index
-                        ? "bg-emerald-600 text-white"
-                        : "bg-emerald-100 text-emerald-700"
+                        ? "bg-terra-600 text-white"
+                        : "bg-terra-100 text-terra-700"
                     )}
                   >
                     {index + 1}
@@ -103,12 +103,12 @@ export function CitationsSidebar({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-lg">{source.icon}</span>
-                      <span className="text-sm font-medium text-gray-800 truncate">
+                      <span className="text-sm font-medium text-charcoal-800 truncate">
                         {source.title}
                       </span>
                     </div>
                     {source.section && (
-                      <p className="text-xs text-emerald-700 mt-1 font-medium">
+                      <p className="text-xs text-terra-700 mt-1 font-medium">
                         ORS {source.section}
                       </p>
                     )}
@@ -121,7 +121,7 @@ export function CitationsSidebar({
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  className="mt-2 flex items-center gap-1 text-xs text-gray-500 hover:text-emerald-700 transition-colors"
+                  className="mt-2 flex items-center gap-1 text-xs text-charcoal-500 hover:text-terra-700 transition-colors"
                 >
                   <ExternalLink className="h-3 w-3" />
                   View full text
@@ -134,8 +134,8 @@ export function CitationsSidebar({
 
       {/* Footer */}
       {sources.length > 0 && (
-        <div className="p-3 border-t border-emerald-200/30 bg-emerald-50/50 backdrop-blur-sm">
-          <p className="text-xs text-emerald-700 text-center">
+        <div className="p-3 border-t border-terra-200/30 bg-terra-50/50 backdrop-blur-sm">
+          <p className="text-xs text-terra-700 text-center">
             Click citation numbers in chat to highlight sources
           </p>
         </div>

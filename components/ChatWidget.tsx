@@ -40,15 +40,13 @@ export function ChatWidget() {
       <Button
         onClick={handleToggle}
         className={cn(
-          "fixed bottom-5 right-5 w-14 h-14 rounded-full z-50",
-          "bg-gradient-to-br from-emerald-500 to-green-700 hover:from-emerald-600 hover:to-green-800",
-          "shadow-glow hover:shadow-glow-lg",
-          "transition-all duration-300 ease-spring hover:scale-110 active:scale-95",
-          "animate-scale-in",
-          isOpen && !isMinimized && "rotate-0"
+          "fixed bottom-5 right-5 w-12 h-12 rounded-full z-50",
+          "bg-terra-500 hover:bg-terra-600",
+          "shadow-md hover:shadow-lg",
+          "transition-all duration-200 hover:scale-105 active:scale-95"
         )}
       >
-        <MessageCircle className="h-6 w-6 text-white" />
+        <MessageCircle className="h-5 w-5 text-white" />
         {isMinimized && (
           <span className="absolute -top-1 -right-1 w-3 h-3 bg-rose-500 rounded-full animate-pulse" />
         )}

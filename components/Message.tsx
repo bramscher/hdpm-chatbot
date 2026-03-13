@@ -78,15 +78,15 @@ function CitationTooltip({ citationNum, source, children }: CitationTooltipProps
     >
       {children}
       {isHovered && source && (
-        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-80 p-3 bg-gray-900/95 backdrop-blur-xl text-white text-sm rounded-2xl shadow-xl pointer-events-none">
+        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-80 p-3 bg-charcoal-900/95 backdrop-blur-xl text-white text-sm rounded-2xl shadow-xl pointer-events-none">
           <span className="flex items-center gap-2 mb-1">
             <span className="text-lg">{source.icon}</span>
             <span className="font-semibold">{source.title}</span>
           </span>
           {source.section && (
-            <span className="text-emerald-400 text-sm">ORS {source.section}</span>
+            <span className="text-terra-400 text-sm">ORS {source.section}</span>
           )}
-          <span className="absolute top-full left-1/2 -translate-x-1/2 border-6 border-transparent border-t-gray-900/95" />
+          <span className="absolute top-full left-1/2 -translate-x-1/2 border-6 border-transparent border-t-charcoal-900/95" />
         </span>
       )}
     </span>
@@ -99,8 +99,8 @@ function CitationTooltip({ citationNum, source, children }: CitationTooltipProps
 function parseMarkdown(text: string): string {
   // Convert ## headers to styled text
   return text
-    .replace(/^## (.+)$/gm, '<h3 class="text-base font-semibold text-gray-900 mt-4 mb-2">$1</h3>')
-    .replace(/^### (.+)$/gm, '<h4 class="text-sm font-semibold text-gray-800 mt-3 mb-1">$1</h4>')
+    .replace(/^## (.+)$/gm, '<h3 class="text-base font-semibold text-charcoal-900 mt-4 mb-2">$1</h3>')
+    .replace(/^### (.+)$/gm, '<h4 class="text-sm font-semibold text-charcoal-800 mt-3 mb-1">$1</h4>')
     .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold">$1</strong>')
     .replace(/^- (.+)$/gm, '<li class="ml-4 list-disc">$1</li>')
     .replace(/\n\n/g, '</p><p class="mb-3">')
@@ -130,7 +130,7 @@ function parseCitations(
       return (
         <CitationTooltip key={index} citationNum={citationNum} source={source}>
           <button
-            className="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 mx-0.5 text-sm font-bold bg-emerald-100/80 text-emerald-700 rounded-lg hover:bg-emerald-300/80 transition-colors cursor-pointer border border-emerald-300/50"
+            className="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 mx-0.5 text-sm font-bold bg-terra-100/80 text-terra-700 rounded-lg hover:bg-terra-300/80 transition-colors cursor-pointer border border-terra-300/50"
             onClick={(e) => {
               e.preventDefault();
               // Scroll to citation in sidebar
@@ -227,15 +227,15 @@ export function Message({
   if (isLoading) {
     return (
       <div className="flex gap-4 p-5">
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-green-700 flex items-center justify-center text-white text-sm font-medium shrink-0">
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-terra-500 to-green-700 flex items-center justify-center text-white text-sm font-medium shrink-0">
           AI
         </div>
         <div className="flex-1 space-y-2">
           <div className="flex gap-1.5 items-center">
-            <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-            <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-            <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-            <span className="ml-3 text-base text-gray-500">Searching ORS Chapter 90...</span>
+            <div className="w-2.5 h-2.5 bg-terra-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+            <div className="w-2.5 h-2.5 bg-terra-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+            <div className="w-2.5 h-2.5 bg-terra-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+            <span className="ml-3 text-base text-charcoal-500">Searching ORS Chapter 90...</span>
           </div>
         </div>
       </div>
@@ -243,22 +243,22 @@ export function Message({
   }
 
   return (
-    <div className={cn("flex gap-4 p-5", isUser ? "bg-emerald-50/50" : "bg-white/70")}>
+    <div className={cn("flex gap-4 p-5", isUser ? "bg-terra-50/50" : "bg-white/70")}>
       {/* Avatar */}
       <div className="flex flex-col items-center gap-1 shrink-0">
         <div
           className={cn(
             "w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium",
             isUser
-              ? "bg-gradient-to-br from-slate-600 to-slate-800"
-              : "bg-gradient-to-br from-emerald-500 to-green-700"
+              ? "bg-gradient-to-br from-charcoal-600 to-charcoal-800"
+              : "bg-gradient-to-br from-terra-500 to-green-700"
           )}
           title={senderName || senderEmail || (isUser ? 'User' : 'AI Assistant')}
         >
           {isUser ? (initials || "U") : "AI"}
         </div>
         {timeStr && (
-          <span className="text-[10px] text-gray-400">{timeStr}</span>
+          <span className="text-[10px] text-charcoal-400">{timeStr}</span>
         )}
       </div>
 
@@ -266,37 +266,37 @@ export function Message({
       <div className="flex-1 space-y-4 overflow-hidden">
         {/* Attachment indicator for user messages */}
         {isUser && attachment && (
-          <div className="p-3 bg-emerald-50/50 border border-emerald-300/50 backdrop-blur-sm rounded-xl mb-2">
+          <div className="p-3 bg-terra-50/50 border border-terra-300/50 backdrop-blur-sm rounded-xl mb-2">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-lg">{attachment.type === "pdf" ? "\uD83D\uDCC4" : "\uD83D\uDCDD"}</span>
-              <span className="text-sm font-medium text-emerald-800">{attachment.name}</span>
-              <span className="text-xs px-2 py-0.5 bg-emerald-300/80 text-emerald-700 rounded-full">
+              <span className="text-sm font-medium text-terra-800">{attachment.name}</span>
+              <span className="text-xs px-2 py-0.5 bg-terra-300/80 text-terra-700 rounded-full">
                 {attachment.type === "pdf" ? "PDF Parsed" : "Text Attached"}
               </span>
             </div>
-            <div className="text-xs text-gray-600 bg-white/60 backdrop-blur-sm p-2 rounded-lg border border-emerald-100/50 max-h-24 overflow-y-auto">
-              <span className="font-medium text-emerald-700">Document preview:</span>
+            <div className="text-xs text-charcoal-600 bg-white/60 backdrop-blur-sm p-2 rounded-lg border border-terra-100/50 max-h-24 overflow-y-auto">
+              <span className="font-medium text-terra-700">Document preview:</span>
               <p className="mt-1 whitespace-pre-wrap">{attachment.preview}</p>
             </div>
           </div>
         )}
 
         {/* Message text with inline citations */}
-        <div className="prose prose-base max-w-none text-gray-800 leading-relaxed">
+        <div className="prose prose-base max-w-none text-charcoal-800 leading-relaxed">
           <p className="mb-3">
             {parseCitations(content, sources, onCitationClick)}
             {isStreaming && (
-              <span className="inline-block w-2 h-5 ml-1 bg-emerald-600 animate-glow-pulse rounded-sm" />
+              <span className="inline-block w-2 h-5 ml-1 bg-terra-600 animate-glow-pulse rounded-sm" />
             )}
           </p>
         </div>
 
         {/* Sources - Collapsible (only shown if showInlineSources is true) */}
         {showInlineSources && sources && sources.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-gray-200/50">
+          <div className="mt-4 pt-4 border-t border-charcoal-200/50">
             <button
               onClick={() => setExpandedSources(!expandedSources)}
-              className="flex items-center gap-2 text-sm font-semibold text-emerald-700 uppercase tracking-wide hover:text-emerald-800 transition-colors"
+              className="flex items-center gap-2 text-sm font-semibold text-terra-700 uppercase tracking-wide hover:text-terra-800 transition-colors"
             >
               <svg
                 className={cn(
@@ -318,9 +318,9 @@ export function Message({
                   <li
                     key={source.id}
                     id={`source-${index + 1}`}
-                    className="flex items-start gap-3 p-3 rounded-xl bg-emerald-50/50 border border-emerald-100/50 hover:bg-emerald-100/50 transition-colors"
+                    className="flex items-start gap-3 p-3 rounded-xl bg-terra-50/50 border border-terra-100/50 hover:bg-terra-100/50 transition-colors"
                   >
-                    <span className="flex items-center justify-center w-8 h-8 bg-emerald-300/80 text-emerald-700 rounded-lg text-sm font-bold shrink-0">
+                    <span className="flex items-center justify-center w-8 h-8 bg-terra-300/80 text-terra-700 rounded-lg text-sm font-bold shrink-0">
                       {index + 1}
                     </span>
                     <span className="text-xl shrink-0">{source.icon}</span>
@@ -329,19 +329,19 @@ export function Message({
                         href={source.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-base font-medium text-emerald-800 hover:text-emerald-900 hover:underline block"
+                        className="text-base font-medium text-terra-800 hover:text-terra-900 hover:underline block"
                       >
                         {source.title}
                       </a>
                       {source.section && (
-                        <span className="text-sm text-emerald-700">ORS {source.section}</span>
+                        <span className="text-sm text-terra-700">ORS {source.section}</span>
                       )}
                     </div>
                     <a
                       href={source.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="shrink-0 p-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-300/80 rounded-lg transition-colors"
+                      className="shrink-0 p-2 text-terra-600 hover:text-terra-700 hover:bg-terra-300/80 rounded-lg transition-colors"
                       title="Open in new tab"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -357,15 +357,15 @@ export function Message({
 
         {/* Export buttons for assistant messages (only show when not streaming and has content) */}
         {!isUser && !isStreaming && content && (
-          <div className="mt-4 pt-4 border-t border-gray-200/50 flex items-center gap-3">
-            <span className="text-sm text-gray-400">Export:</span>
+          <div className="mt-4 pt-4 border-t border-charcoal-200/50 flex items-center gap-3">
+            <span className="text-sm text-charcoal-400">Export:</span>
             <button
               onClick={handleCopyToClipboard}
               className={cn(
                 "flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-200",
                 copySuccess
                   ? "bg-green-100/80 text-green-700"
-                  : "bg-white/60 backdrop-blur-sm text-gray-600 hover:bg-white/80 border border-white/30"
+                  : "bg-white/60 backdrop-blur-sm text-charcoal-600 hover:bg-white/80 border border-white/30"
               )}
               title="Copy to clipboard for email"
             >
@@ -387,14 +387,14 @@ export function Message({
               className={cn(
                 "flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-200",
                 exportingPDF
-                  ? "bg-emerald-100/80 text-emerald-700 cursor-wait"
-                  : "bg-emerald-100/80 text-emerald-700 hover:bg-emerald-300/80 border border-emerald-300/50"
+                  ? "bg-terra-100/80 text-terra-700 cursor-wait"
+                  : "bg-terra-100/80 text-terra-700 hover:bg-terra-300/80 border border-terra-300/50"
               )}
               title="Download as PDF"
             >
               {exportingPDF ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-emerald-700 border-t-transparent rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-terra-700 border-t-transparent rounded-full animate-spin" />
                   Generating...
                 </>
               ) : (

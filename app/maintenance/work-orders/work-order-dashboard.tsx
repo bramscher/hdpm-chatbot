@@ -75,13 +75,13 @@ const STATUS_STYLES: Record<
     label: "Open",
   },
   done: {
-    bg: "bg-emerald-100/80",
-    text: "text-emerald-700",
+    bg: "bg-terra-100/80",
+    text: "text-terra-700",
     label: "Done",
   },
   closed: {
-    bg: "bg-gray-100/80",
-    text: "text-gray-500",
+    bg: "bg-charcoal-100/80",
+    text: "text-charcoal-500",
     label: "Closed",
   },
 };
@@ -98,8 +98,8 @@ const APPFOLIO_STATUS_STYLES: Record<
   Estimated: { bg: "bg-purple-100/80", text: "text-purple-700" },
   Waiting: { bg: "bg-amber-100/80", text: "text-amber-700" },
   "Work Completed": { bg: "bg-teal-100/80", text: "text-teal-700" },
-  Completed: { bg: "bg-emerald-100/80", text: "text-emerald-700" },
-  Canceled: { bg: "bg-gray-100/80", text: "text-gray-500" },
+  Completed: { bg: "bg-terra-100/80", text: "text-terra-700" },
+  Canceled: { bg: "bg-charcoal-100/80", text: "text-charcoal-500" },
 };
 
 // Ordered list of all AppFolio statuses for the filter
@@ -119,8 +119,8 @@ const PRIORITY_STYLES: Record<string, { bg: string; text: string }> = {
   Emergency: { bg: "bg-red-100/80", text: "text-red-700" },
   Urgent: { bg: "bg-red-100/80", text: "text-red-700" },
   High: { bg: "bg-orange-100/80", text: "text-orange-700" },
-  Normal: { bg: "bg-gray-100/80", text: "text-gray-600" },
-  Low: { bg: "bg-gray-50/80", text: "text-gray-400" },
+  Normal: { bg: "bg-charcoal-100/80", text: "text-charcoal-600" },
+  Low: { bg: "bg-charcoal-50/80", text: "text-charcoal-400" },
 };
 
 // ============================================
@@ -149,8 +149,8 @@ function PillToggle<T extends string>({
             onClick={() => onToggle(opt)}
             className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
               isActive
-                ? "bg-emerald-100/80 text-emerald-700 ring-1 ring-emerald-300 shadow-sm"
-                : "bg-white/50 text-gray-500 hover:bg-white/70 hover:text-gray-700"
+                ? "bg-terra-100/80 text-terra-700 ring-1 ring-terra-300 shadow-sm"
+                : "bg-white/50 text-charcoal-500 hover:bg-white/70 hover:text-charcoal-700"
             }`}
           >
             {labelFn ? labelFn(opt) : opt}
@@ -311,11 +311,11 @@ export function WorkOrderDashboard({
 
   function SortIcon({ field }: { field: SortField }) {
     if (sortField !== field)
-      return <ArrowUpDown className="h-3 w-3 text-gray-300" />;
+      return <ArrowUpDown className="h-3 w-3 text-charcoal-300" />;
     return sortDir === "asc" ? (
-      <ArrowUp className="h-3 w-3 text-emerald-600" />
+      <ArrowUp className="h-3 w-3 text-terra-600" />
     ) : (
-      <ArrowDown className="h-3 w-3 text-emerald-600" />
+      <ArrowDown className="h-3 w-3 text-terra-600" />
     );
   }
 
@@ -390,14 +390,14 @@ export function WorkOrderDashboard({
             </Button>
           </Link>
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-green-700 rounded-xl flex items-center justify-center shadow-glow">
+            <div className="w-9 h-9 bg-gradient-to-br from-terra-500 to-green-700 rounded-xl flex items-center justify-center shadow-glow">
               <Wrench className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900 tracking-tight">
+              <h2 className="text-xl font-bold text-charcoal-900 tracking-tight">
                 Work Orders
               </h2>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-charcoal-400">
                 Synced from AppFolio
               </p>
             </div>
@@ -409,7 +409,7 @@ export function WorkOrderDashboard({
             <Button
               size="sm"
               variant="outline"
-              className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+              className="border-terra-200 text-terra-700 hover:bg-terra-50"
             >
               <FileText className="h-4 w-4 mr-1.5" />
               Invoices
@@ -419,7 +419,7 @@ export function WorkOrderDashboard({
             onClick={handleSync}
             disabled={syncing}
             size="sm"
-            className="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-glow hover:shadow-glow-lg transition-all duration-200"
+            className="bg-gradient-to-r from-terra-600 to-green-700 hover:from-terra-700 hover:to-green-800 text-white shadow-glow hover:shadow-glow-lg transition-all duration-200"
           >
             {syncing ? (
               <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
@@ -433,7 +433,7 @@ export function WorkOrderDashboard({
 
       {/* Sync message */}
       {syncMessage && (
-        <div className="glass rounded-xl px-4 py-2.5 text-sm text-emerald-700 bg-emerald-50/60">
+        <div className="glass rounded-xl px-4 py-2.5 text-sm text-terra-700 bg-terra-50/60">
           {syncMessage}
         </div>
       )}
@@ -450,31 +450,31 @@ export function WorkOrderDashboard({
           {
             label: "Done",
             value: stats?.done ?? 0,
-            color: "from-emerald-500 to-green-600",
-            textColor: "text-emerald-700",
+            color: "from-terra-500 to-green-600",
+            textColor: "text-terra-700",
           },
           {
             label: "Closed",
             value: stats?.closed ?? 0,
-            color: "from-gray-400 to-gray-500",
-            textColor: "text-gray-600",
+            color: "from-charcoal-400 to-charcoal-500",
+            textColor: "text-charcoal-600",
           },
         ].map((card) => (
           <div key={card.label} className="glass glass-shine rounded-2xl p-5">
             {loading ? (
               <div className="animate-pulse space-y-2">
-                <div className="h-3 w-16 bg-gray-200 rounded" />
-                <div className="h-8 w-12 bg-gray-200 rounded" />
+                <div className="h-3 w-16 bg-charcoal-200 rounded" />
+                <div className="h-8 w-12 bg-charcoal-200 rounded" />
               </div>
             ) : (
               <>
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">
+                <p className="text-[10px] font-semibold text-charcoal-400 uppercase tracking-widest mb-1">
                   {card.label}
                 </p>
                 <p className={`text-3xl font-bold ${card.textColor}`}>
                   {card.value}
                 </p>
-                <p className="text-[10px] text-gray-300 mt-1">
+                <p className="text-[10px] text-charcoal-300 mt-1">
                   of {stats?.total ?? 0} total
                 </p>
               </>
@@ -486,7 +486,7 @@ export function WorkOrderDashboard({
       {/* Filters */}
       <div className="glass glass-shine rounded-2xl px-5 py-4 space-y-4">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold text-gray-700">Filters</span>
+          <span className="text-sm font-semibold text-charcoal-700">Filters</span>
           {hasFilters && (
             <Button
               variant="ghost"
@@ -495,7 +495,7 @@ export function WorkOrderDashboard({
                 setFilter({});
                 setSearchInput("");
               }}
-              className="text-gray-400 hover:text-gray-600 text-xs"
+              className="text-charcoal-400 hover:text-charcoal-600 text-xs"
             >
               Reset
             </Button>
@@ -504,7 +504,7 @@ export function WorkOrderDashboard({
 
         {/* AppFolio Status */}
         <div>
-          <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">
+          <label className="block text-[10px] font-semibold text-charcoal-400 uppercase tracking-widest mb-2">
             Status
           </label>
           <PillToggle<string>
@@ -518,7 +518,7 @@ export function WorkOrderDashboard({
 
         {/* Priority */}
         <div>
-          <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">
+          <label className="block text-[10px] font-semibold text-charcoal-400 uppercase tracking-widest mb-2">
             Priority
           </label>
           <PillToggle<string>
@@ -532,11 +532,11 @@ export function WorkOrderDashboard({
 
         {/* Search */}
         <div>
-          <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">
+          <label className="block text-[10px] font-semibold text-charcoal-400 uppercase tracking-widest mb-2">
             Search
           </label>
           <div className="relative max-w-sm">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-charcoal-400" />
             <Input
               type="text"
               placeholder="Property, address, WO #..."
@@ -552,7 +552,7 @@ export function WorkOrderDashboard({
       <div className="glass glass-shine rounded-2xl overflow-hidden">
         {/* Table header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/30">
-          <span className="text-sm font-semibold text-gray-700">
+          <span className="text-sm font-semibold text-charcoal-700">
             {sorted.length} Work Order{sorted.length !== 1 ? "s" : ""}
           </span>
           <Button
@@ -560,7 +560,7 @@ export function WorkOrderDashboard({
             size="sm"
             onClick={handleExportCsv}
             disabled={sorted.length === 0}
-            className="text-gray-400 hover:text-gray-600 text-xs"
+            className="text-charcoal-400 hover:text-charcoal-600 text-xs"
           >
             <Download className="h-3.5 w-3.5 mr-1.5" />
             CSV
@@ -570,12 +570,12 @@ export function WorkOrderDashboard({
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-100/80">
-                <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
+              <tr className="border-b border-charcoal-100/80">
+                <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-charcoal-400 uppercase tracking-widest">
                   WO #
                 </th>
                 <th
-                  className="text-left px-4 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-gray-600"
+                  className="text-left px-4 py-2.5 text-[10px] font-semibold text-charcoal-400 uppercase tracking-widest cursor-pointer hover:text-charcoal-600"
                   onClick={() => handleSort("property_name")}
                 >
                   <span className="inline-flex items-center gap-1">
@@ -583,11 +583,11 @@ export function WorkOrderDashboard({
                     <SortIcon field="property_name" />
                   </span>
                 </th>
-                <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-widest hidden lg:table-cell">
+                <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-charcoal-400 uppercase tracking-widest hidden lg:table-cell">
                   Description
                 </th>
                 <th
-                  className="text-left px-4 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-gray-600"
+                  className="text-left px-4 py-2.5 text-[10px] font-semibold text-charcoal-400 uppercase tracking-widest cursor-pointer hover:text-charcoal-600"
                   onClick={() => handleSort("priority")}
                 >
                   <span className="inline-flex items-center gap-1">
@@ -596,7 +596,7 @@ export function WorkOrderDashboard({
                   </span>
                 </th>
                 <th
-                  className="text-left px-4 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-gray-600"
+                  className="text-left px-4 py-2.5 text-[10px] font-semibold text-charcoal-400 uppercase tracking-widest cursor-pointer hover:text-charcoal-600"
                   onClick={() => handleSort("status")}
                 >
                   <span className="inline-flex items-center gap-1">
@@ -605,7 +605,7 @@ export function WorkOrderDashboard({
                   </span>
                 </th>
                 <th
-                  className="text-left px-4 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-gray-600 hidden md:table-cell"
+                  className="text-left px-4 py-2.5 text-[10px] font-semibold text-charcoal-400 uppercase tracking-widest cursor-pointer hover:text-charcoal-600 hidden md:table-cell"
                   onClick={() => handleSort("created_at")}
                 >
                   <span className="inline-flex items-center gap-1">
@@ -613,7 +613,7 @@ export function WorkOrderDashboard({
                     <SortIcon field="created_at" />
                   </span>
                 </th>
-                <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
+                <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-charcoal-400 uppercase tracking-widest">
                   Actions
                 </th>
               </tr>
@@ -622,14 +622,14 @@ export function WorkOrderDashboard({
               {loading ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center">
-                    <Loader2 className="h-5 w-5 animate-spin text-emerald-500 mx-auto" />
+                    <Loader2 className="h-5 w-5 animate-spin text-terra-500 mx-auto" />
                   </td>
                 </tr>
               ) : sorted.length === 0 ? (
                 <tr>
                   <td
                     colSpan={7}
-                    className="px-4 py-12 text-center text-gray-400 text-sm"
+                    className="px-4 py-12 text-center text-charcoal-400 text-sm"
                   >
                     {hasFilters
                       ? "No work orders match the current filters"
@@ -647,27 +647,27 @@ export function WorkOrderDashboard({
                   return (
                     <tr
                       key={wo.id}
-                      className="border-b border-gray-50/80 hover:bg-white/40 transition-colors"
+                      className="border-b border-charcoal-50/80 hover:bg-white/40 transition-colors"
                     >
                       {/* WO # */}
-                      <td className="px-4 py-3 text-gray-600 font-mono text-xs">
+                      <td className="px-4 py-3 text-charcoal-600 font-mono text-xs">
                         {wo.wo_number || wo.appfolio_id.slice(0, 8)}
                       </td>
 
                       {/* Property */}
                       <td className="px-4 py-3">
-                        <span className="font-medium text-gray-800">
+                        <span className="font-medium text-charcoal-800">
                           {wo.property_name}
                         </span>
                         {wo.property_address && (
-                          <span className="block text-[11px] text-gray-400 truncate max-w-[200px]">
+                          <span className="block text-[11px] text-charcoal-400 truncate max-w-[200px]">
                             {wo.property_address}
                           </span>
                         )}
                       </td>
 
                       {/* Description */}
-                      <td className="px-4 py-3 text-gray-500 text-xs max-w-[250px] truncate hidden lg:table-cell">
+                      <td className="px-4 py-3 text-charcoal-500 text-xs max-w-[250px] truncate hidden lg:table-cell">
                         {wo.description}
                       </td>
 
@@ -690,7 +690,7 @@ export function WorkOrderDashboard({
                       </td>
 
                       {/* Created */}
-                      <td className="px-4 py-3 text-gray-500 text-xs hidden md:table-cell">
+                      <td className="px-4 py-3 text-charcoal-500 text-xs hidden md:table-cell">
                         {formatDate(wo.created_at)}
                       </td>
 
@@ -698,7 +698,7 @@ export function WorkOrderDashboard({
                       <td className="px-4 py-3">
                         <Link
                           href={`/maintenance/invoices?from_wo=${wo.id}`}
-                          className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 hover:text-emerald-800 transition-colors"
+                          className="inline-flex items-center gap-1 text-[11px] font-medium text-terra-600 hover:text-terra-800 transition-colors"
                         >
                           <FileText className="h-3 w-3" />
                           Create Invoice
@@ -715,7 +715,7 @@ export function WorkOrderDashboard({
 
       {/* Footer */}
       {!loading && sorted.length > 0 && (
-        <p className="text-center text-[10px] text-gray-300 pb-8">
+        <p className="text-center text-[10px] text-charcoal-300 pb-8">
           {sorted.length} work orders • Last synced{" "}
           {workOrders[0]?.synced_at
             ? formatDate(workOrders[0].synced_at)

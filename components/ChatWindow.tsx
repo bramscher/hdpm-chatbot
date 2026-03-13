@@ -531,7 +531,7 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-emerald-700 via-green-700 to-green-500 text-white">
+        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-terra-700 via-green-700 to-green-500 text-white">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
               <span className="text-base font-bold">HD</span>
@@ -563,20 +563,20 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
 
         {/* User Info Bar */}
         {session?.user && (
-          <div className="px-4 py-2 bg-emerald-50/50 backdrop-blur-sm border-b border-emerald-100/50 flex items-center justify-between">
+          <div className="px-4 py-2 bg-terra-50/50 backdrop-blur-sm border-b border-terra-100/50 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-emerald-300/80 flex items-center justify-center">
-                <User className="h-4 w-4 text-emerald-700" />
+              <div className="w-7 h-7 rounded-full bg-terra-300/80 flex items-center justify-center">
+                <User className="h-4 w-4 text-terra-700" />
               </div>
               <div className="text-sm">
-                <span className="font-medium text-gray-800">{session.user.name || "User"}</span>
-                <span className="text-gray-400 ml-2">{session.user.email}</span>
+                <span className="font-medium text-charcoal-800">{session.user.name || "User"}</span>
+                <span className="text-charcoal-400 ml-2">{session.user.email}</span>
               </div>
             </div>
             <Button
               variant="ghost"
               size="sm"
-              className="text-emerald-700 hover:text-emerald-900 hover:bg-emerald-100/50 h-7 px-2 text-xs"
+              className="text-terra-700 hover:text-terra-900 hover:bg-terra-100/50 h-7 px-2 text-xs"
               onClick={() => signOut({ callbackUrl: "/login" })}
             >
               <LogOut className="h-3 w-3 mr-1" />
@@ -587,7 +587,7 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
 
         {/* Messages */}
         <ScrollArea ref={scrollRef} className="flex-1 overflow-y-auto">
-          <div className="divide-y divide-gray-100/50">
+          <div className="divide-y divide-charcoal-100/50">
             {messages.map((message, index) => {
               let relatedDocument = undefined;
               if (message.role === "assistant" && index > 0) {
@@ -623,7 +623,7 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
         {showPasteArea && (
           <div className="p-4 border-t border-white/15 glass-subtle">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-700">
+              <span className="text-sm font-medium text-charcoal-700">
                 Paste Email or Correspondence
               </span>
               <Button
@@ -642,14 +642,14 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
               value={pasteText}
               onChange={(e) => setPasteText(e.target.value)}
               placeholder="Paste email content, tenant letter, or any text you want analyzed..."
-              className="w-full h-32 p-3 text-sm border border-gray-200/50 bg-white/70 backdrop-blur-sm rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-400 transition-all"
+              className="w-full h-32 p-3 text-sm border border-charcoal-200/50 bg-white/70 backdrop-blur-sm rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-terra-600/30 focus:border-terra-400 transition-all"
             />
             <div className="flex justify-end mt-2">
               <Button
                 onClick={handlePasteSubmit}
                 disabled={!pasteText.trim()}
                 size="sm"
-                className="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 rounded-xl"
+                className="bg-gradient-to-r from-terra-600 to-green-700 hover:from-terra-700 hover:to-green-800 rounded-xl"
               >
                 Attach Text
               </Button>
@@ -661,15 +661,15 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
         <form onSubmit={handleSubmit} className="p-5 border-t border-white/15 glass-subtle">
           {/* Upload Progress */}
           {isUploading && (
-            <div className="mb-3 p-3 bg-emerald-50/80 backdrop-blur-sm border border-emerald-300/50 rounded-xl flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-100/80 flex items-center justify-center shrink-0">
-                <div className="w-5 h-5 border-2 border-emerald-700 border-t-transparent rounded-full animate-spin" />
+            <div className="mb-3 p-3 bg-terra-50/80 backdrop-blur-sm border border-terra-300/50 rounded-xl flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-terra-100/80 flex items-center justify-center shrink-0">
+                <div className="w-5 h-5 border-2 border-terra-700 border-t-transparent rounded-full animate-spin" />
               </div>
               <div className="flex-1">
-                <span className="text-sm font-medium text-emerald-800">
+                <span className="text-sm font-medium text-terra-800">
                   {uploadStatus || "Processing PDF..."}
                 </span>
-                <p className="text-xs text-emerald-700 mt-1">
+                <p className="text-xs text-terra-700 mt-1">
                   Scanned PDFs use AI vision to extract text
                 </p>
               </div>
@@ -678,26 +678,26 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
 
           {/* Attachment Preview */}
           {attachment && !isUploading && (
-            <div className="mb-3 p-3 bg-white/70 backdrop-blur-sm border border-emerald-300/50 rounded-xl flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-100/80 flex items-center justify-center shrink-0">
-                <FileText className="h-5 w-5 text-emerald-700" />
+            <div className="mb-3 p-3 bg-white/70 backdrop-blur-sm border border-terra-300/50 rounded-xl flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-terra-100/80 flex items-center justify-center shrink-0">
+                <FileText className="h-5 w-5 text-terra-700" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-800 truncate">
+                  <span className="text-sm font-medium text-charcoal-800 truncate">
                     {attachment.name}
                   </span>
-                  <span className="text-xs px-2 py-0.5 bg-emerald-100/80 text-emerald-700 rounded-full">
+                  <span className="text-xs px-2 py-0.5 bg-terra-100/80 text-terra-700 rounded-full">
                     {attachment.type === "pdf" ? "PDF" : "Text"}
                   </span>
                 </div>
-                <p className="text-xs text-gray-500 mt-1 line-clamp-2">{attachment.preview}</p>
+                <p className="text-xs text-charcoal-500 mt-1 line-clamp-2">{attachment.preview}</p>
               </div>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={clearAttachment}
-                className="h-8 w-8 p-0 text-gray-400 hover:text-red-500"
+                className="h-8 w-8 p-0 text-charcoal-400 hover:text-red-500"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -720,13 +720,13 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
                 size="icon"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isLoading || isUploading}
-                className="h-12 w-12 border-gray-200/50 hover:bg-emerald-50/50 hover:border-emerald-300 rounded-xl transition-all duration-200"
+                className="h-12 w-12 border-charcoal-200/50 hover:bg-terra-50/50 hover:border-terra-300 rounded-xl transition-all duration-200"
                 title="Upload PDF"
               >
                 {isUploading ? (
-                  <div className="w-5 h-5 border-2 border-emerald-700 border-t-transparent rounded-full animate-spin" />
+                  <div className="w-5 h-5 border-2 border-terra-700 border-t-transparent rounded-full animate-spin" />
                 ) : (
-                  <Paperclip className="h-5 w-5 text-gray-500" />
+                  <Paperclip className="h-5 w-5 text-charcoal-500" />
                 )}
               </Button>
               <Button
@@ -735,10 +735,10 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
                 size="icon"
                 onClick={() => setShowPasteArea(!showPasteArea)}
                 disabled={isLoading}
-                className="h-12 w-12 border-gray-200/50 hover:bg-emerald-50/50 hover:border-emerald-300 rounded-xl transition-all duration-200"
+                className="h-12 w-12 border-charcoal-200/50 hover:bg-terra-50/50 hover:border-terra-300 rounded-xl transition-all duration-200"
                 title="Paste email/text"
               >
-                <FileText className="h-5 w-5 text-gray-500" />
+                <FileText className="h-5 w-5 text-charcoal-500" />
               </Button>
             </div>
 
@@ -765,17 +765,17 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
                   : "Ask about Oregon landlord-tenant law (ORS 90)..."
               }
               disabled={isLoading}
-              className="flex-1 bg-white/70 backdrop-blur-sm h-12 text-base px-4 rounded-xl border-gray-200/50 focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-400 transition-all"
+              className="flex-1 bg-white/70 backdrop-blur-sm h-12 text-base px-4 rounded-xl border-charcoal-200/50 focus:ring-2 focus:ring-terra-600/30 focus:border-terra-400 transition-all"
             />
             <Button
               type="submit"
               disabled={!input.trim() || isLoading}
-              className="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 h-12 px-6 rounded-xl shadow-glow hover:shadow-glow-lg transition-all duration-300"
+              className="bg-gradient-to-r from-terra-600 to-green-700 hover:from-terra-700 hover:to-green-800 h-12 px-6 rounded-xl shadow-glow hover:shadow-glow-lg transition-all duration-300"
             >
               <Send className="h-5 w-5" />
             </Button>
           </div>
-          <p className="text-sm text-gray-400 mt-3 text-center">
+          <p className="text-sm text-charcoal-400 mt-3 text-center">
             High Desert Property Management &bull; Internal Use Only &bull; 163 ORS 90 Sections Loaded
           </p>
         </form>

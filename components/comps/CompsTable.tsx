@@ -74,11 +74,11 @@ export function CompsTable({ comps, loading, onDelete }: CompsTableProps) {
   }
 
   function SortIcon({ field }: { field: CompsSortField }) {
-    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 text-gray-300" />;
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 text-charcoal-300" />;
     return sortDir === "asc" ? (
-      <ArrowUp className="h-3 w-3 text-emerald-600" />
+      <ArrowUp className="h-3 w-3 text-blue-600" />
     ) : (
-      <ArrowDown className="h-3 w-3 text-emerald-600" />
+      <ArrowDown className="h-3 w-3 text-blue-600" />
     );
   }
 
@@ -128,11 +128,11 @@ export function CompsTable({ comps, loading, onDelete }: CompsTableProps) {
 
   if (loading) {
     return (
-      <div className="glass glass-shine rounded-2xl p-6">
+      <div className="bg-white rounded-xl border border-sand-200 shadow-card p-6">
         <div className="animate-pulse space-y-3">
-          <div className="h-4 w-48 bg-gray-200 rounded" />
+          <div className="h-4 w-48 bg-sand-200 rounded" />
           {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-10 bg-gray-100 rounded" />
+            <div key={i} className="h-10 bg-sand-100 rounded" />
           ))}
         </div>
       </div>
@@ -140,10 +140,10 @@ export function CompsTable({ comps, loading, onDelete }: CompsTableProps) {
   }
 
   return (
-    <div className="glass glass-shine rounded-2xl overflow-hidden">
+    <div className="bg-white rounded-xl border border-sand-200 shadow-card overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/30">
-        <span className="text-sm font-semibold text-gray-700">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-sand-200">
+        <span className="text-sm font-semibold text-charcoal-700">
           {comps.length} Comp{comps.length !== 1 ? "s" : ""}
         </span>
         <Button
@@ -151,7 +151,7 @@ export function CompsTable({ comps, loading, onDelete }: CompsTableProps) {
           size="sm"
           onClick={handleExportCsv}
           disabled={comps.length === 0}
-          className="text-gray-400 hover:text-gray-600 text-xs"
+          className="text-charcoal-400 hover:text-charcoal-600 text-xs"
         >
           <Download className="h-3.5 w-3.5 mr-1.5" />
           CSV
@@ -162,11 +162,11 @@ export function CompsTable({ comps, loading, onDelete }: CompsTableProps) {
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-100/80">
+            <tr className="border-b border-sand-100">
               {COLUMNS.map((col) => (
                 <th
                   key={col.key}
-                  className="text-left px-4 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-gray-600 transition-colors"
+                  className="text-left px-4 py-2.5 text-[11px] font-semibold text-charcoal-400 uppercase tracking-wider cursor-pointer hover:text-charcoal-600 transition-colors"
                   onClick={() => handleSort(col.key)}
                 >
                   <span className="inline-flex items-center gap-1">
@@ -175,7 +175,7 @@ export function CompsTable({ comps, loading, onDelete }: CompsTableProps) {
                   </span>
                 </th>
               ))}
-              <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
+              <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-charcoal-400 uppercase tracking-wider">
                 Source
               </th>
               {onDelete && <th className="w-10" />}
@@ -186,7 +186,7 @@ export function CompsTable({ comps, loading, onDelete }: CompsTableProps) {
               <tr>
                 <td
                   colSpan={COLUMNS.length + 1 + (onDelete ? 1 : 0)}
-                  className="px-4 py-12 text-center text-gray-400 text-sm"
+                  className="px-4 py-12 text-center text-charcoal-400 text-sm"
                 >
                   No comps match the current filters
                 </td>
@@ -195,27 +195,27 @@ export function CompsTable({ comps, loading, onDelete }: CompsTableProps) {
               sorted.map((comp) => (
                 <tr
                   key={comp.id}
-                  className="border-b border-gray-50/80 hover:bg-white/40 transition-colors"
+                  className="border-b border-sand-100 hover:bg-sand-50 transition-colors"
                 >
-                  <td className="px-4 py-3 font-medium text-gray-800">
+                  <td className="px-4 py-3 font-medium text-charcoal-800">
                     {comp.town}
                     {comp.address && (
-                      <span className="block text-[11px] text-gray-400 truncate max-w-[180px]">
+                      <span className="block text-[11px] text-charcoal-400 truncate max-w-[180px]">
                         {comp.address}
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="px-4 py-3 text-charcoal-600">
                     {comp.bedrooms}/{comp.bathrooms || "—"}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{comp.property_type}</td>
-                  <td className="px-4 py-3 font-semibold text-gray-900">
+                  <td className="px-4 py-3 text-charcoal-600">{comp.property_type}</td>
+                  <td className="px-4 py-3 font-semibold text-charcoal-900">
                     ${Number(comp.monthly_rent).toLocaleString()}
                   </td>
-                  <td className="px-4 py-3 text-gray-500">
+                  <td className="px-4 py-3 text-charcoal-500">
                     {comp.sqft ? comp.sqft.toLocaleString() : "—"}
                   </td>
-                  <td className="px-4 py-3 text-gray-500">{formatDate(comp.comp_date)}</td>
+                  <td className="px-4 py-3 text-charcoal-500">{formatDate(comp.comp_date)}</td>
                   <td className="px-4 py-3">
                     <span
                       className={`inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded-full ${
@@ -225,7 +225,7 @@ export function CompsTable({ comps, loading, onDelete }: CompsTableProps) {
                           ? "bg-purple-50 text-purple-600"
                           : comp.data_source === "hud_fmr"
                           ? "bg-amber-50 text-amber-600"
-                          : "bg-gray-50 text-gray-500"
+                          : "bg-sand-50 text-charcoal-500"
                       }`}
                     >
                       {DATA_SOURCE_LABELS[comp.data_source] || comp.data_source}
@@ -236,7 +236,7 @@ export function CompsTable({ comps, loading, onDelete }: CompsTableProps) {
                       <button
                         type="button"
                         onClick={() => onDelete(comp.id)}
-                        className="p-1.5 text-gray-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50/50"
+                        className="p-1.5 text-charcoal-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50"
                         title="Delete comp"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
