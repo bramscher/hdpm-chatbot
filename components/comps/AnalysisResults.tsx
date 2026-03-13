@@ -344,7 +344,7 @@ export function AnalysisResults({
           </div>
         </div>
         <p className="text-[10px] text-charcoal-400 mt-2">
-          Name adds &ldquo;Report prepared exclusively for&rdquo; to the PDF. Email pre-fills the &ldquo;Email to Owner&rdquo; button.
+          Name adds &ldquo;Exclusively prepared for&rdquo; to the PDF. Email pre-fills the &ldquo;Email to Owner&rdquo; button.
         </p>
       </div>
 
@@ -435,14 +435,15 @@ export function ReportReady({
   function handleEmail() {
     const greeting = ownerName ? `Hello ${ownerName},` : "Hello,";
     const subjectLine = `Rent Analysis Report - ${subject.address}`;
+    const to = ownerEmail || "";
 
     const reportLink = shareUrl
-      ? `View your rent analysis report here:\n${shareUrl}\n\n(This link expires in ${shareExpiry})`
+      ? `View your rent analysis report here:\n${shareUrl}\n\n(This link expires in ${shareExpiry}.)`
       : "Please see the attached PDF report.";
 
     const body = `${greeting}
 
-Please find the rent analysis report for ${subject.address}, ${subject.town}, OR.
+Please find the rent analysis report for ${subject.address}.
 
 Based on ${analysis.stats.count} comparable properties, our recommended rent range is ${fmt(analysis.recommended_rent_low)} - ${fmt(analysis.recommended_rent_high)}/mo.
 
@@ -453,8 +454,7 @@ High Desert Property Management
 541-548-0383 | info@highdesertpm.com
 highdesertpm.com`;
 
-    const mailto = ownerEmail ? `mailto:${encodeURIComponent(ownerEmail)}` : "mailto:";
-    window.location.href = `${mailto}?subject=${encodeURIComponent(subjectLine)}&body=${encodeURIComponent(body)}`;
+    window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subjectLine)}&body=${encodeURIComponent(body)}`;
   }
 
   return (
