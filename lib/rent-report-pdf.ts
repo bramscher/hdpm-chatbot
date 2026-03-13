@@ -341,16 +341,30 @@ export function generateRentReportPdf(analysis: RentAnalysis): Buffer {
 
   y = drawSectionTitle(doc, y, 'METHODOLOGY');
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(DARK);
+  const BULLET_X = MARGIN + 4;
+  const TEXT_X = MARGIN + 16;            // indent for wrapped lines
+  const WRAP_W = CONTENT_W - (TEXT_X - MARGIN) - 4; // available width for text
 
   for (const note of methodology_notes) {
-    y = checkPageBreak(doc, y, 18);
-    doc.text(`•  ${note}`, MARGIN + 4, y, { maxWidth: CONTENT_W - 10 });
-    // Estimate wrapped lines
-    const lines = doc.splitTextToSize(`•  ${note}`, CONTENT_W - 10);
-    y += lines.length * 12 + 4;
+    // Pre-calculate height so page break check is accurate
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    const wrappedLines: string[] = doc.splitTextToSize(note, WRAP_W);
+    const blockH = wrappedLines.length * 12 + 4;
+    y = checkPageBreak(doc, y, blockH);
+
+    // Reset font for every bullet to avoid state bleed
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(DARK);
+
+    // Bullet
+    doc.text('•', BULLET_X, y);
+    // Wrapped text lines
+    for (let li = 0; li < wrappedLines.length; li++) {
+      doc.text(wrappedLines[li], TEXT_X, y + li * 12);
+    }
+    y += blockH;
   }
 
   y += 16;
@@ -369,12 +383,12 @@ export function generateRentReportPdf(analysis: RentAnalysis): Buffer {
       : 'Zillow: Not included in this report',
   ];
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(DARK);
-
   for (const src of sources) {
-    doc.text(`•  ${src}`, MARGIN + 4, y);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(DARK);
+    doc.text('•', BULLET_X, y);
+    doc.text(src, TEXT_X, y);
     y += 14;
   }
 
