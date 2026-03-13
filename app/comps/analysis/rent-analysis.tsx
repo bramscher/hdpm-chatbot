@@ -42,6 +42,9 @@ export function RentAnalysisWizard({
   const [competingListings, setCompetingListings] = useState<CompetingListing[]>([]);
   const [pdfBase64, setPdfBase64] = useState<string | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [shortUrl, setShortUrl] = useState<string | null>(null);
+  const [ownerName, setOwnerName] = useState("");
+  const [ownerEmail, setOwnerEmail] = useState("");
 
   // Step 1: Analyze property
   async function handlePropertySubmit(subjectProp: SubjectProperty) {
@@ -123,6 +126,7 @@ export function RentAnalysisWizard({
         body: JSON.stringify({
           subject,
           competing_listings: competingListings,
+          prepared_for: ownerName.trim() || undefined,
         }),
       });
 
@@ -132,6 +136,7 @@ export function RentAnalysisWizard({
       setAnalysis(data.analysis);
       setPdfBase64(data.pdf_base64);
       setDownloadUrl(data.download_url || null);
+      setShortUrl(data.short_url || null);
       setStep("report");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Report generation failed");
@@ -148,6 +153,9 @@ export function RentAnalysisWizard({
     setCompetingListings([]);
     setPdfBase64(null);
     setDownloadUrl(null);
+    setShortUrl(null);
+    setOwnerName("");
+    setOwnerEmail("");
     setError(null);
   }
 
@@ -235,6 +243,10 @@ export function RentAnalysisWizard({
           onSearchZillow={handleSearchZillow}
           generatingReport={generatingReport}
           zillowLoading={zillowLoading}
+          ownerName={ownerName}
+          ownerEmail={ownerEmail}
+          onOwnerNameChange={setOwnerName}
+          onOwnerEmailChange={setOwnerEmail}
         />
       )}
 
@@ -243,6 +255,9 @@ export function RentAnalysisWizard({
           analysis={analysis}
           pdfBase64={pdfBase64}
           downloadUrl={downloadUrl}
+          shortUrl={shortUrl}
+          ownerName={ownerName}
+          ownerEmail={ownerEmail}
         />
       )}
 

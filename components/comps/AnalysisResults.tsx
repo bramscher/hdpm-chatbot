@@ -22,6 +22,10 @@ interface AnalysisResultsProps {
   onSearchZillow: () => void;
   generatingReport: boolean;
   zillowLoading: boolean;
+  ownerName: string;
+  ownerEmail: string;
+  onOwnerNameChange: (value: string) => void;
+  onOwnerEmailChange: (value: string) => void;
 }
 
 function fmt(amount: number): string {
@@ -108,6 +112,10 @@ export function AnalysisResults({
   onSearchZillow,
   generatingReport,
   zillowLoading,
+  ownerName,
+  ownerEmail,
+  onOwnerNameChange,
+  onOwnerEmailChange,
 }: AnalysisResultsProps) {
   const { subject, stats, comparable_comps, competing_listings, methodology_notes } =
     analysis;
@@ -302,6 +310,44 @@ export function AnalysisResults({
         </div>
       )}
 
+      {/* Owner details — personalization */}
+      <div className="glass-heavy rounded-xl p-4">
+        <h4 className="text-xs font-medium text-charcoal-400 uppercase tracking-wider mb-3">
+          Property Owner (optional)
+        </h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="owner-name" className="block text-xs text-charcoal-500 mb-1">
+              Owner Name
+            </label>
+            <input
+              id="owner-name"
+              type="text"
+              placeholder="e.g. John Doe"
+              value={ownerName}
+              onChange={(e) => onOwnerNameChange(e.target.value)}
+              className="w-full rounded-lg border border-charcoal-200 bg-white/60 px-3 py-2 text-sm text-charcoal-900 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-terra-500/30 focus:border-terra-500"
+            />
+          </div>
+          <div>
+            <label htmlFor="owner-email" className="block text-xs text-charcoal-500 mb-1">
+              Owner Email
+            </label>
+            <input
+              id="owner-email"
+              type="email"
+              placeholder="e.g. john@example.com"
+              value={ownerEmail}
+              onChange={(e) => onOwnerEmailChange(e.target.value)}
+              className="w-full rounded-lg border border-charcoal-200 bg-white/60 px-3 py-2 text-sm text-charcoal-900 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-terra-500/30 focus:border-terra-500"
+            />
+          </div>
+        </div>
+        <p className="text-[10px] text-charcoal-400 mt-2">
+          Name adds &ldquo;Report prepared exclusively for&rdquo; to the PDF. Email pre-fills the &ldquo;Email to Owner&rdquo; button.
+        </p>
+      </div>
+
       {/* Action buttons */}
       <div className="flex flex-wrap gap-3 justify-center pt-2">
         {competing_listings.length === 0 && (
@@ -345,12 +391,18 @@ interface ReportReadyProps {
   analysis: RentAnalysis;
   pdfBase64: string;
   downloadUrl: string | null;
+  shortUrl?: string | null;
+  ownerName?: string;
+  ownerEmail?: string;
 }
 
 export function ReportReady({
   analysis,
   pdfBase64,
   downloadUrl,
+  shortUrl,
+  ownerName,
+  ownerEmail,
 }: ReportReadyProps) {
   const { subject } = analysis;
 
@@ -370,28 +422,39 @@ export function ReportReady({
     URL.revokeObjectURL(url);
   }
 
+  // Prefer short URL for sharing, fall back to signed URL
+  const shareUrl = shortUrl || downloadUrl;
+  const shareExpiry = shortUrl ? "30 days" : "24 hours";
+
   function handleCopyLink() {
-    if (downloadUrl) {
-      navigator.clipboard.writeText(downloadUrl);
+    if (shareUrl) {
+      navigator.clipboard.writeText(shareUrl);
     }
   }
 
   function handleEmail() {
+    const greeting = ownerName ? `Hello ${ownerName},` : "Hello,";
     const subjectLine = `Rent Analysis Report - ${subject.address}`;
-    const body = `Hello,
+
+    const reportLink = shareUrl
+      ? `View your rent analysis report here:\n${shareUrl}\n\n(This link expires in ${shareExpiry})`
+      : "Please see the attached PDF report.";
+
+    const body = `${greeting}
 
 Please find the rent analysis report for ${subject.address}, ${subject.town}, OR.
 
 Based on ${analysis.stats.count} comparable properties, our recommended rent range is ${fmt(analysis.recommended_rent_low)} - ${fmt(analysis.recommended_rent_high)}/mo.
 
-${downloadUrl ? `View the full report here: ${downloadUrl}\n\n(This link expires in 24 hours)` : "Please see the attached PDF report."}
+${reportLink}
 
 Best regards,
 High Desert Property Management
 541-548-0383 | info@highdesertpm.com
 highdesertpm.com`;
 
-    window.location.href = `mailto:?subject=${encodeURIComponent(subjectLine)}&body=${encodeURIComponent(body)}`;
+    const mailto = ownerEmail ? `mailto:${encodeURIComponent(ownerEmail)}` : "mailto:";
+    window.location.href = `${mailto}?subject=${encodeURIComponent(subjectLine)}&body=${encodeURIComponent(body)}`;
   }
 
   return (
@@ -438,7 +501,7 @@ highdesertpm.com`;
           Email to Owner
         </Button>
 
-        {downloadUrl && (
+        {shareUrl && (
           <Button
             onClick={handleCopyLink}
             variant="outline"
@@ -450,9 +513,9 @@ highdesertpm.com`;
         )}
       </div>
 
-      {downloadUrl && (
+      {shareUrl && (
         <p className="text-center text-[10px] text-charcoal-400">
-          Report link expires in 24 hours
+          Report link expires in {shareExpiry}
         </p>
       )}
     </div>

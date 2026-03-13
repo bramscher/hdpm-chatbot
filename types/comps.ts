@@ -9,7 +9,7 @@ export type Town = 'Bend' | 'Redmond' | 'Sisters' | 'Prineville' | 'Culver';
 export type PropertyType = 'SFR' | 'Apartment' | 'Townhouse' | 'Duplex' | 'Condo' | 'Manufactured' | 'Other';
 
 /** Data source identifiers */
-export type DataSource = 'appfolio' | 'rentometer' | 'hud_fmr' | 'manual';
+export type DataSource = 'appfolio' | 'rentometer' | 'rentcast' | 'hud_fmr' | 'manual';
 
 /** Common amenity tags */
 export type Amenity =
@@ -33,12 +33,13 @@ export const ALL_PROPERTY_TYPES: PropertyType[] = [
 ];
 
 /** All data sources */
-export const ALL_DATA_SOURCES: DataSource[] = ['appfolio', 'rentometer', 'hud_fmr', 'manual'];
+export const ALL_DATA_SOURCES: DataSource[] = ['appfolio', 'rentometer', 'rentcast', 'hud_fmr', 'manual'];
 
 /** Human-readable labels for data sources */
 export const DATA_SOURCE_LABELS: Record<DataSource, string> = {
   appfolio: 'AppFolio',
   rentometer: 'Rentometer',
+  rentcast: 'RentCast',
   hud_fmr: 'HUD FMR',
   manual: 'Manual Entry',
 };
@@ -241,7 +242,7 @@ export interface CompetingListing {
   bathrooms?: number;
   sqft?: number;
   listing_url?: string;
-  source: 'zillow' | 'realtor' | 'apartments_com';
+  source: 'zillow' | 'realtor' | 'apartments_com' | 'rentcast';
   days_on_market?: number;
   fetched_at: string;
 }
@@ -257,6 +258,56 @@ export interface RentAnalysis {
   recommended_rent_mid: number;
   recommended_rent_high: number;
   methodology_notes: string[];
+  rentcast_value_estimate?: RentCastValueEstimate;
+  rentcast_rent_estimate?: RentCastRentEstimate;
+  prepared_for?: string;
   generated_at: string;
   generated_by: string;
+}
+
+// ============================================
+// RentCast API Types
+// ============================================
+
+/** A comparable property returned by RentCast AVM endpoints */
+export interface RentCastComparable {
+  formattedAddress: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  bedrooms: number;
+  bathrooms: number;
+  squareFootage: number;
+  propertyType: string;
+  price?: number;
+  rent?: number;
+  correlation: number;
+  daysOld: number;
+}
+
+/** RentCast property value estimate (AVM) */
+export interface RentCastValueEstimate {
+  price: number;
+  priceRangeLow: number;
+  priceRangeHigh: number;
+  comparables: RentCastComparable[];
+}
+
+/** RentCast rent estimate */
+export interface RentCastRentEstimate {
+  rent: number;
+  rentRangeLow: number;
+  rentRangeHigh: number;
+  comparables: RentCastComparable[];
+}
+
+/** RentCast market statistics for a zip code */
+export interface RentCastMarketStats {
+  zipCode: string;
+  medianRent: number;
+  medianPrice: number;
+  averageRent: number;
+  averagePrice: number;
+  rentalListingCount: number;
+  saleListingCount: number;
 }

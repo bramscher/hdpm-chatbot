@@ -74,13 +74,20 @@ function LoginContent() {
             <Image
               src="/HDPM-PrimaryLogo-Black.png"
               alt="High Desert Property Management"
-              width={200}
-              height={65}
-              className="mb-2"
+              width={400}
+              height={130}
+              className="w-full h-auto mb-2"
             />
           </div>
 
           <div className="lg:block hidden">
+            <Image
+              src="/HDPM-PrimaryLogo-Black.png"
+              alt="High Desert Property Management"
+              width={400}
+              height={130}
+              className="w-full h-auto mb-6"
+            />
             <p className="text-sm font-medium text-charcoal-400 mb-1">Welcome back</p>
             <h2 className="text-2xl font-bold text-charcoal-900 tracking-tight mb-8">
               Sign in to continue

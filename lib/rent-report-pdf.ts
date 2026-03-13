@@ -196,7 +196,17 @@ export function generateRentReportPdf(analysis: RentAnalysis): Buffer {
   doc.setFontSize(9);
   doc.setTextColor(MID);
   doc.text(`Generated ${new Date(analysis.generated_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, MARGIN, y + 6);
-  y += 28;
+  y += 10;
+
+  // "Prepared exclusively for" personalization
+  if (analysis.prepared_for) {
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(10);
+    doc.setTextColor(GREEN);
+    doc.text(`Report prepared exclusively for: ${analysis.prepared_for}`, MARGIN, y + 6);
+    y += 10;
+  }
+  y += 18;
 
   // Subject property box (gray background)
   y = drawSectionTitle(doc, y, 'SUBJECT PROPERTY');

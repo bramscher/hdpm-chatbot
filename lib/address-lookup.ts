@@ -10,6 +10,7 @@
  */
 
 import type { Town, PropertyType } from '@/types/comps';
+import { getPropertyRecords, type RentCastPropertyRecord } from './rentcast';
 
 // ============================================
 // Types
@@ -123,73 +124,8 @@ function extractShortComponent(
 }
 
 // ============================================
-// RentCast Property Lookup
+// RentCast Property Type Mapping
 // ============================================
-
-interface RentCastProperty {
-  formattedAddress?: string;
-  addressLine1?: string;
-  city?: string;
-  state?: string;
-  zipCode?: string;
-  county?: string;
-  latitude?: number;
-  longitude?: number;
-  propertyType?: string;
-  bedrooms?: number;
-  bathrooms?: number;
-  squareFootage?: number;
-  lotSize?: number;
-  yearBuilt?: number;
-  lastSaleDate?: string;
-  lastSalePrice?: number;
-  features?: {
-    cooling?: boolean;
-    coolingType?: string;
-    heating?: boolean;
-    garage?: boolean;
-    garageSpaces?: number;
-  };
-}
-
-async function lookupRentCast(
-  address: string,
-  apiKey: string
-): Promise<RentCastProperty | null> {
-  try {
-    const url = `https://api.rentcast.io/v1/properties?address=${encodeURIComponent(address)}`;
-
-    const res = await fetch(url, {
-      headers: {
-        'X-Api-Key': apiKey,
-        Accept: 'application/json',
-      },
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      console.error(`[RentCast] API error (${res.status}): ${text.substring(0, 200)}`);
-      return null;
-    }
-
-    const data = await res.json();
-
-    // RentCast returns an array, take first result
-    if (Array.isArray(data) && data.length > 0) {
-      return data[0] as RentCastProperty;
-    }
-
-    // Or it might be a single object
-    if (data && typeof data === 'object' && !Array.isArray(data) && data.formattedAddress) {
-      return data as RentCastProperty;
-    }
-
-    return null;
-  } catch (err) {
-    console.error('[RentCast] Lookup error:', err);
-    return null;
-  }
-}
 
 function mapRentCastPropertyType(type: string | undefined): PropertyType | null {
   if (!type) return null;
@@ -212,7 +148,6 @@ export async function lookupAddress(
   rawAddress: string
 ): Promise<AddressLookupResult | null> {
   const googleKey = process.env.GOOGLE_PLACES_API_KEY;
-  const rentCastKey = process.env.RENTCAST_API_KEY;
   const sources: string[] = [];
 
   if (!googleKey) {
@@ -251,36 +186,32 @@ export async function lookupAddress(
     sources,
   };
 
-  // Step 2: Enrich with RentCast (if key available)
-  if (rentCastKey) {
-    console.log(`[AddressLookup] Enriching with RentCast...`);
-    const rcProp = await lookupRentCast(geo.formatted_address, rentCastKey);
+  // Step 2: Enrich with RentCast (uses centralized lib/rentcast.ts)
+  console.log(`[AddressLookup] Enriching with RentCast...`);
+  const rcProp = await getPropertyRecords(geo.formatted_address);
 
-    if (rcProp) {
-      sources.push('RentCast');
-      result.property = {
-        bedrooms: rcProp.bedrooms ?? null,
-        bathrooms: rcProp.bathrooms ?? null,
-        sqft: rcProp.squareFootage ?? null,
-        property_type: mapRentCastPropertyType(rcProp.propertyType),
-        year_built: rcProp.yearBuilt ?? null,
-        lot_size: rcProp.lotSize ?? null,
-        last_sale_price: rcProp.lastSalePrice ?? null,
-        last_sale_date: rcProp.lastSaleDate ?? null,
-        features: {
-          garage: rcProp.features?.garage || false,
-          ac: rcProp.features?.cooling || false,
-          heating: rcProp.features?.heating || false,
-        },
-      };
-      console.log(
-        `[AddressLookup] RentCast found: ${rcProp.bedrooms}BR/${rcProp.bathrooms}BA, ${rcProp.squareFootage}sqft, ${rcProp.propertyType}`
-      );
-    } else {
-      console.log('[AddressLookup] RentCast: no property data found');
-    }
+  if (rcProp) {
+    sources.push('RentCast');
+    result.property = {
+      bedrooms: rcProp.bedrooms ?? null,
+      bathrooms: rcProp.bathrooms ?? null,
+      sqft: rcProp.squareFootage ?? null,
+      property_type: mapRentCastPropertyType(rcProp.propertyType),
+      year_built: rcProp.yearBuilt ?? null,
+      lot_size: rcProp.lotSize ?? null,
+      last_sale_price: rcProp.lastSalePrice ?? null,
+      last_sale_date: rcProp.lastSaleDate ?? null,
+      features: {
+        garage: rcProp.features?.garage || false,
+        ac: rcProp.features?.cooling || false,
+        heating: rcProp.features?.heating || false,
+      },
+    };
+    console.log(
+      `[AddressLookup] RentCast found: ${rcProp.bedrooms}BR/${rcProp.bathrooms}BA, ${rcProp.squareFootage}sqft, ${rcProp.propertyType}`
+    );
   } else {
-    console.log('[AddressLookup] No RENTCAST_API_KEY — skipping property enrichment');
+    console.log('[AddressLookup] RentCast: no property data found');
   }
 
   return result;

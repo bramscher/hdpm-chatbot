@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+import { randomBytes } from 'crypto';
 import { generateRentAnalysis } from '@/lib/rent-analysis';
 import { generateRentReportPdf } from '@/lib/rent-report-pdf';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import type { SubjectProperty, CompetingListing } from '@/types/comps';
+
+/** Generate a URL-safe short ID (8 chars) */
+function generateShortId(): string {
+  return randomBytes(6).toString('base64url').substring(0, 8);
+}
 
 /**
  * POST /api/comps/report
@@ -12,7 +18,8 @@ import type { SubjectProperty, CompetingListing } from '@/types/comps';
  * 1. Run analysis engine on subject property
  * 2. Generate branded PDF
  * 3. Upload to Supabase Storage
- * 4. Return signed download URL
+ * 4. Create short link for sharing
+ * 5. Return download URL + short link
  */
 export async function POST(request: NextRequest) {
   try {
@@ -22,9 +29,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { subject, competing_listings } = body as {
+    const { subject, competing_listings, prepared_for } = body as {
       subject: SubjectProperty;
       competing_listings?: CompetingListing[];
+      prepared_for?: string;
     };
 
     // Validate required subject fields
@@ -46,11 +54,16 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Report] Analysis complete: recommended $${analysis.recommended_rent_low}-$${analysis.recommended_rent_high}/mo`);
 
-    // 2. Generate PDF
+    // 2. Attach prepared_for personalization if provided
+    if (prepared_for) {
+      analysis.prepared_for = prepared_for;
+    }
+
+    // 3. Generate PDF
     const pdfBuffer = generateRentReportPdf(analysis);
     console.log(`[Report] PDF generated: ${pdfBuffer.length} bytes`);
 
-    // 3. Upload to Supabase Storage
+    // 4. Upload to Supabase Storage
     const supabase = getSupabaseAdmin();
     const now = new Date();
     const year = now.getFullYear();
@@ -76,11 +89,12 @@ export async function POST(request: NextRequest) {
         analysis,
         pdf_base64: base64,
         download_url: null,
+        short_url: null,
         storage_error: uploadError.message,
       });
     }
 
-    // 4. Get signed URL (24-hour expiry)
+    // 5. Get signed URL (24-hour expiry) for immediate download
     const { data: signedData, error: signedError } = await supabase.storage
       .from('rent-reports')
       .createSignedUrl(fileName, 60 * 60 * 24); // 24 hours
@@ -91,7 +105,37 @@ export async function POST(request: NextRequest) {
 
     const downloadUrl = signedData?.signedUrl || null;
 
-    console.log(`[Report] Report uploaded. URL: ${downloadUrl ? 'yes' : 'no'}`);
+    // 6. Create short link for sharing (expires in 30 days)
+    let shortUrl: string | null = null;
+    try {
+      const shortId = generateShortId();
+      const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days
+
+      const { error: linkError } = await supabase
+        .from('report_links')
+        .insert({
+          short_id: shortId,
+          file_path: fileName,
+          property_address: `${subject.address}, ${subject.town}`,
+          expires_at: expiresAt.toISOString(),
+          created_by: session.user.email,
+        });
+
+      if (!linkError) {
+        // Build the short URL using the request's host
+        const host = request.headers.get('host') || 'localhost:3000';
+        const protocol = host.includes('localhost') ? 'http' : 'https';
+        shortUrl = `${protocol}://${host}/r/${shortId}`;
+        console.log(`[Report] Short link created: ${shortUrl}`);
+      } else {
+        console.warn('[Report] Short link creation failed (table may not exist yet):', linkError.message);
+        // Fall back to signed URL — short links are a nice-to-have
+      }
+    } catch (linkErr) {
+      console.warn('[Report] Short link creation skipped:', linkErr);
+    }
+
+    console.log(`[Report] Report uploaded. URL: ${downloadUrl ? 'yes' : 'no'}, Short: ${shortUrl ? 'yes' : 'no'}`);
 
     // Also return base64 for immediate download
     const base64 = pdfBuffer.toString('base64');
@@ -100,6 +144,7 @@ export async function POST(request: NextRequest) {
       analysis,
       pdf_base64: base64,
       download_url: downloadUrl,
+      short_url: shortUrl,
     });
   } catch (error) {
     console.error('[Report] Error:', error);
