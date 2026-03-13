@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { BookOpen, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { BookOpen, PanelRightClose, Scale, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Source } from "@/components/Message";
 
@@ -17,126 +16,121 @@ export function CitationsSidebar({
   highlightedCitation,
   onCitationClick,
 }: CitationsSidebarProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   if (isCollapsed) {
     return (
-      <div className="w-12 border-l border-terra-300/40 flex flex-col items-center py-4 bg-gradient-to-b from-terra-100/90 via-terra-50/70 to-green-50/80 backdrop-blur-xl shadow-[inset_8px_0_20px_-6px_rgba(61,122,61,0.15)]">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setIsCollapsed(false)}
-          className="mb-4"
-          title="Expand citations"
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </Button>
-        {sources.length > 0 && (
-          <div className="flex flex-col items-center gap-2">
-            <BookOpen className="h-5 w-5 text-terra-700" />
-            <span className="text-xs font-bold text-terra-700">{sources.length}</span>
-          </div>
-        )}
+      <div className="w-12 border-l border-sand-200 flex flex-col items-center py-3 bg-white shrink-0">
+        <div className="relative group">
+          <button
+            onClick={() => setIsCollapsed(false)}
+            className="p-2 rounded-lg text-charcoal-400 hover:text-charcoal-600 hover:bg-sand-100 transition-colors mb-3"
+          >
+            <Scale className="h-5 w-5" />
+            {sources.length > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-terra-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                {sources.length}
+              </span>
+            )}
+          </button>
+          <span className="absolute right-full mr-2 top-1/2 -translate-y-1/2 px-2 py-1 bg-charcoal-900 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+            Sources
+          </span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="w-72 border-l border-terra-300/40 flex flex-col bg-gradient-to-b from-terra-100/90 via-terra-50/70 to-green-50/80 backdrop-blur-xl shadow-[inset_8px_0_20px_-6px_rgba(61,122,61,0.15)]">
+    <div className="w-64 border-l border-sand-200 flex flex-col bg-white shrink-0">
       {/* Header */}
-      <div className="p-4 border-b border-terra-200/30 flex items-center justify-between">
+      <div className="h-14 px-3 border-b border-sand-200 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
-          <BookOpen className="h-5 w-5 text-green-700" />
-          <h3 className="font-semibold text-terra-900">Legal Sources</h3>
+          <BookOpen className="h-4 w-4 text-terra-500" />
+          <span className="text-xs font-semibold text-charcoal-500 uppercase tracking-wider">Sources</span>
           {sources.length > 0 && (
-            <span className="text-xs px-2 py-0.5 bg-terra-100/80 text-terra-700 rounded-full font-medium">
+            <span className="text-2xs px-1.5 py-0.5 bg-terra-50 text-terra-600 rounded font-bold">
               {sources.length}
             </span>
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
+        <button
           onClick={() => setIsCollapsed(true)}
-          className="h-8 w-8"
+          className="p-1.5 rounded-lg text-charcoal-400 hover:text-charcoal-600 hover:bg-sand-100 transition-colors"
           title="Collapse"
         >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
+          <PanelRightClose className="h-4 w-4" />
+        </button>
       </div>
 
       {/* Sources List */}
       <div className="flex-1 overflow-y-auto p-3">
         {sources.length === 0 ? (
-          <div className="text-center py-8 px-4">
-            <BookOpen className="h-10 w-10 mx-auto text-charcoal-300 mb-3" />
-            <p className="text-sm text-charcoal-500 font-medium">No sources yet</p>
-            <p className="text-xs text-charcoal-400 mt-1">
-              Ask a question to see relevant ORS 90 citations
+          <div className="text-center py-12 px-4">
+            <BookOpen className="h-6 w-6 mx-auto text-charcoal-200 mb-2" />
+            <p className="text-xs text-charcoal-400">No sources yet</p>
+            <p className="text-2xs text-charcoal-300 mt-1">
+              Ask a question to see ORS 90 citations
             </p>
           </div>
         ) : (
           <div className="space-y-2">
             {sources.map((source, index) => (
-              <div
+              <button
                 key={source.id}
                 id={`citation-${index + 1}`}
                 onClick={() => onCitationClick(index)}
                 className={cn(
-                  "p-3 rounded-xl cursor-pointer transition-all duration-200 ease-spring",
+                  "w-full text-left p-3 rounded-lg transition-all duration-200",
                   highlightedCitation === index
-                    ? "bg-terra-100/80 border-2 border-terra-500 shadow-md shadow-terra-300/50"
-                    : "bg-white/60 backdrop-blur-sm border border-white/30 hover:border-terra-400/50 hover:shadow-sm"
+                    ? "bg-terra-50 border border-terra-300 shadow-sm"
+                    : "bg-sand-50 border border-transparent hover:border-sand-200 hover:bg-sand-100"
                 )}
               >
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-2.5">
                   <span
                     className={cn(
-                      "flex items-center justify-center w-7 h-7 rounded-lg text-sm font-bold shrink-0",
+                      "flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold shrink-0",
                       highlightedCitation === index
-                        ? "bg-terra-600 text-white"
-                        : "bg-terra-100 text-terra-700"
+                        ? "bg-terra-500 text-white"
+                        : "bg-sand-200 text-charcoal-600"
                     )}
                   >
                     {index + 1}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">{source.icon}</span>
-                      <span className="text-sm font-medium text-charcoal-800 truncate">
-                        {source.title}
-                      </span>
-                    </div>
+                    <p className="text-[13px] font-medium text-charcoal-800 leading-tight">
+                      {source.title}
+                    </p>
                     {source.section && (
-                      <p className="text-xs text-terra-700 mt-1 font-medium">
+                      <p className="text-2xs text-terra-600 mt-1 font-medium">
                         ORS {source.section}
                       </p>
                     )}
                   </div>
                 </div>
 
-                {/* Link to source */}
                 <a
                   href={source.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  className="mt-2 flex items-center gap-1 text-xs text-charcoal-500 hover:text-terra-700 transition-colors"
+                  className="mt-2 flex items-center gap-1 text-2xs text-charcoal-400 hover:text-terra-600 transition-colors"
                 >
                   <ExternalLink className="h-3 w-3" />
                   View full text
                 </a>
-              </div>
+              </button>
             ))}
           </div>
         )}
       </div>
 
-      {/* Footer */}
+      {/* Footer hint */}
       {sources.length > 0 && (
-        <div className="p-3 border-t border-terra-200/30 bg-terra-50/50 backdrop-blur-sm">
-          <p className="text-xs text-terra-700 text-center">
-            Click citation numbers in chat to highlight sources
+        <div className="px-3 py-2.5 border-t border-sand-200">
+          <p className="text-2xs text-charcoal-300 text-center">
+            Click numbers in chat to highlight
           </p>
         </div>
       )}

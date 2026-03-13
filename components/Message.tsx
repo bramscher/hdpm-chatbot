@@ -28,9 +28,9 @@ interface MessageProps {
   isLoading?: boolean;
   isStreaming?: boolean;
   attachment?: AttachmentInfo;
-  relatedDocument?: AttachmentInfo; // For assistant messages - the document from user's question
-  onCitationClick?: (index: number) => void; // Callback when citation is clicked
-  showInlineSources?: boolean; // Whether to show inline sources list (default: false when sidebar is used)
+  relatedDocument?: AttachmentInfo;
+  onCitationClick?: (index: number) => void;
+  showInlineSources?: boolean;
   senderName?: string;
   senderEmail?: string;
   createdAt?: string;
@@ -78,47 +78,46 @@ function CitationTooltip({ citationNum, source, children }: CitationTooltipProps
     >
       {children}
       {isHovered && source && (
-        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-80 p-3 bg-charcoal-900/95 backdrop-blur-xl text-white text-sm rounded-2xl shadow-xl pointer-events-none">
+        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-72 p-3 bg-charcoal-900 text-white text-sm rounded-lg shadow-xl pointer-events-none">
           <span className="flex items-center gap-2 mb-1">
-            <span className="text-lg">{source.icon}</span>
-            <span className="font-semibold">{source.title}</span>
+            <span className="text-base">{source.icon}</span>
+            <span className="font-medium text-[13px]">{source.title}</span>
           </span>
           {source.section && (
-            <span className="text-terra-400 text-sm">ORS {source.section}</span>
+            <span className="text-terra-300 text-xs">ORS {source.section}</span>
           )}
-          <span className="absolute top-full left-1/2 -translate-x-1/2 border-6 border-transparent border-t-charcoal-900/95" />
+          <span className="absolute top-full left-1/2 -translate-x-1/2 border-6 border-transparent border-t-charcoal-900" />
         </span>
       )}
     </span>
   );
 }
 
-/**
- * Parse markdown-like formatting in content
- */
 function parseMarkdown(text: string): string {
-  // Convert ## headers to styled text
-  return text
-    .replace(/^## (.+)$/gm, '<h3 class="text-base font-semibold text-charcoal-900 mt-4 mb-2">$1</h3>')
-    .replace(/^### (.+)$/gm, '<h4 class="text-sm font-semibold text-charcoal-800 mt-3 mb-1">$1</h4>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold">$1</strong>')
-    .replace(/^- (.+)$/gm, '<li class="ml-4 list-disc">$1</li>')
-    .replace(/\n\n/g, '</p><p class="mb-3">')
+  let result = text
+    // Collapse blank lines between bullet items so they stay tight
+    .replace(/(^[•\-] .+)\n\n(?=[•\-] )/gm, '$1\n')
+    .replace(/^## (.+)$/gm, '<h3 class="text-sm font-semibold text-charcoal-900 mt-3 mb-1">$1</h3>')
+    .replace(/^### (.+)$/gm, '<h4 class="text-sm font-semibold text-charcoal-800 mt-2 mb-0.5">$1</h4>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-charcoal-900">$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em class="text-charcoal-500 italic">$1</em>')
+    .replace(/^- (.+)$/gm, '<li class="ml-4 list-disc leading-snug">$1</li>')
+    .replace(/^• (.+)$/gm, '<li class="ml-4 list-disc leading-snug">$1</li>')
+    .replace(/\n\n/g, '</p><p class="mt-1.5">')
     .replace(/\n/g, '<br/>');
+
+  // Remove <br/> between consecutive list items
+  result = result.replace(/<\/li><br\/><li/g, '</li><li');
+
+  return result;
 }
 
-/**
- * Parse message content and convert citation references [1], [2] etc to interactive elements
- */
 function parseCitations(
   content: string,
   sources?: Source[],
   onCitationClick?: (index: number) => void
 ): React.ReactNode[] {
-  // First apply markdown parsing
   const formattedContent = parseMarkdown(content);
-
-  // Split by citation pattern
   const parts = formattedContent.split(/(\[\d+\])/g);
 
   return parts.map((part, index) => {
@@ -130,15 +129,13 @@ function parseCitations(
       return (
         <CitationTooltip key={index} citationNum={citationNum} source={source}>
           <button
-            className="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 mx-0.5 text-sm font-bold bg-terra-100/80 text-terra-700 rounded-lg hover:bg-terra-300/80 transition-colors cursor-pointer border border-terra-300/50"
+            className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 mx-0.5 text-xs font-bold bg-terra-100 text-terra-700 rounded hover:bg-terra-200 transition-colors cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
-              // Scroll to citation in sidebar
               const citationEl = document.getElementById(`citation-${citationNum}`);
               if (citationEl) {
                 citationEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }
-              // Notify parent about click
               if (onCitationClick) {
                 onCitationClick(citationNum - 1);
               }
@@ -150,7 +147,6 @@ function parseCitations(
       );
     }
 
-    // Render HTML content safely (since we control the input)
     return (
       <span
         key={index}
@@ -177,14 +173,12 @@ export function Message({
   const isUser = role === "user";
   const initials = isUser ? getSenderInitials(senderName, senderEmail) : '';
   const timeStr = formatMessageTime(createdAt);
-  const [expandedSources, setExpandedSources] = useState(true); // Default to expanded
+  const [expandedSources, setExpandedSources] = useState(true);
   const [copySuccess, setCopySuccess] = useState(false);
   const [exportingPDF, setExportingPDF] = useState(false);
 
-  // For export, use the related document (for assistant messages) or the attachment (for user messages)
   const documentForExport = relatedDocument || attachment;
 
-  // Handle copy to clipboard
   const handleCopyToClipboard = async () => {
     const exportData: ExportData = {
       documentName: documentForExport?.name,
@@ -203,7 +197,6 @@ export function Message({
     }
   };
 
-  // Handle PDF export
   const handleExportPDF = async () => {
     setExportingPDF(true);
     try {
@@ -226,16 +219,16 @@ export function Message({
 
   if (isLoading) {
     return (
-      <div className="flex gap-4 p-5">
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-terra-500 to-green-700 flex items-center justify-center text-white text-sm font-medium shrink-0">
-          AI
-        </div>
-        <div className="flex-1 space-y-2">
-          <div className="flex gap-1.5 items-center">
-            <div className="w-2.5 h-2.5 bg-terra-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-            <div className="w-2.5 h-2.5 bg-terra-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-            <div className="w-2.5 h-2.5 bg-terra-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-            <span className="ml-3 text-base text-charcoal-500">Searching ORS Chapter 90...</span>
+      <div className="px-6 py-3">
+        <div className="flex items-start gap-3">
+          <div className="w-6 h-6 rounded-full bg-charcoal-900 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+            AI
+          </div>
+          <div className="flex gap-1.5 items-center pt-1.5">
+            <div className="w-1.5 h-1.5 bg-charcoal-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+            <div className="w-1.5 h-1.5 bg-charcoal-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+            <div className="w-1.5 h-1.5 bg-charcoal-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+            <span className="ml-2 text-sm text-charcoal-400">Searching ORS Chapter 90...</span>
           </div>
         </div>
       </div>
@@ -243,169 +236,165 @@ export function Message({
   }
 
   return (
-    <div className={cn("flex gap-4 p-5", isUser ? "bg-terra-50/50" : "bg-white/70")}>
-      {/* Avatar */}
-      <div className="flex flex-col items-center gap-1 shrink-0">
-        <div
-          className={cn(
-            "w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium",
-            isUser
-              ? "bg-gradient-to-br from-charcoal-600 to-charcoal-800"
-              : "bg-gradient-to-br from-terra-500 to-green-700"
+    <div className={cn(
+      "px-6 py-3",
+      isUser ? "bg-sand-50/50" : ""
+    )}>
+      <div className="flex items-start gap-3">
+        {/* Avatar */}
+        <div className="shrink-0 pt-0.5">
+          <div
+            className={cn(
+              "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold",
+              isUser
+                ? "bg-terra-100 text-terra-700"
+                : "bg-charcoal-900 text-white"
+            )}
+            title={senderName || senderEmail || (isUser ? 'User' : 'AI Assistant')}
+          >
+            {isUser ? (initials || "U") : "AI"}
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0 space-y-1.5">
+          {/* Sender info */}
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] font-semibold text-charcoal-800">
+              {isUser ? (senderName || "You") : "Assistant"}
+            </span>
+            {timeStr && (
+              <span className="text-2xs text-charcoal-300">{timeStr}</span>
+            )}
+          </div>
+
+          {/* Attachment indicator for user messages */}
+          {isUser && attachment && (
+            <div className="p-2.5 bg-white border border-sand-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <span className="text-sm">{attachment.type === "pdf" ? "\uD83D\uDCC4" : "\uD83D\uDCDD"}</span>
+                <span className="text-[13px] font-medium text-charcoal-700">{attachment.name}</span>
+                <span className="text-2xs px-1.5 py-0.5 bg-sand-100 text-charcoal-500 rounded font-medium">
+                  {attachment.type === "pdf" ? "PDF" : "Text"}
+                </span>
+              </div>
+              <p className="text-xs text-charcoal-400 mt-1.5 line-clamp-2 pl-6">{attachment.preview}</p>
+            </div>
           )}
-          title={senderName || senderEmail || (isUser ? 'User' : 'AI Assistant')}
-        >
-          {isUser ? (initials || "U") : "AI"}
-        </div>
-        {timeStr && (
-          <span className="text-[10px] text-charcoal-400">{timeStr}</span>
-        )}
-      </div>
 
-      {/* Content */}
-      <div className="flex-1 space-y-4 overflow-hidden">
-        {/* Attachment indicator for user messages */}
-        {isUser && attachment && (
-          <div className="p-3 bg-terra-50/50 border border-terra-300/50 backdrop-blur-sm rounded-xl mb-2">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-lg">{attachment.type === "pdf" ? "\uD83D\uDCC4" : "\uD83D\uDCDD"}</span>
-              <span className="text-sm font-medium text-terra-800">{attachment.name}</span>
-              <span className="text-xs px-2 py-0.5 bg-terra-300/80 text-terra-700 rounded-full">
-                {attachment.type === "pdf" ? "PDF Parsed" : "Text Attached"}
-              </span>
-            </div>
-            <div className="text-xs text-charcoal-600 bg-white/60 backdrop-blur-sm p-2 rounded-lg border border-terra-100/50 max-h-24 overflow-y-auto">
-              <span className="font-medium text-terra-700">Document preview:</span>
-              <p className="mt-1 whitespace-pre-wrap">{attachment.preview}</p>
-            </div>
+          {/* Message text with inline citations */}
+          <div className="text-sm text-charcoal-700 leading-normal [&_li]:my-0 [&_p]:my-0">
+            <p>
+              {parseCitations(content, sources, onCitationClick)}
+              {isStreaming && (
+                <span className="inline-block w-0.5 h-4 ml-0.5 bg-charcoal-800 animate-pulse rounded-sm" />
+              )}
+            </p>
           </div>
-        )}
 
-        {/* Message text with inline citations */}
-        <div className="prose prose-base max-w-none text-charcoal-800 leading-relaxed">
-          <p className="mb-3">
-            {parseCitations(content, sources, onCitationClick)}
-            {isStreaming && (
-              <span className="inline-block w-2 h-5 ml-1 bg-terra-600 animate-glow-pulse rounded-sm" />
-            )}
-          </p>
-        </div>
-
-        {/* Sources - Collapsible (only shown if showInlineSources is true) */}
-        {showInlineSources && sources && sources.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-charcoal-200/50">
-            <button
-              onClick={() => setExpandedSources(!expandedSources)}
-              className="flex items-center gap-2 text-sm font-semibold text-terra-700 uppercase tracking-wide hover:text-terra-800 transition-colors"
-            >
-              <svg
-                className={cn(
-                  "w-4 h-4 transition-transform",
-                  expandedSources ? "rotate-90" : ""
-                )}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+          {/* Sources - Collapsible (only shown if showInlineSources is true) */}
+          {showInlineSources && sources && sources.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-sand-200">
+              <button
+                onClick={() => setExpandedSources(!expandedSources)}
+                className="flex items-center gap-2 text-xs font-semibold text-charcoal-500 uppercase tracking-wide hover:text-charcoal-700 transition-colors"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-              {sources.length} Legal Source{sources.length !== 1 ? 's' : ''} Referenced
-            </button>
+                <svg
+                  className={cn(
+                    "w-3.5 h-3.5 transition-transform",
+                    expandedSources ? "rotate-90" : ""
+                  )}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+                {sources.length} Source{sources.length !== 1 ? 's' : ''}
+              </button>
 
-            {expandedSources && (
-              <ul className="mt-4 space-y-3">
-                {sources.map((source, index) => (
-                  <li
-                    key={source.id}
-                    id={`source-${index + 1}`}
-                    className="flex items-start gap-3 p-3 rounded-xl bg-terra-50/50 border border-terra-100/50 hover:bg-terra-100/50 transition-colors"
-                  >
-                    <span className="flex items-center justify-center w-8 h-8 bg-terra-300/80 text-terra-700 rounded-lg text-sm font-bold shrink-0">
-                      {index + 1}
-                    </span>
-                    <span className="text-xl shrink-0">{source.icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <a
-                        href={source.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-base font-medium text-terra-800 hover:text-terra-900 hover:underline block"
-                      >
-                        {source.title}
-                      </a>
-                      {source.section && (
-                        <span className="text-sm text-terra-700">ORS {source.section}</span>
-                      )}
-                    </div>
-                    <a
-                      href={source.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="shrink-0 p-2 text-terra-600 hover:text-terra-700 hover:bg-terra-300/80 rounded-lg transition-colors"
-                      title="Open in new tab"
+              {expandedSources && (
+                <ul className="mt-3 space-y-2">
+                  {sources.map((source, index) => (
+                    <li
+                      key={source.id}
+                      id={`source-${index + 1}`}
+                      className="flex items-start gap-2.5 p-2.5 rounded-lg bg-sand-50 border border-sand-200 hover:border-sand-300 transition-colors"
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
+                      <span className="flex items-center justify-center w-6 h-6 bg-sand-200 text-charcoal-600 rounded-md text-xs font-bold shrink-0">
+                        {index + 1}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <a
+                          href={source.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[13px] font-medium text-charcoal-700 hover:text-terra-700 block"
+                        >
+                          {source.title}
+                        </a>
+                        {source.section && (
+                          <span className="text-2xs text-terra-600">ORS {source.section}</span>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
-        {/* Export buttons for assistant messages (only show when not streaming and has content) */}
-        {!isUser && !isStreaming && content && (
-          <div className="mt-4 pt-4 border-t border-charcoal-200/50 flex items-center gap-3">
-            <span className="text-sm text-charcoal-400">Export:</span>
-            <button
-              onClick={handleCopyToClipboard}
-              className={cn(
-                "flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-200",
-                copySuccess
-                  ? "bg-green-100/80 text-green-700"
-                  : "bg-white/60 backdrop-blur-sm text-charcoal-600 hover:bg-white/80 border border-white/30"
-              )}
-              title="Copy to clipboard for email"
-            >
-              {copySuccess ? (
-                <>
-                  <Check className="w-4 h-4" />
-                  Copied!
-                </>
-              ) : (
-                <>
-                  <Copy className="w-4 h-4" />
-                  Copy for Email
-                </>
-              )}
-            </button>
-            <button
-              onClick={handleExportPDF}
-              disabled={exportingPDF}
-              className={cn(
-                "flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-200",
-                exportingPDF
-                  ? "bg-terra-100/80 text-terra-700 cursor-wait"
-                  : "bg-terra-100/80 text-terra-700 hover:bg-terra-300/80 border border-terra-300/50"
-              )}
-              title="Download as PDF"
-            >
-              {exportingPDF ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-terra-700 border-t-transparent rounded-full animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <FileDown className="w-4 h-4" />
-                  Download PDF
-                </>
-              )}
-            </button>
-          </div>
-        )}
+          {/* Export buttons for assistant messages */}
+          {!isUser && !isStreaming && content && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleCopyToClipboard}
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all",
+                  copySuccess
+                    ? "bg-green-50 text-green-700"
+                    : "text-charcoal-400 hover:text-charcoal-600 hover:bg-sand-100"
+                )}
+                title="Copy to clipboard"
+              >
+                {copySuccess ? (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    Copy
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleExportPDF}
+                disabled={exportingPDF}
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all",
+                  exportingPDF
+                    ? "text-charcoal-300 cursor-wait"
+                    : "text-charcoal-400 hover:text-charcoal-600 hover:bg-sand-100"
+                )}
+                title="Download as PDF"
+              >
+                {exportingPDF ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-charcoal-300 border-t-transparent rounded-full animate-spin" />
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <FileDown className="w-3.5 h-3.5" />
+                    PDF
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

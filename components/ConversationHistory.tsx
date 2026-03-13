@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { MessageSquarePlus, Clock, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { MessageSquarePlus, Clock, Trash2, PanelLeftClose, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface ConversationSummary {
@@ -54,7 +53,7 @@ function formatDate(dateString: string): string {
   } else if (days === 1) {
     return 'Yesterday';
   } else if (days < 7) {
-    return date.toLocaleDateString('en-US', { weekday: 'long' });
+    return date.toLocaleDateString('en-US', { weekday: 'short' });
   } else {
     return date.toLocaleDateString('en-US', {
       month: 'short',
@@ -73,12 +72,12 @@ export function ConversationHistory({
   onDeleteConversation,
   isLoading,
 }: ConversationHistoryProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (confirm('Are you sure you want to delete this conversation? This cannot be undone.')) {
+    if (confirm('Delete this conversation? This cannot be undone.')) {
       setDeletingId(id);
       try {
         await onDeleteConversation(id);
@@ -90,147 +89,132 @@ export function ConversationHistory({
 
   if (isCollapsed) {
     return (
-      <div className="w-12 border-r border-terra-400/40 flex flex-col items-center py-4 bg-gradient-to-b from-terra-100/90 via-terra-50/70 to-terra-50/80 backdrop-blur-xl shadow-[inset_-8px_0_20px_-6px_rgba(61,122,61,0.15)]">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setIsCollapsed(false)}
-          className="mb-4"
-          title="Expand history"
-        >
-          <ChevronRight className="h-5 w-5" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onNewConversation}
-          className="text-terra-700 hover:text-terra-700 hover:bg-terra-50/50"
-          title="New conversation"
-        >
-          <MessageSquarePlus className="h-5 w-5" />
-        </Button>
+      <div className="w-12 border-r border-sand-200 flex flex-col items-center py-3 bg-white shrink-0">
+        <div className="relative group">
+          <button
+            onClick={() => setIsCollapsed(false)}
+            className="p-2 rounded-lg text-charcoal-400 hover:text-charcoal-600 hover:bg-sand-100 transition-colors mb-2"
+          >
+            <History className="h-5 w-5" />
+          </button>
+          <span className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-2 py-1 bg-charcoal-900 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+            History
+          </span>
+        </div>
+        <div className="relative group">
+          <button
+            onClick={onNewConversation}
+            className="p-2 rounded-lg text-charcoal-400 hover:text-terra-600 hover:bg-terra-50 transition-colors"
+          >
+            <MessageSquarePlus className="h-4 w-4" />
+          </button>
+          <span className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-2 py-1 bg-charcoal-900 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+            New chat
+          </span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="w-64 border-r border-terra-400/40 flex flex-col bg-gradient-to-b from-terra-100/90 via-terra-50/70 to-terra-50/80 backdrop-blur-xl shadow-[inset_-8px_0_20px_-6px_rgba(61,122,61,0.15)]">
+    <div className="w-60 border-r border-sand-200 flex flex-col bg-white shrink-0">
       {/* Header */}
-      <div className="p-4 border-b border-terra-300/30 flex items-center justify-between">
-        <h3 className="font-semibold text-terra-900">Team History</h3>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
+      <div className="h-14 px-3 border-b border-sand-200 flex items-center justify-between shrink-0">
+        <span className="text-xs font-semibold text-charcoal-500 uppercase tracking-wider">History</span>
+        <div className="flex items-center gap-0.5">
+          <button
             onClick={onNewConversation}
-            className="h-8 w-8 text-terra-700 hover:text-terra-700 hover:bg-terra-50/50"
+            className="p-1.5 rounded-lg text-charcoal-400 hover:text-terra-600 hover:bg-terra-50 transition-colors"
             title="New conversation"
           >
             <MessageSquarePlus className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
+          </button>
+          <button
             onClick={() => setIsCollapsed(true)}
-            className="h-8 w-8"
+            className="p-1.5 rounded-lg text-charcoal-400 hover:text-charcoal-600 hover:bg-sand-100 transition-colors"
             title="Collapse"
           >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
+            <PanelLeftClose className="h-4 w-4" />
+          </button>
         </div>
       </div>
 
       {/* Conversations List */}
-      <div className="flex-1 overflow-y-auto p-2">
+      <div className="flex-1 overflow-y-auto py-2 px-2">
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="w-6 h-6 border-2 border-terra-700 border-t-transparent rounded-full animate-spin" />
+          <div className="flex items-center justify-center py-12">
+            <div className="w-5 h-5 border-2 border-charcoal-300 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : conversations.length === 0 ? (
-          <div className="text-center py-8 px-4">
-            <Clock className="h-8 w-8 mx-auto text-charcoal-300 mb-2" />
-            <p className="text-sm text-charcoal-500">No conversations yet</p>
-            <p className="text-xs text-charcoal-400 mt-1">Start a new conversation to see it here</p>
+          <div className="text-center py-12 px-4">
+            <Clock className="h-6 w-6 mx-auto text-charcoal-200 mb-2" />
+            <p className="text-xs text-charcoal-400">No conversations yet</p>
           </div>
         ) : (
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             {conversations.map((conversation) => {
               const initials = getInitials(conversation.user_name, conversation.user_email);
               const isOwner = currentUserEmail === conversation.user_email;
+              const isActive = activeConversationId === conversation.id;
 
               return (
-                <div
+                <button
                   key={conversation.id}
                   onClick={() => onSelectConversation(conversation.id)}
                   className={cn(
-                    "group relative p-3 rounded-xl cursor-pointer transition-all duration-200 ease-spring",
-                    activeConversationId === conversation.id
-                      ? "bg-terra-100/60 border border-terra-300/50"
-                      : "hover:bg-white/40 border border-transparent"
+                    "group relative w-full text-left px-3 py-2.5 rounded-lg transition-all duration-150",
+                    isActive
+                      ? "bg-sand-100 text-charcoal-900"
+                      : "text-charcoal-600 hover:bg-sand-50 hover:text-charcoal-800"
                   )}
                 >
-                  <div className="pr-8">
-                    <p className={cn(
-                      "text-sm font-medium truncate",
-                      activeConversationId === conversation.id
-                        ? "text-terra-900"
-                        : "text-charcoal-800"
-                    )}>
-                      {conversation.title}
-                    </p>
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <span
-                        className={cn(
-                          "inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold shrink-0",
-                          isOwner
-                            ? "bg-terra-300/80 text-terra-700"
-                            : "bg-blue-100 text-blue-700"
-                        )}
-                        title={conversation.user_name || conversation.user_email}
-                      >
-                        {initials}
-                      </span>
-                      <span className="text-xs text-charcoal-500">
-                        {formatDate(conversation.updated_at)}
-                      </span>
-                    </div>
+                  <p className={cn(
+                    "text-[13px] font-medium truncate pr-6",
+                    isActive ? "text-charcoal-900" : "text-charcoal-700"
+                  )}>
+                    {conversation.title}
+                  </p>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span
+                      className={cn(
+                        "inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold shrink-0",
+                        isOwner
+                          ? "bg-terra-100 text-terra-600"
+                          : "bg-charcoal-100 text-charcoal-500"
+                      )}
+                      title={conversation.user_name || conversation.user_email}
+                    >
+                      {initials}
+                    </span>
+                    <span className="text-2xs text-charcoal-400">
+                      {formatDate(conversation.updated_at)}
+                    </span>
                   </div>
 
-                  {/* Delete button - only for conversation creator */}
+                  {/* Delete button */}
                   {isOwner && (
-                    <button
+                    <span
+                      role="button"
                       onClick={(e) => handleDelete(e, conversation.id)}
-                      disabled={deletingId === conversation.id}
                       className={cn(
-                        "absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200",
-                        "text-charcoal-400 hover:text-red-500 hover:bg-red-50/80",
+                        "absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded-md opacity-0 group-hover:opacity-100 transition-all",
+                        "text-charcoal-300 hover:text-red-500 hover:bg-red-50",
                         deletingId === conversation.id && "opacity-100"
                       )}
-                      title="Delete conversation"
+                      title="Delete"
                     >
                       {deletingId === conversation.id ? (
-                        <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+                        <div className="w-3.5 h-3.5 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
                       ) : (
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       )}
-                    </button>
+                    </span>
                   )}
-                </div>
+                </button>
               );
             })}
           </div>
         )}
-      </div>
-
-      {/* Footer */}
-      <div className="p-3 border-t border-terra-300/30">
-        <Button
-          onClick={onNewConversation}
-          className="w-full bg-gradient-to-r from-terra-600 to-green-700 hover:from-terra-700 hover:to-green-800 text-white shadow-glow rounded-xl transition-all duration-300"
-        >
-          <MessageSquarePlus className="h-4 w-4 mr-2" />
-          New Conversation
-        </Button>
       </div>
     </div>
   );

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ChatWidget } from "@/components/ChatWidget";
 import { FileText, BarChart3, ArrowUpRight, Zap, TrendingUp, Clock } from "lucide-react";
 
 export default function Home() {
@@ -102,9 +101,6 @@ export default function Home() {
           </div>
         </div>
       </div>
-
-      {/* Chat Widget */}
-      <ChatWidget />
     </>
   );
 }
