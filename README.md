@@ -1,4 +1,4 @@
-# HDPM Chatbot & Automation Dashboard 
+# HDPM Chatbot & Automation Dashboard ...
 
 An internal automation platform for High Desert Property Management built with Next.js 16. Combines a RAG-powered knowledge assistant for Oregon landlord-tenant law (ORS Chapter 90), a rent comparison toolkit, and a full maintenance work order + invoicing system integrated with AppFolio.
 
