@@ -192,11 +192,42 @@ export function generateRentReportPdf(analysis: RentAnalysis): Buffer {
   doc.text('RENT ANALYSIS REPORT', MARGIN, y + 4);
   y += 12;
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(MID);
-  doc.text(`Generated ${new Date(analysis.generated_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, MARGIN, y + 6);
-  y += 28;
+  const dateStr = new Date(analysis.generated_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  if (analysis.prepared_for) {
+    // "Exclusively prepared for" prominent banner replaces the date line
+    y += 4;
+    const bannerH = 46;
+    doc.setFillColor('#f0f7f0');
+    doc.roundedRect(MARGIN, y, CONTENT_W, bannerH, 4, 4, 'F');
+    // Left green accent bar
+    doc.setFillColor(GREEN);
+    doc.roundedRect(MARGIN, y, 4, bannerH, 2, 0, 'F');
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(MID);
+    doc.text('EXCLUSIVELY PREPARED FOR', MARGIN + 16, y + 13);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(GREEN);
+    doc.text(analysis.prepared_for, MARGIN + 16, y + 28);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(MID);
+    doc.text(dateStr, MARGIN + 16, y + 40);
+
+    y += bannerH + 6;
+  } else {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(MID);
+    doc.text(dateStr, MARGIN, y + 6);
+    y += 10;
+  }
+  y += 18;
 
   // Subject property box (gray background)
   y = drawSectionTitle(doc, y, 'SUBJECT PROPERTY');

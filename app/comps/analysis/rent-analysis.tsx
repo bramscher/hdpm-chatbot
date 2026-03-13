@@ -42,6 +42,9 @@ export function RentAnalysisWizard({
   const [competingListings, setCompetingListings] = useState<CompetingListing[]>([]);
   const [pdfBase64, setPdfBase64] = useState<string | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [shortUrl, setShortUrl] = useState<string | null>(null);
+  const [ownerName, setOwnerName] = useState("");
+  const [ownerEmail, setOwnerEmail] = useState("");
 
   // Step 1: Analyze property
   async function handlePropertySubmit(subjectProp: SubjectProperty) {
@@ -123,6 +126,7 @@ export function RentAnalysisWizard({
         body: JSON.stringify({
           subject,
           competing_listings: competingListings,
+          prepared_for: ownerName.trim() || undefined,
         }),
       });
 
@@ -132,6 +136,7 @@ export function RentAnalysisWizard({
       setAnalysis(data.analysis);
       setPdfBase64(data.pdf_base64);
       setDownloadUrl(data.download_url || null);
+      setShortUrl(data.short_url || null);
       setStep("report");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Report generation failed");
@@ -148,6 +153,9 @@ export function RentAnalysisWizard({
     setCompetingListings([]);
     setPdfBase64(null);
     setDownloadUrl(null);
+    setShortUrl(null);
+    setOwnerName("");
+    setOwnerEmail("");
     setError(null);
   }
 
@@ -163,14 +171,14 @@ export function RentAnalysisWizard({
             </Button>
           </Link>
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-green-700 rounded-xl flex items-center justify-center shadow-glow">
-              <BarChart3 className="h-5 w-5 text-white" />
+            <div className="w-9 h-9 bg-blue-50 rounded-lg flex items-center justify-center">
+              <BarChart3 className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900 tracking-tight">
+              <h2 className="text-xl font-bold text-charcoal-900 tracking-tight">
                 Rent Analysis Report
               </h2>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-charcoal-400">
                 Generate branded reports for property owners
               </p>
             </div>
@@ -182,7 +190,7 @@ export function RentAnalysisWizard({
             onClick={handleStartOver}
             variant="ghost"
             size="sm"
-            className="text-gray-400 hover:text-gray-600"
+            className="text-charcoal-400 hover:text-charcoal-600"
           >
             Start Over
           </Button>
@@ -198,16 +206,16 @@ export function RentAnalysisWizard({
         ].map((s, i) => (
           <React.Fragment key={s.key}>
             {i > 0 && (
-              <ChevronRight className="h-3 w-3 text-gray-300 flex-shrink-0" />
+              <ChevronRight className="h-3 w-3 text-charcoal-300 flex-shrink-0" />
             )}
             <span
               className={`text-xs font-medium px-2.5 py-1 rounded-full transition-all duration-200 ${
                 step === s.key
-                  ? "bg-emerald-100 text-emerald-700"
+                  ? "bg-terra-100 text-terra-700"
                   : ["input", "results", "report"].indexOf(step) >
                     ["input", "results", "report"].indexOf(s.key)
-                  ? "text-emerald-500"
-                  : "text-gray-300"
+                  ? "text-terra-500"
+                  : "text-charcoal-300"
               }`}
             >
               {s.label}
@@ -218,7 +226,7 @@ export function RentAnalysisWizard({
 
       {/* Error */}
       {error && (
-        <div className="p-4 bg-red-50/80 backdrop-blur-sm border border-red-200/50 rounded-xl text-red-700 text-sm">
+        <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
           {error}
         </div>
       )}
@@ -235,6 +243,10 @@ export function RentAnalysisWizard({
           onSearchZillow={handleSearchZillow}
           generatingReport={generatingReport}
           zillowLoading={zillowLoading}
+          ownerName={ownerName}
+          ownerEmail={ownerEmail}
+          onOwnerNameChange={setOwnerName}
+          onOwnerEmailChange={setOwnerEmail}
         />
       )}
 
@@ -243,11 +255,14 @@ export function RentAnalysisWizard({
           analysis={analysis}
           pdfBase64={pdfBase64}
           downloadUrl={downloadUrl}
+          shortUrl={shortUrl}
+          ownerName={ownerName}
+          ownerEmail={ownerEmail}
         />
       )}
 
       {/* Footer */}
-      <p className="text-center text-[10px] text-gray-300 pb-8">
+      <p className="text-center text-[10px] text-charcoal-300 pb-8">
         Powered by AppFolio, HUD FMR, and Zillow market data
       </p>
     </div>

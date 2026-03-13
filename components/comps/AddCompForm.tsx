@@ -89,7 +89,7 @@ export function AddCompForm({ onBack, onSaved }: AddCompFormProps) {
           <ArrowLeft className="h-4 w-4 mr-1" />
           Back
         </Button>
-        <h3 className="text-lg font-semibold text-gray-900">Add Rent Comp</h3>
+        <h3 className="text-lg font-semibold text-charcoal-900">Add Rent Comp</h3>
       </div>
 
       {error && (
@@ -102,14 +102,14 @@ export function AddCompForm({ onBack, onSaved }: AddCompFormProps) {
         {/* Town & Property Type */}
         <div className="grid md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-medium text-charcoal-500 uppercase tracking-wider mb-1.5">
               Town
             </label>
             <select
               value={town}
               onChange={(e) => setTown(e.target.value as Town)}
               disabled={isSaving}
-              className="flex h-10 w-full rounded-xl border border-input bg-white/70 backdrop-blur-sm px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-10 w-full rounded-xl border border-input bg-white/70 backdrop-blur-sm px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terra-600/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {ALL_TOWNS.map((t) => (
                 <option key={t} value={t}>
@@ -119,14 +119,14 @@ export function AddCompForm({ onBack, onSaved }: AddCompFormProps) {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-medium text-charcoal-500 uppercase tracking-wider mb-1.5">
               Property Type
             </label>
             <select
               value={propertyType}
               onChange={(e) => setPropertyType(e.target.value as PropertyType)}
               disabled={isSaving}
-              className="flex h-10 w-full rounded-xl border border-input bg-white/70 backdrop-blur-sm px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-10 w-full rounded-xl border border-input bg-white/70 backdrop-blur-sm px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terra-600/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {ALL_PROPERTY_TYPES.map((t) => (
                 <option key={t} value={t}>
@@ -140,7 +140,7 @@ export function AddCompForm({ onBack, onSaved }: AddCompFormProps) {
         {/* Address & Zip */}
         <div className="grid md:grid-cols-3 gap-4">
           <div className="md:col-span-2">
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-medium text-charcoal-500 uppercase tracking-wider mb-1.5">
               Address (optional)
             </label>
             <Input
@@ -152,7 +152,7 @@ export function AddCompForm({ onBack, onSaved }: AddCompFormProps) {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-medium text-charcoal-500 uppercase tracking-wider mb-1.5">
               Zip Code
             </label>
             <Input
@@ -168,14 +168,14 @@ export function AddCompForm({ onBack, onSaved }: AddCompFormProps) {
         {/* BR / BA / Sqft / Date */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-medium text-charcoal-500 uppercase tracking-wider mb-1.5">
               Bedrooms
             </label>
             <select
               value={bedrooms}
               onChange={(e) => setBedrooms(e.target.value)}
               disabled={isSaving}
-              className="flex h-10 w-full rounded-xl border border-input bg-white/70 backdrop-blur-sm px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-10 w-full rounded-xl border border-input bg-white/70 backdrop-blur-sm px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terra-600/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <option value="0">Studio</option>
               <option value="1">1</option>
@@ -187,7 +187,7 @@ export function AddCompForm({ onBack, onSaved }: AddCompFormProps) {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-medium text-charcoal-500 uppercase tracking-wider mb-1.5">
               Bathrooms
             </label>
             <Input
@@ -201,7 +201,7 @@ export function AddCompForm({ onBack, onSaved }: AddCompFormProps) {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-medium text-charcoal-500 uppercase tracking-wider mb-1.5">
               Sqft
             </label>
             <Input
@@ -215,7 +215,7 @@ export function AddCompForm({ onBack, onSaved }: AddCompFormProps) {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-medium text-charcoal-500 uppercase tracking-wider mb-1.5">
               Comp Date
             </label>
             <Input
@@ -230,11 +230,11 @@ export function AddCompForm({ onBack, onSaved }: AddCompFormProps) {
 
         {/* Monthly Rent */}
         <div className="max-w-xs">
-          <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+          <label className="block text-xs font-medium text-charcoal-500 uppercase tracking-wider mb-1.5">
             Monthly Rent *
           </label>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-400 text-sm">
               $
             </span>
             <Input
@@ -252,7 +252,7 @@ export function AddCompForm({ onBack, onSaved }: AddCompFormProps) {
 
         {/* Amenities */}
         <div>
-          <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
+          <label className="block text-xs font-medium text-charcoal-500 uppercase tracking-wider mb-2">
             Amenities
           </label>
           <div className="flex flex-wrap gap-2">
@@ -266,8 +266,8 @@ export function AddCompForm({ onBack, onSaved }: AddCompFormProps) {
                   disabled={isSaving}
                   className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
                     active
-                      ? "bg-emerald-100/80 text-emerald-700 ring-1 ring-emerald-300 shadow-sm"
-                      : "bg-white/50 text-gray-500 hover:bg-white/70 hover:text-gray-700"
+                      ? "bg-terra-100/80 text-terra-700 ring-1 ring-terra-300 shadow-sm"
+                      : "bg-white/50 text-charcoal-500 hover:bg-white/70 hover:text-charcoal-700"
                   } disabled:opacity-50`}
                 >
                   {a.label}
@@ -279,7 +279,7 @@ export function AddCompForm({ onBack, onSaved }: AddCompFormProps) {
 
         {/* Notes */}
         <div>
-          <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+          <label className="block text-xs font-medium text-charcoal-500 uppercase tracking-wider mb-1.5">
             Notes (optional)
           </label>
           <textarea
@@ -288,16 +288,16 @@ export function AddCompForm({ onBack, onSaved }: AddCompFormProps) {
             placeholder="Additional notes..."
             rows={2}
             disabled={isSaving}
-            className="flex w-full rounded-xl border border-input bg-white/70 backdrop-blur-sm px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+            className="flex w-full rounded-xl border border-input bg-white/70 backdrop-blur-sm px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terra-600/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
           />
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200/50">
+        <div className="flex items-center justify-end gap-3 pt-4 border-t border-charcoal-200/50">
           <Button
             onClick={handleSave}
             disabled={isSaving}
-            className="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-glow hover:shadow-glow-lg transition-all duration-200"
+            className="bg-gradient-to-r from-terra-600 to-green-700 hover:from-terra-700 hover:to-green-800 text-white shadow-glow hover:shadow-glow-lg transition-all duration-200"
           >
             {isSaving ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />

@@ -25,9 +25,9 @@ interface InvoiceListProps {
 }
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  draft: { bg: "bg-gray-100/80", text: "text-gray-600", label: "Draft" },
+  draft: { bg: "bg-charcoal-100/80", text: "text-charcoal-600", label: "Draft" },
   generated: { bg: "bg-blue-100/80", text: "text-blue-700", label: "Generated" },
-  attached: { bg: "bg-emerald-100/80", text: "text-emerald-700", label: "Attached" },
+  attached: { bg: "bg-terra-100/80", text: "text-terra-700", label: "Attached" },
   void: { bg: "bg-red-100/80", text: "text-red-600", label: "Void" },
 };
 
@@ -108,14 +108,14 @@ function PdfPreviewModal({
       {/* Modal */}
       <div className="relative w-full max-w-4xl h-[90vh] mx-4 bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-slide-up">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200/60 bg-gray-50/80">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-charcoal-200/60 bg-charcoal-50/80">
           <div className="flex items-center gap-3">
-            <FileText className="h-5 w-5 text-emerald-600" />
+            <FileText className="h-5 w-5 text-terra-600" />
             <div>
-              <span className="font-semibold text-gray-900 text-sm">
+              <span className="font-semibold text-charcoal-900 text-sm">
                 {invoice.invoice_code}
               </span>
-              <span className="ml-2 text-xs text-gray-500">
+              <span className="ml-2 text-xs text-charcoal-500">
                 {invoice.property_name}
               </span>
             </div>
@@ -132,7 +132,7 @@ function PdfPreviewModal({
             </Button>
             <button
               onClick={onClose}
-              className="flex items-center justify-center h-8 w-8 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              className="flex items-center justify-center h-8 w-8 rounded-lg text-charcoal-400 hover:text-charcoal-600 hover:bg-charcoal-100 transition-colors"
             >
               <X className="h-4 w-4" />
             </button>
@@ -140,12 +140,12 @@ function PdfPreviewModal({
         </div>
 
         {/* PDF Content */}
-        <div className="flex-1 bg-gray-100">
+        <div className="flex-1 bg-charcoal-100">
           {loading && (
             <div className="flex items-center justify-center h-full">
               <div className="flex flex-col items-center gap-3">
-                <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
-                <p className="text-sm text-gray-500">Loading PDF...</p>
+                <Loader2 className="h-8 w-8 animate-spin text-terra-500" />
+                <p className="text-sm text-charcoal-500">Loading PDF...</p>
               </div>
             </div>
           )}
@@ -250,13 +250,13 @@ export function InvoiceList({ invoices, onRefresh, onEdit, isLoading }: InvoiceL
 
       <div className="mt-8">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Recent Invoices</h3>
+          <h3 className="text-lg font-semibold text-charcoal-900">Recent Invoices</h3>
           <Button
             variant="ghost"
             size="sm"
             onClick={onRefresh}
             disabled={isLoading}
-            className="text-gray-500"
+            className="text-charcoal-500"
           >
             <RefreshCw className={cn("h-4 w-4 mr-1", isLoading && "animate-spin")} />
             Refresh
@@ -286,24 +286,24 @@ export function InvoiceList({ invoices, onRefresh, onEdit, isLoading }: InvoiceL
                       className={cn(
                         "w-10 h-10 rounded-lg flex items-center justify-center shrink-0 transition-colors",
                         hasPdf
-                          ? "bg-emerald-100/80 cursor-pointer hover:bg-emerald-200/80"
-                          : "bg-emerald-100/80"
+                          ? "bg-terra-100/80 cursor-pointer hover:bg-terra-200/80"
+                          : "bg-terra-100/80"
                       )}
                       onClick={() => hasPdf && setPreviewInvoice(invoice)}
                       title={hasPdf ? "Preview PDF" : undefined}
                     >
                       {hasPdf ? (
-                        <Eye className="h-5 w-5 text-emerald-700" />
+                        <Eye className="h-5 w-5 text-terra-700" />
                       ) : (
-                        <FileText className="h-5 w-5 text-emerald-700" />
+                        <FileText className="h-5 w-5 text-terra-700" />
                       )}
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span
                           className={cn(
-                            "font-semibold text-gray-900 text-sm",
-                            hasPdf && "cursor-pointer hover:text-emerald-700 transition-colors"
+                            "font-semibold text-charcoal-900 text-sm",
+                            hasPdf && "cursor-pointer hover:text-terra-700 transition-colors"
                           )}
                           onClick={() => hasPdf && setPreviewInvoice(invoice)}
                         >
@@ -319,18 +319,18 @@ export function InvoiceList({ invoices, onRefresh, onEdit, isLoading }: InvoiceL
                           {statusStyle.label}
                         </span>
                         {invoice.wo_reference && (
-                          <span className="text-[10px] text-gray-400 font-mono">
+                          <span className="text-[10px] text-charcoal-400 font-mono">
                             WO#{invoice.wo_reference}
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-gray-600 truncate">
+                      <p className="text-sm text-charcoal-600 truncate">
                         {invoice.property_name}
                       </p>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-charcoal-400">
                         {formatDate(invoice.created_at)}
                         {lineItemCount > 0 && (
-                          <span className="ml-2 text-gray-300">
+                          <span className="ml-2 text-charcoal-300">
                             • {lineItemCount} line item{lineItemCount !== 1 ? "s" : ""}
                           </span>
                         )}
@@ -340,11 +340,11 @@ export function InvoiceList({ invoices, onRefresh, onEdit, isLoading }: InvoiceL
 
                   {/* Center: Amount */}
                   <div className="text-right shrink-0">
-                    <span className="text-lg font-semibold text-gray-900">
+                    <span className="text-lg font-semibold text-charcoal-900">
                       {formatCurrency(invoice.total_amount)}
                     </span>
                     {(invoice.labor_amount > 0 || invoice.materials_amount > 0) && invoice.labor_amount !== invoice.total_amount && (
-                      <div className="text-[10px] text-gray-400 mt-0.5">
+                      <div className="text-[10px] text-charcoal-400 mt-0.5">
                         {invoice.labor_amount > 0 && (
                           <span className="text-blue-500">L: {formatCurrency(invoice.labor_amount)}</span>
                         )}
@@ -368,7 +368,7 @@ export function InvoiceList({ invoices, onRefresh, onEdit, isLoading }: InvoiceL
                         onClick={() => setPreviewInvoice(invoice)}
                         disabled={actionLoading !== null}
                         title="Preview PDF"
-                        className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 h-8 w-8 p-0"
+                        className="text-terra-600 hover:text-terra-700 hover:bg-terra-50 h-8 w-8 p-0"
                       >
                         <Eye className="h-3.5 w-3.5" />
                       </Button>
@@ -414,7 +414,7 @@ export function InvoiceList({ invoices, onRefresh, onEdit, isLoading }: InvoiceL
                         onClick={() => handleStatusChange(invoice, "attached")}
                         disabled={actionLoading !== null}
                         title="Mark as Attached in AppFolio"
-                        className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 h-8 w-8 p-0"
+                        className="text-terra-600 hover:text-terra-700 hover:bg-terra-50 h-8 w-8 p-0"
                       >
                         {actionLoading === `status-${invoice.id}` ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -440,7 +440,7 @@ export function InvoiceList({ invoices, onRefresh, onEdit, isLoading }: InvoiceL
 
                     {/* Delete */}
                     {isConfirmingDelete ? (
-                      <div className="flex items-center gap-1 ml-1 pl-1 border-l border-gray-200">
+                      <div className="flex items-center gap-1 ml-1 pl-1 border-l border-charcoal-200">
                         <span className="text-[10px] text-red-600 font-medium whitespace-nowrap">Delete?</span>
                         <Button
                           variant="ghost"
@@ -460,7 +460,7 @@ export function InvoiceList({ invoices, onRefresh, onEdit, isLoading }: InvoiceL
                           size="sm"
                           onClick={() => setDeleteConfirm(null)}
                           disabled={actionLoading !== null}
-                          className="text-gray-500 hover:bg-gray-50 h-7 px-2 text-[10px]"
+                          className="text-charcoal-500 hover:bg-charcoal-50 h-7 px-2 text-[10px]"
                         >
                           No
                         </Button>
@@ -472,7 +472,7 @@ export function InvoiceList({ invoices, onRefresh, onEdit, isLoading }: InvoiceL
                         onClick={() => setDeleteConfirm(invoice.id)}
                         disabled={actionLoading !== null}
                         title="Delete invoice"
-                        className="text-gray-300 hover:text-red-500 hover:bg-red-50 h-8 w-8 p-0"
+                        className="text-charcoal-300 hover:text-red-500 hover:bg-red-50 h-8 w-8 p-0"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>

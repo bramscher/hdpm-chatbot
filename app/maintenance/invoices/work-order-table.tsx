@@ -17,10 +17,10 @@ export function WorkOrderTable({ rows, onSelectRow, onBack }: WorkOrderTableProp
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">
+          <h3 className="text-lg font-semibold text-charcoal-900">
             Completed Work Orders
           </h3>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-charcoal-500">
             {rows.length} work order{rows.length !== 1 ? "s" : ""} found
           </p>
         </div>
@@ -34,20 +34,20 @@ export function WorkOrderTable({ rows, onSelectRow, onBack }: WorkOrderTableProp
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200/50">
-                <th className="text-left py-3 px-4 font-medium text-gray-500 text-xs uppercase tracking-wider">
+              <tr className="border-b border-charcoal-200/50">
+                <th className="text-left py-3 px-4 font-medium text-charcoal-500 text-xs uppercase tracking-wider">
                   WO #
                 </th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500 text-xs uppercase tracking-wider">
+                <th className="text-left py-3 px-4 font-medium text-charcoal-500 text-xs uppercase tracking-wider">
                   Property
                 </th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500 text-xs uppercase tracking-wider hidden md:table-cell">
+                <th className="text-left py-3 px-4 font-medium text-charcoal-500 text-xs uppercase tracking-wider hidden md:table-cell">
                   Address
                 </th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500 text-xs uppercase tracking-wider hidden lg:table-cell">
+                <th className="text-left py-3 px-4 font-medium text-charcoal-500 text-xs uppercase tracking-wider hidden lg:table-cell">
                   Date
                 </th>
-                <th className="text-right py-3 px-4 font-medium text-gray-500 text-xs uppercase tracking-wider">
+                <th className="text-right py-3 px-4 font-medium text-charcoal-500 text-xs uppercase tracking-wider">
                   Action
                 </th>
               </tr>
@@ -56,28 +56,28 @@ export function WorkOrderTable({ rows, onSelectRow, onBack }: WorkOrderTableProp
               {rows.map((row, index) => (
                 <tr
                   key={index}
-                  className="border-b border-gray-100/50 hover:bg-white/40 transition-colors duration-150"
+                  className="border-b border-charcoal-100/50 hover:bg-white/40 transition-colors duration-150"
                 >
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-emerald-600 shrink-0" />
-                      <span className="font-medium text-gray-800">
+                      <FileText className="h-4 w-4 text-terra-600 shrink-0" />
+                      <span className="font-medium text-charcoal-800">
                         {row.wo_number || "—"}
                       </span>
                     </div>
                   </td>
                   <td className="py-3 px-4">
-                    <div className="text-gray-800 font-medium truncate max-w-[200px]">
+                    <div className="text-charcoal-800 font-medium truncate max-w-[200px]">
                       {row.property_name || "—"}
                     </div>
                   </td>
                   <td className="py-3 px-4 hidden md:table-cell">
-                    <div className="text-gray-600 truncate max-w-[250px]">
+                    <div className="text-charcoal-600 truncate max-w-[250px]">
                       {row.property_address || "—"}
                     </div>
                   </td>
                   <td className="py-3 px-4 hidden lg:table-cell">
-                    <span className="text-gray-600">
+                    <span className="text-charcoal-600">
                       {row.completed_date || "—"}
                     </span>
                   </td>
@@ -85,7 +85,7 @@ export function WorkOrderTable({ rows, onSelectRow, onBack }: WorkOrderTableProp
                     <Button
                       size="sm"
                       onClick={() => onSelectRow(row)}
-                      className="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-glow hover:shadow-glow-lg transition-all duration-200 rounded-lg"
+                      className="bg-gradient-to-r from-terra-600 to-green-700 hover:from-terra-700 hover:to-green-800 text-white shadow-glow hover:shadow-glow-lg transition-all duration-200 rounded-lg"
                     >
                       <Plus className="h-4 w-4 mr-1" />
                       Create Invoice

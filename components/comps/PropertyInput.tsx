@@ -261,8 +261,8 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
         onClick={() => setTab(id)}
         className={`flex-1 flex items-center justify-center gap-2 px-4 py-3.5 text-sm font-medium transition-all duration-200 ${
           tab === id
-            ? "bg-white/60 text-gray-900 border-b-2 border-emerald-600"
-            : "text-gray-400 hover:text-gray-600 hover:bg-white/30"
+            ? "bg-white/60 text-charcoal-900 border-b-2 border-terra-600"
+            : "text-charcoal-400 hover:text-charcoal-600 hover:bg-white/30"
         }`}
       >
         <Icon className="h-4 w-4" />
@@ -274,7 +274,7 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
   return (
     <div className="glass-heavy glass-elevated rounded-2xl overflow-hidden">
       {/* Tab header */}
-      <div className="flex border-b border-gray-200/50">
+      <div className="flex border-b border-charcoal-200/50">
         <TabButton id="address" icon={Globe} label="Address Lookup" />
         <TabButton id="appfolio" icon={Building2} label="AppFolio" />
         <TabButton id="manual" icon={Home} label="Manual" />
@@ -284,14 +284,14 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
         {/* ==================== Address Lookup Tab ==================== */}
         {tab === "address" && (
           <div className="space-y-5">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-charcoal-500">
               Enter any address to auto-fill property details from public
               records.
             </p>
 
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-charcoal-400" />
                 <Input
                   value={addressQuery}
                   onChange={(e) => setAddressQuery(e.target.value)}
@@ -306,7 +306,7 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
                 disabled={
                   lookingUp || loading || addressQuery.trim().length < 5
                 }
-                className="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-glow"
+                className="bg-gradient-to-r from-terra-600 to-green-700 hover:from-terra-700 hover:to-green-800 text-white shadow-glow"
               >
                 {lookingUp ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -324,16 +324,16 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
 
             {/* Lookup result */}
             {lookupResult && (
-              <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50 overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-100/50">
+              <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-charcoal-200/50 overflow-hidden">
+                <div className="px-4 py-3 border-b border-charcoal-100/50">
                   <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-emerald-600 flex-shrink-0" />
-                    <span className="font-medium text-sm text-gray-900">
+                    <MapPin className="h-4 w-4 text-terra-600 flex-shrink-0" />
+                    <span className="font-medium text-sm text-charcoal-900">
                       {lookupResult.formatted_address}
                     </span>
                   </div>
                   {lookupResult.town && (
-                    <p className="text-xs text-emerald-600 mt-0.5 pl-6">
+                    <p className="text-xs text-terra-600 mt-0.5 pl-6">
                       Service area: {lookupResult.town}, OR
                     </p>
                   )}
@@ -349,36 +349,36 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
                   <div className="px-4 py-3 space-y-2">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       <div>
-                        <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                        <p className="text-[10px] font-medium text-charcoal-400 uppercase tracking-wider">
                           Bedrooms
                         </p>
-                        <p className="text-sm font-semibold text-gray-900">
+                        <p className="text-sm font-semibold text-charcoal-900">
                           {lookupResult.property.bedrooms ?? "--"}
                         </p>
                       </div>
                       <div>
-                        <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                        <p className="text-[10px] font-medium text-charcoal-400 uppercase tracking-wider">
                           Bathrooms
                         </p>
-                        <p className="text-sm font-semibold text-gray-900">
+                        <p className="text-sm font-semibold text-charcoal-900">
                           {lookupResult.property.bathrooms ?? "--"}
                         </p>
                       </div>
                       <div>
-                        <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                        <p className="text-[10px] font-medium text-charcoal-400 uppercase tracking-wider">
                           Sqft
                         </p>
-                        <p className="text-sm font-semibold text-gray-900">
+                        <p className="text-sm font-semibold text-charcoal-900">
                           {lookupResult.property.sqft
                             ? lookupResult.property.sqft.toLocaleString()
                             : "--"}
                         </p>
                       </div>
                       <div>
-                        <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                        <p className="text-[10px] font-medium text-charcoal-400 uppercase tracking-wider">
                           Type
                         </p>
-                        <p className="text-sm font-semibold text-gray-900">
+                        <p className="text-sm font-semibold text-charcoal-900">
                           {lookupResult.property.property_type || "--"}
                         </p>
                       </div>
@@ -387,20 +387,20 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       {lookupResult.property.year_built && (
                         <div>
-                          <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                          <p className="text-[10px] font-medium text-charcoal-400 uppercase tracking-wider">
                             Year Built
                           </p>
-                          <p className="text-sm text-gray-700">
+                          <p className="text-sm text-charcoal-700">
                             {lookupResult.property.year_built}
                           </p>
                         </div>
                       )}
                       {lookupResult.property.lot_size && (
                         <div>
-                          <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                          <p className="text-[10px] font-medium text-charcoal-400 uppercase tracking-wider">
                             Lot Size
                           </p>
-                          <p className="text-sm text-gray-700">
+                          <p className="text-sm text-charcoal-700">
                             {lookupResult.property.lot_size.toLocaleString()}{" "}
                             sqft
                           </p>
@@ -408,10 +408,10 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
                       )}
                       {lookupResult.property.last_sale_price && (
                         <div>
-                          <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                          <p className="text-[10px] font-medium text-charcoal-400 uppercase tracking-wider">
                             Last Sale
                           </p>
-                          <p className="text-sm text-gray-700">
+                          <p className="text-sm text-charcoal-700">
                             $
                             {lookupResult.property.last_sale_price.toLocaleString()}
                           </p>
@@ -424,41 +424,41 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
                       lookupResult.property.features.ac) && (
                       <div className="flex gap-2 pt-1">
                         {lookupResult.property.features.garage && (
-                          <span className="px-2 py-0.5 text-[10px] font-medium bg-emerald-100/80 text-emerald-700 rounded-full">
+                          <span className="px-2 py-0.5 text-[10px] font-medium bg-terra-100/80 text-terra-700 rounded-full">
                             Garage
                           </span>
                         )}
                         {lookupResult.property.features.ac && (
-                          <span className="px-2 py-0.5 text-[10px] font-medium bg-emerald-100/80 text-emerald-700 rounded-full">
+                          <span className="px-2 py-0.5 text-[10px] font-medium bg-terra-100/80 text-terra-700 rounded-full">
                             A/C
                           </span>
                         )}
                         {lookupResult.property.features.heating && (
-                          <span className="px-2 py-0.5 text-[10px] font-medium bg-emerald-100/80 text-emerald-700 rounded-full">
+                          <span className="px-2 py-0.5 text-[10px] font-medium bg-terra-100/80 text-terra-700 rounded-full">
                             Heating
                           </span>
                         )}
                       </div>
                     )}
 
-                    <p className="text-[10px] text-gray-400 pt-1">
+                    <p className="text-[10px] text-charcoal-400 pt-1">
                       Data from: {lookupResult.sources.join(", ")}
                     </p>
                   </div>
                 ) : (
                   <div className="px-4 py-3">
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-charcoal-500">
                       Address validated but no property details found. You can
                       use this address and fill in details manually.
                     </p>
                   </div>
                 )}
 
-                <div className="px-4 py-3 border-t border-gray-100/50 flex justify-end">
+                <div className="px-4 py-3 border-t border-charcoal-100/50 flex justify-end">
                   <Button
                     onClick={handleSelectLookupResult}
                     disabled={loading}
-                    className="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-glow hover:shadow-glow-lg transition-all duration-200"
+                    className="bg-gradient-to-r from-terra-600 to-green-700 hover:from-terra-700 hover:to-green-800 text-white shadow-glow hover:shadow-glow-lg transition-all duration-200"
                   >
                     {loading ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -471,12 +471,12 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
               </div>
             )}
 
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-charcoal-400">
               Works for any US address &mdash; not just properties in AppFolio.{" "}
               <button
                 type="button"
                 onClick={() => setTab("appfolio")}
-                className="text-emerald-600 hover:text-emerald-700 font-medium"
+                className="text-terra-600 hover:text-terra-700 font-medium"
               >
                 Search AppFolio instead
               </button>
@@ -487,14 +487,14 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
         {/* ==================== AppFolio Tab ==================== */}
         {tab === "appfolio" && (
           <div className="space-y-5">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-charcoal-500">
               Search your AppFolio properties by address to auto-fill the
               property details.
             </p>
 
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-charcoal-400" />
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -509,7 +509,7 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
                 disabled={
                   searching || loading || searchQuery.trim().length < 3
                 }
-                className="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-glow"
+                className="bg-gradient-to-r from-terra-600 to-green-700 hover:from-terra-700 hover:to-green-800 text-white shadow-glow"
               >
                 {searching ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -527,22 +527,22 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
 
             {searchResults.length > 0 && (
               <div className="space-y-3">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <p className="text-xs font-medium text-charcoal-500 uppercase tracking-wider">
                   {searchResults.length} Properties Found
                 </p>
                 {searchResults.map((prop) => (
                   <div
                     key={prop.propertyId}
-                    className="bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50 overflow-hidden"
+                    className="bg-white/60 backdrop-blur-sm rounded-xl border border-charcoal-200/50 overflow-hidden"
                   >
-                    <div className="px-4 py-3 border-b border-gray-100/50">
+                    <div className="px-4 py-3 border-b border-charcoal-100/50">
                       <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-emerald-600 flex-shrink-0" />
-                        <span className="font-medium text-sm text-gray-900">
+                        <MapPin className="h-4 w-4 text-terra-600 flex-shrink-0" />
+                        <span className="font-medium text-sm text-charcoal-900">
                           {prop.address}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-400 mt-0.5 pl-6">
+                      <p className="text-xs text-charcoal-400 mt-0.5 pl-6">
                         {prop.city}, {prop.state} {prop.zip} &middot;{" "}
                         {prop.propertyType}
                         {prop.name && ` &middot; ${prop.name}`}
@@ -550,16 +550,16 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
                     </div>
 
                     {prop.units.length > 0 ? (
-                      <div className="divide-y divide-gray-100/50">
+                      <div className="divide-y divide-charcoal-100/50">
                         {prop.units.map((unit) => (
                           <button
                             key={unit.unitId}
                             type="button"
                             onClick={() => selectUnit(prop, unit)}
                             disabled={loading}
-                            className="w-full px-4 py-2.5 flex items-center justify-between text-sm hover:bg-emerald-50/50 transition-colors disabled:opacity-50"
+                            className="w-full px-4 py-2.5 flex items-center justify-between text-sm hover:bg-terra-50/50 transition-colors disabled:opacity-50"
                           >
-                            <div className="flex items-center gap-4 text-gray-600">
+                            <div className="flex items-center gap-4 text-charcoal-600">
                               <span>
                                 {unit.bedrooms} BR / {unit.bathrooms || "—"} BA
                               </span>
@@ -571,7 +571,7 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
                             </div>
                             <div className="flex items-center gap-3">
                               {(unit.listedRent || unit.marketRent) > 0 && (
-                                <span className="font-semibold text-gray-900">
+                                <span className="font-semibold text-charcoal-900">
                                   $
                                   {(
                                     unit.listedRent || unit.marketRent
@@ -579,7 +579,7 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
                                   /mo
                                 </span>
                               )}
-                              <span className="text-xs text-emerald-600 font-medium">
+                              <span className="text-xs text-terra-600 font-medium">
                                 Select &rarr;
                               </span>
                             </div>
@@ -587,7 +587,7 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
                         ))}
                       </div>
                     ) : (
-                      <div className="px-4 py-2.5 text-xs text-gray-400">
+                      <div className="px-4 py-2.5 text-xs text-charcoal-400">
                         No units found for this property
                       </div>
                     )}
@@ -596,12 +596,12 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
               </div>
             )}
 
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-charcoal-400">
               Don&apos;t see your property?{" "}
               <button
                 type="button"
                 onClick={() => setTab("address")}
-                className="text-emerald-600 hover:text-emerald-700 font-medium"
+                className="text-terra-600 hover:text-terra-700 font-medium"
               >
                 Try address lookup
               </button>{" "}
@@ -609,7 +609,7 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
               <button
                 type="button"
                 onClick={() => setTab("manual")}
-                className="text-emerald-600 hover:text-emerald-700 font-medium"
+                className="text-terra-600 hover:text-terra-700 font-medium"
               >
                 enter manually
               </button>
@@ -622,7 +622,7 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
           <div className="space-y-5">
             <div className="grid md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
-                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-medium text-charcoal-500 uppercase tracking-wider mb-1.5">
                   Address *
                 </label>
                 <Input
@@ -637,14 +637,14 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
 
             <div className="grid md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-medium text-charcoal-500 uppercase tracking-wider mb-1.5">
                   Town
                 </label>
                 <select
                   value={town}
                   onChange={(e) => setTown(e.target.value as Town)}
                   disabled={loading}
-                  className="flex h-10 w-full rounded-xl border border-input bg-white/70 backdrop-blur-sm px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/30 focus-visible:ring-offset-2"
+                  className="flex h-10 w-full rounded-xl border border-input bg-white/70 backdrop-blur-sm px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terra-600/30 focus-visible:ring-offset-2"
                 >
                   {ALL_TOWNS.map((t) => (
                     <option key={t} value={t}>
@@ -654,7 +654,7 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-medium text-charcoal-500 uppercase tracking-wider mb-1.5">
                   Zip Code
                 </label>
                 <Input
@@ -666,7 +666,7 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-medium text-charcoal-500 uppercase tracking-wider mb-1.5">
                   Property Type
                 </label>
                 <select
@@ -675,7 +675,7 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
                     setPropertyType(e.target.value as PropertyType)
                   }
                   disabled={loading}
-                  className="flex h-10 w-full rounded-xl border border-input bg-white/70 backdrop-blur-sm px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/30 focus-visible:ring-offset-2"
+                  className="flex h-10 w-full rounded-xl border border-input bg-white/70 backdrop-blur-sm px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terra-600/30 focus-visible:ring-offset-2"
                 >
                   {ALL_PROPERTY_TYPES.map((t) => (
                     <option key={t} value={t}>
@@ -688,14 +688,14 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-medium text-charcoal-500 uppercase tracking-wider mb-1.5">
                   Bedrooms
                 </label>
                 <select
                   value={bedrooms}
                   onChange={(e) => setBedrooms(e.target.value)}
                   disabled={loading}
-                  className="flex h-10 w-full rounded-xl border border-input bg-white/70 backdrop-blur-sm px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/30 focus-visible:ring-offset-2"
+                  className="flex h-10 w-full rounded-xl border border-input bg-white/70 backdrop-blur-sm px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terra-600/30 focus-visible:ring-offset-2"
                 >
                   <option value="0">Studio</option>
                   <option value="1">1</option>
@@ -707,7 +707,7 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-medium text-charcoal-500 uppercase tracking-wider mb-1.5">
                   Bathrooms
                 </label>
                 <Input
@@ -721,7 +721,7 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-medium text-charcoal-500 uppercase tracking-wider mb-1.5">
                   Sqft
                 </label>
                 <Input
@@ -735,11 +735,11 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-medium text-charcoal-500 uppercase tracking-wider mb-1.5">
                   Current Rent
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-400 text-sm">
                     $
                   </span>
                   <Input
@@ -756,7 +756,7 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-medium text-charcoal-500 uppercase tracking-wider mb-2">
                 Amenities
               </label>
               <div className="flex flex-wrap gap-2">
@@ -770,8 +770,8 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
                       disabled={loading}
                       className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
                         active
-                          ? "bg-emerald-100/80 text-emerald-700 ring-1 ring-emerald-300 shadow-sm"
-                          : "bg-white/50 text-gray-500 hover:bg-white/70 hover:text-gray-700"
+                          ? "bg-terra-100/80 text-terra-700 ring-1 ring-terra-300 shadow-sm"
+                          : "bg-white/50 text-charcoal-500 hover:bg-white/70 hover:text-charcoal-700"
                       } disabled:opacity-50`}
                     >
                       {a.label}
@@ -781,11 +781,11 @@ export function PropertyInput({ onSubmit, loading }: PropertyInputProps) {
               </div>
             </div>
 
-            <div className="flex justify-end pt-4 border-t border-gray-200/50">
+            <div className="flex justify-end pt-4 border-t border-charcoal-200/50">
               <Button
                 onClick={handleManualSubmit}
                 disabled={loading || !address.trim()}
-                className="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-glow hover:shadow-glow-lg transition-all duration-200"
+                className="bg-gradient-to-r from-terra-600 to-green-700 hover:from-terra-700 hover:to-green-800 text-white shadow-glow hover:shadow-glow-lg transition-all duration-200"
               >
                 {loading ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />

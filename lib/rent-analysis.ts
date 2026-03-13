@@ -7,6 +7,7 @@
  */
 
 import { getComps, getBaselines } from './comps';
+import { getValueEstimate, getRentEstimate } from './rentcast';
 import type {
   SubjectProperty,
   RentAnalysis,
@@ -15,6 +16,8 @@ import type {
   CompsFilter,
   CompsStats,
   MarketBaseline,
+  RentCastValueEstimate,
+  RentCastRentEstimate,
 } from '@/types/comps';
 
 // ============================================
@@ -128,7 +131,9 @@ function computeRecommendedRent(
   subject: SubjectProperty,
   comparables: RentalComp[],
   baselines: MarketBaseline[],
-  competingListings: CompetingListing[]
+  competingListings: CompetingListing[],
+  rentCastRent?: RentCastRentEstimate | null,
+  rentCastValue?: RentCastValueEstimate | null
 ): RentRecommendation {
   const notes: string[] = [];
   const rents = comparables.map((c) => Number(c.monthly_rent));
@@ -235,6 +240,33 @@ function computeRecommendedRent(
     recommended = blendedRec;
   }
 
+  // Factor in RentCast rent estimate if available
+  if (rentCastRent) {
+    const rcRent = rentCastRent.rent;
+    const blendedRec = recommended * 0.85 + rcRent * 0.15;
+    notes.push(
+      `RentCast rent estimate: $${round(rcRent)}/mo (range: $${round(rentCastRent.rentRangeLow)}–$${round(rentCastRent.rentRangeHigh)}) blended at 15% weight → $${round(blendedRec)}`
+    );
+    if (rentCastRent.comparables.length > 0) {
+      notes.push(
+        `RentCast provided ${rentCastRent.comparables.length} rental comparables`
+      );
+    }
+    recommended = blendedRec;
+  }
+
+  // Add RentCast value estimate context (informational, not blended into rent)
+  if (rentCastValue) {
+    notes.push(
+      `RentCast property value estimate: $${rentCastValue.price.toLocaleString()} (range: $${rentCastValue.priceRangeLow.toLocaleString()}–$${rentCastValue.priceRangeHigh.toLocaleString()})`
+    );
+    if (rentCastValue.comparables.length > 0) {
+      notes.push(
+        `RentCast provided ${rentCastValue.comparables.length} sale comparables for valuation`
+      );
+    }
+  }
+
   // Generate range: -5% to +5%
   const low = round(recommended * 0.95);
   const mid = round(recommended);
@@ -266,10 +298,20 @@ export async function generateRentAnalysis(
     ],
   };
 
-  // 2. Fetch comps and baselines in parallel
-  const [allComps, baselines] = await Promise.all([
+  // 2. Fetch comps, baselines, and RentCast estimates in parallel
+  const [allComps, baselines, rentCastRent, rentCastValue] = await Promise.all([
     getComps(filter, 500),
     getBaselines(),
+    getRentEstimate(subject.address, {
+      bedrooms: subject.bedrooms,
+      bathrooms: subject.bathrooms,
+      squareFootage: subject.sqft,
+    }),
+    getValueEstimate(subject.address, {
+      bedrooms: subject.bedrooms,
+      bathrooms: subject.bathrooms,
+      squareFootage: subject.sqft,
+    }),
   ]);
 
   // 3. Score and rank comparables by similarity
@@ -302,24 +344,48 @@ export async function generateRentAnalysis(
         : null,
   };
 
-  // 5. Calculate recommended rent
+  // 5. Build competing listings (include RentCast rental comps if available)
+  const allCompetingListings: CompetingListing[] = [...(competingListings || [])];
+
+  if (rentCastRent?.comparables) {
+    const now = new Date().toISOString();
+    for (const rc of rentCastRent.comparables) {
+      if (rc.rent && rc.rent > 0) {
+        allCompetingListings.push({
+          address: rc.formattedAddress,
+          price: rc.rent,
+          bedrooms: rc.bedrooms,
+          bathrooms: rc.bathrooms,
+          sqft: rc.squareFootage,
+          source: 'rentcast',
+          fetched_at: now,
+        });
+      }
+    }
+  }
+
+  // 6. Calculate recommended rent
   const { low, mid, high, notes } = computeRecommendedRent(
     subject,
     comparableComps,
     baselines,
-    competingListings || []
+    allCompetingListings,
+    rentCastRent,
+    rentCastValue
   );
 
   return {
     subject,
     stats,
     comparable_comps: comparableComps,
-    competing_listings: competingListings || [],
+    competing_listings: allCompetingListings,
     baselines,
     recommended_rent_low: low,
     recommended_rent_mid: mid,
     recommended_rent_high: high,
     methodology_notes: notes,
+    rentcast_value_estimate: rentCastValue ?? undefined,
+    rentcast_rent_estimate: rentCastRent ?? undefined,
     generated_at: new Date().toISOString(),
     generated_by: userEmail,
   };

@@ -96,14 +96,30 @@ export async function getComps(filter?: CompsFilter, limit = 200, offset = 0): P
     }
   }
 
-  const { data, error } = await query;
+  // Retry up to 2 times on transient network errors (DNS, connection resets)
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const { data, error } = await query;
 
-  if (error) {
-    console.error('Error fetching comps:', error);
-    throw new Error(`Failed to fetch comps: ${error.message}`);
+      if (error) {
+        // Supabase-level errors (auth, query) — don't retry
+        console.error('Error fetching comps:', error);
+        throw new Error(`Failed to fetch comps: ${error.message}`);
+      }
+
+      return data as RentalComp[];
+    } catch (err) {
+      lastError = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      const isTransient = msg.includes('fetch failed') || msg.includes('ENOTFOUND') || msg.includes('ECONNRESET') || msg.includes('ETIMEDOUT');
+      if (!isTransient || attempt === 2) throw err;
+      console.warn(`[Comps] Transient error (attempt ${attempt + 1}/3), retrying in ${(attempt + 1) * 500}ms...`, msg);
+      await new Promise(r => setTimeout(r, (attempt + 1) * 500));
+    }
   }
 
-  return data as RentalComp[];
+  throw lastError;
 }
 
 export async function getCompById(id: string): Promise<RentalComp | null> {

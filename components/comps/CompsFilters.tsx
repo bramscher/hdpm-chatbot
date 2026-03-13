@@ -43,8 +43,8 @@ function PillToggle<T extends string>({
             onClick={() => onToggle(opt)}
             className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
               isActive
-                ? "bg-emerald-100/80 text-emerald-700 ring-1 ring-emerald-300 shadow-sm"
-                : "bg-white/50 text-gray-500 hover:bg-white/70 hover:text-gray-700"
+                ? "bg-blue-100/80 text-blue-700 ring-1 ring-blue-300 shadow-sm"
+                : "bg-white text-charcoal-500 hover:bg-sand-50 hover:text-charcoal-700"
             }`}
           >
             {labelFn ? labelFn(opt) : opt}
@@ -81,34 +81,34 @@ export function CompsFilters({ filter, onChange }: CompsFiltersProps) {
     filter.rent_max !== undefined;
 
   return (
-    <div className="glass glass-shine rounded-2xl overflow-hidden">
+    <div className="bg-white rounded-xl border border-sand-200 shadow-card overflow-hidden">
       {/* Header */}
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-white/30 transition-colors"
+        className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-sand-50 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-gray-700">Filters</span>
+          <span className="text-sm font-semibold text-charcoal-700">Filters</span>
           {hasFilters && (
-            <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
+            <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
               Active
             </span>
           )}
         </div>
         {expanded ? (
-          <ChevronUp className="h-4 w-4 text-gray-400" />
+          <ChevronUp className="h-4 w-4 text-charcoal-400" />
         ) : (
-          <ChevronDown className="h-4 w-4 text-gray-400" />
+          <ChevronDown className="h-4 w-4 text-charcoal-400" />
         )}
       </button>
 
       {/* Body */}
       {expanded && (
-        <div className="px-5 pb-5 space-y-5 border-t border-white/30">
+        <div className="px-5 pb-5 space-y-5 border-t border-sand-200">
           {/* Towns */}
           <div className="pt-4">
-            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">
+            <label className="block text-[11px] font-semibold text-charcoal-400 uppercase tracking-wider mb-2">
               Towns
             </label>
             <PillToggle<Town>
@@ -120,7 +120,7 @@ export function CompsFilters({ filter, onChange }: CompsFiltersProps) {
 
           {/* Bedrooms */}
           <div>
-            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">
+            <label className="block text-[11px] font-semibold text-charcoal-400 uppercase tracking-wider mb-2">
               Bedrooms
             </label>
             <PillToggle<string>
@@ -140,7 +140,7 @@ export function CompsFilters({ filter, onChange }: CompsFiltersProps) {
 
           {/* Property Type */}
           <div>
-            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">
+            <label className="block text-[11px] font-semibold text-charcoal-400 uppercase tracking-wider mb-2">
               Property Type
             </label>
             <PillToggle<PropertyType>
@@ -154,7 +154,7 @@ export function CompsFilters({ filter, onChange }: CompsFiltersProps) {
 
           {/* Data Source */}
           <div>
-            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">
+            <label className="block text-[11px] font-semibold text-charcoal-400 uppercase tracking-wider mb-2">
               Data Source
             </label>
             <PillToggle<DataSource>
@@ -169,7 +169,7 @@ export function CompsFilters({ filter, onChange }: CompsFiltersProps) {
 
           {/* Amenities */}
           <div>
-            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">
+            <label className="block text-[11px] font-semibold text-charcoal-400 uppercase tracking-wider mb-2">
               Amenities
             </label>
             <PillToggle<string>
@@ -185,12 +185,12 @@ export function CompsFilters({ filter, onChange }: CompsFiltersProps) {
           {/* Rent Range + Date Range */}
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">
+              <label className="block text-[11px] font-semibold text-charcoal-400 uppercase tracking-wider mb-2">
                 Rent Range
               </label>
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-charcoal-400 text-xs">$</span>
                   <Input
                     type="number"
                     placeholder="Min"
@@ -201,12 +201,12 @@ export function CompsFilters({ filter, onChange }: CompsFiltersProps) {
                         rent_min: e.target.value ? Number(e.target.value) : undefined,
                       })
                     }
-                    className="pl-6 h-8 text-xs bg-white/70"
+                    className="pl-6 h-8 text-xs bg-white"
                   />
                 </div>
-                <span className="text-gray-300 text-xs">–</span>
+                <span className="text-charcoal-300 text-xs">–</span>
                 <div className="relative flex-1">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-charcoal-400 text-xs">$</span>
                   <Input
                     type="number"
                     placeholder="Max"
@@ -217,13 +217,13 @@ export function CompsFilters({ filter, onChange }: CompsFiltersProps) {
                         rent_max: e.target.value ? Number(e.target.value) : undefined,
                       })
                     }
-                    className="pl-6 h-8 text-xs bg-white/70"
+                    className="pl-6 h-8 text-xs bg-white"
                   />
                 </div>
               </div>
             </div>
             <div>
-              <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">
+              <label className="block text-[11px] font-semibold text-charcoal-400 uppercase tracking-wider mb-2">
                 Date Range
               </label>
               <div className="flex items-center gap-2">
@@ -231,14 +231,14 @@ export function CompsFilters({ filter, onChange }: CompsFiltersProps) {
                   type="date"
                   value={filter.date_from || ""}
                   onChange={(e) => onChange({ ...filter, date_from: e.target.value || undefined })}
-                  className="h-8 text-xs bg-white/70 flex-1"
+                  className="h-8 text-xs bg-white flex-1"
                 />
-                <span className="text-gray-300 text-xs">–</span>
+                <span className="text-charcoal-300 text-xs">–</span>
                 <Input
                   type="date"
                   value={filter.date_to || ""}
                   onChange={(e) => onChange({ ...filter, date_to: e.target.value || undefined })}
-                  className="h-8 text-xs bg-white/70 flex-1"
+                  className="h-8 text-xs bg-white flex-1"
                 />
               </div>
             </div>
@@ -251,7 +251,7 @@ export function CompsFilters({ filter, onChange }: CompsFiltersProps) {
                 variant="ghost"
                 size="sm"
                 onClick={handleReset}
-                className="text-gray-400 hover:text-gray-600 text-xs"
+                className="text-charcoal-400 hover:text-charcoal-600 text-xs"
               >
                 <RotateCcw className="h-3 w-3 mr-1.5" />
                 Reset Filters

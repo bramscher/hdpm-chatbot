@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
 import "./globals.css";
 import { SessionProvider } from "@/components/SessionProvider";
-
-const inter = Inter({ subsets: ["latin"] });
+import { Sidebar } from "@/components/Sidebar";
+import { AppShell } from "@/components/AppShell";
 
 export const metadata: Metadata = {
   title: "HDPM Automation Dashboard",
@@ -17,8 +17,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.className} antialiased mesh-gradient min-h-screen`}>
-        <SessionProvider>{children}</SessionProvider>
+      <body className={`${GeistSans.className} antialiased`}>
+        <SessionProvider>
+          <AppShell>
+            {children}
+          </AppShell>
+        </SessionProvider>
       </body>
     </html>
   );

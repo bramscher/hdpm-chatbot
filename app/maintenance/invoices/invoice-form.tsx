@@ -64,7 +64,7 @@ function blankLineItem(type: LineItemType = "labor"): FormLineItem {
 const TYPE_STYLES: Record<LineItemType, { bg: string; text: string; label: string; icon: typeof Wrench }> = {
   labor: { bg: "bg-blue-50", text: "text-blue-700", label: "Labor", icon: Wrench },
   materials: { bg: "bg-amber-50", text: "text-amber-700", label: "Materials", icon: Package },
-  other: { bg: "bg-gray-50", text: "text-gray-600", label: "Other", icon: Wrench },
+  other: { bg: "bg-charcoal-50", text: "text-charcoal-600", label: "Other", icon: Wrench },
 };
 
 export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: InvoiceFormProps) {
@@ -785,20 +785,20 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
           <ArrowLeft className="h-4 w-4 mr-1" />
           Back
         </Button>
-        <h3 className="text-lg font-semibold text-gray-900">
+        <h3 className="text-lg font-semibold text-charcoal-900">
           {editInvoice ? `Edit ${editInvoice.invoice_code}` : "New Invoice"}
         </h3>
 
         {/* Auto-save status indicator */}
         <div className="ml-auto">
           {saveStatus === "saving" && (
-            <span className="flex items-center gap-1.5 text-xs text-gray-400">
+            <span className="flex items-center gap-1.5 text-xs text-charcoal-400">
               <Loader2 className="h-3 w-3 animate-spin" />
               Saving...
             </span>
           )}
           {saveStatus === "saved" && (
-            <span className="flex items-center gap-1.5 text-xs text-emerald-500">
+            <span className="flex items-center gap-1.5 text-xs text-terra-500">
               <Check className="h-3 w-3" />
               Saved
             </span>
@@ -813,16 +813,16 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
       </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-red-50/80 backdrop-blur-sm border border-red-200/50 rounded-xl text-red-700 text-sm">
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
           {error}
         </div>
       )}
 
-      <div className="glass-heavy glass-elevated rounded-2xl p-6 space-y-6">
+      <div className="bg-white rounded-2xl border border-sand-200 p-6 space-y-6">
         {/* Property Info */}
         <div className="grid md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-medium text-charcoal-400 uppercase tracking-wider mb-1.5">
               Property Name
             </label>
             <Input
@@ -830,11 +830,11 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
               onChange={(e) => { userHasEdited.current = true; setPropertyName(e.target.value); }}
               placeholder="Property name"
               disabled={isLoading}
-              className="bg-white/70 backdrop-blur-sm"
+              className="bg-white"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-medium text-charcoal-400 uppercase tracking-wider mb-1.5">
               Property Address
             </label>
             <Input
@@ -842,7 +842,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
               onChange={(e) => { userHasEdited.current = true; setPropertyAddress(e.target.value); }}
               placeholder="Full address"
               disabled={isLoading}
-              className="bg-white/70 backdrop-blur-sm"
+              className="bg-white"
             />
           </div>
         </div>
@@ -850,7 +850,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
         {/* WO Reference & Date */}
         <div className="grid md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-medium text-charcoal-400 uppercase tracking-wider mb-1.5">
               Work Order Reference
             </label>
             <Input
@@ -858,11 +858,11 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
               onChange={(e) => { userHasEdited.current = true; setWoReference(e.target.value); }}
               placeholder="WO #"
               disabled={isLoading}
-              className="bg-white/70 backdrop-blur-sm"
+              className="bg-white"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-medium text-charcoal-400 uppercase tracking-wider mb-1.5">
               Completed Date
             </label>
             <Input
@@ -870,7 +870,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
               value={formatDateForInput(completedDate)}
               onChange={(e) => { userHasEdited.current = true; setCompletedDate(e.target.value); }}
               disabled={isLoading}
-              className="bg-white/70 backdrop-blur-sm"
+              className="bg-white"
             />
           </div>
         </div>
@@ -878,42 +878,42 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
         {/* Scanned Work Order Context (if available) */}
         {hasScannedMeta && (
           <div className="rounded-xl bg-blue-50/60 border border-blue-200/40 px-4 py-3 space-y-2">
-            <p className="text-[10px] font-semibold text-blue-600 uppercase tracking-widest">
+            <p className="text-[11px] font-semibold text-blue-600 uppercase tracking-wider">
               Work Order Details
             </p>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1 text-xs text-gray-600">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1 text-xs text-charcoal-600">
               {scannedMeta.status && (
-                <div><span className="font-medium text-gray-500">Status:</span> {scannedMeta.status}</div>
+                <div><span className="font-medium text-charcoal-500">Status:</span> {scannedMeta.status}</div>
               )}
               {(scannedMeta.technician || scannedMeta.createdBy) && (
-                <div><span className="font-medium text-gray-500">Technician:</span> {scannedMeta.technician || scannedMeta.createdBy}</div>
+                <div><span className="font-medium text-charcoal-500">Technician:</span> {scannedMeta.technician || scannedMeta.createdBy}</div>
               )}
               {scannedMeta.createdDate && (
-                <div><span className="font-medium text-gray-500">Created:</span> {scannedMeta.createdDate}</div>
+                <div><span className="font-medium text-charcoal-500">Created:</span> {scannedMeta.createdDate}</div>
               )}
               {scannedMeta.scheduledDate && (
-                <div><span className="font-medium text-gray-500">Scheduled:</span> {scannedMeta.scheduledDate}</div>
+                <div><span className="font-medium text-charcoal-500">Scheduled:</span> {scannedMeta.scheduledDate}</div>
               )}
               {scannedMeta.maintenanceLimit && (
-                <div><span className="font-medium text-gray-500">Maint Limit:</span> ${scannedMeta.maintenanceLimit}</div>
+                <div><span className="font-medium text-charcoal-500">Maint Limit:</span> ${scannedMeta.maintenanceLimit}</div>
               )}
               {scannedMeta.estimateAmount && (
-                <div><span className="font-medium text-gray-500">Estimate:</span> ${scannedMeta.estimateAmount}</div>
+                <div><span className="font-medium text-charcoal-500">Estimate:</span> ${scannedMeta.estimateAmount}</div>
               )}
               {scannedMeta.permissionToEnter && (
-                <div><span className="font-medium text-gray-500">Permission:</span> {scannedMeta.permissionToEnter}</div>
+                <div><span className="font-medium text-charcoal-500">Permission:</span> {scannedMeta.permissionToEnter}</div>
               )}
               {scannedMeta.pets && (
-                <div><span className="font-medium text-gray-500">Pets:</span> {scannedMeta.pets}</div>
+                <div><span className="font-medium text-charcoal-500">Pets:</span> {scannedMeta.pets}</div>
               )}
             </div>
             {scannedMeta.vendorInstructions && (
-              <p className="text-[11px] text-gray-500">
+              <p className="text-[11px] text-charcoal-500">
                 <span className="font-medium">Vendor Instructions:</span> {scannedMeta.vendorInstructions}
               </p>
             )}
             {scannedMeta.propertyNotes && (
-              <p className="text-[11px] text-gray-500">
+              <p className="text-[11px] text-charcoal-500">
                 <span className="font-medium">Property Notes:</span> {scannedMeta.propertyNotes}
               </p>
             )}
@@ -929,7 +929,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
                   {showTechNotes ? "Hide" : "Show"} Technician&apos;s Notes
                 </button>
                 {showTechNotes && (
-                  <div className="mt-1.5 p-3 bg-white/60 rounded-lg border border-blue-100/60 text-[11px] text-gray-600 leading-relaxed whitespace-pre-wrap">
+                  <div className="mt-1.5 p-3 bg-white rounded-lg border border-blue-100/60 text-[11px] text-charcoal-600 leading-relaxed whitespace-pre-wrap">
                     {scannedMeta.technicianNotes}
                   </div>
                 )}
@@ -940,23 +940,23 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
 
         {/* Task List Reference (collapsible, from scanned task-list WOs) */}
         {taskItems.length > 0 && (
-          <div className="rounded-xl bg-emerald-50/50 border border-emerald-200/40 px-4 py-3">
+          <div className="rounded-xl bg-terra-50/50 border border-terra-200/40 px-4 py-3">
             <button
               type="button"
               onClick={() => setShowTaskList(!showTaskList)}
               className="w-full flex items-center justify-between"
             >
               <div className="flex items-center gap-2">
-                <p className="text-[10px] font-semibold text-emerald-700 uppercase tracking-widest">
+                <p className="text-[11px] font-semibold text-terra-700 uppercase tracking-wider">
                   Work Order Tasks ({taskItems.length})
                 </p>
               </div>
-              <span className="text-[11px] font-medium text-emerald-600">
+              <span className="text-[11px] font-medium text-terra-600">
                 {showTaskList ? "Hide" : "Show"} Task List
               </span>
             </button>
             {showTaskList && (
-              <ul className="mt-2 space-y-0.5 text-[11px] text-gray-600 list-disc list-inside max-h-48 overflow-y-auto">
+              <ul className="mt-2 space-y-0.5 text-[11px] text-charcoal-600 list-disc list-inside max-h-48 overflow-y-auto">
                 {taskItems.map((task, idx) => (
                   <li key={idx} className="leading-relaxed">{task}</li>
                 ))}
@@ -971,7 +971,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
         <div>
           <div className="flex items-center justify-between mb-3">
             <div>
-              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <label className="block text-xs font-medium text-charcoal-400 uppercase tracking-wider">
                 Line Items
               </label>
               {extractingMaterials && (
@@ -1012,9 +1012,9 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             </div>
           </div>
 
-          <div className="rounded-xl border border-gray-200/60 bg-white/50 overflow-hidden">
+          <div className="rounded-xl border border-sand-200 bg-white overflow-hidden">
             {/* Table header */}
-            <div className="grid grid-cols-[80px_1fr_60px_80px_48px_90px_36px] gap-2 px-3 py-2 bg-gray-50/80 border-b border-gray-200/40 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
+            <div className="grid grid-cols-[80px_1fr_60px_80px_48px_90px_36px] gap-2 px-3 py-2 bg-charcoal-50 border-b border-sand-200 text-[11px] font-semibold text-charcoal-400 uppercase tracking-wider">
               <span>Type</span>
               <span>Description</span>
               <span>Qty</span>
@@ -1034,7 +1034,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
               return (
                 <div
                   key={li.id}
-                  className={`grid grid-cols-[80px_1fr_60px_80px_48px_90px_36px] gap-2 px-3 py-1.5 border-b border-gray-100/60 last:border-b-0 items-start ${
+                  className={`grid grid-cols-[80px_1fr_60px_80px_48px_90px_36px] gap-2 px-3 py-1.5 border-b border-charcoal-100 last:border-b-0 items-start ${
                     isUnpriced ? "bg-amber-50/30" : ""
                   }`}
                 >
@@ -1043,7 +1043,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
                     value={li.type}
                     onChange={(e) => updateLineItem(li.id, "type", e.target.value)}
                     disabled={isLoading}
-                    className={`h-8 text-[10px] font-medium rounded-lg border border-gray-200/40 px-1.5 ${typeStyle.bg} ${typeStyle.text} cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-600/30`}
+                    className={`h-8 text-[10px] font-medium rounded-lg border border-sand-200 px-1.5 ${typeStyle.bg} ${typeStyle.text} cursor-pointer focus:outline-none focus:ring-2 focus:ring-terra-600/30`}
                   >
                     <option value="labor">Labor</option>
                     <option value="materials">Materials</option>
@@ -1058,7 +1058,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
                         value={li.flatFeeKey}
                         onChange={(e) => handleFlatFeeSelect(li.id, e.target.value)}
                         disabled={isLoading}
-                        className="w-full h-7 text-[10px] font-medium rounded-lg border border-amber-200/60 bg-amber-50/40 text-amber-700 px-2 mb-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-600/30"
+                        className="w-full h-7 text-[10px] font-medium rounded-lg border border-amber-200/60 bg-amber-50/40 text-amber-700 px-2 mb-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-terra-600/30"
                       >
                         <option value="">Custom entry</option>
                         {FLAT_FEE_JOBS.map((job) => (
@@ -1074,7 +1074,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
                       placeholder={idx === 0 && isLabor ? "Describe the work performed...\n• Bullet points supported" : isMaterials ? "Parts / materials description" : `Line item ${idx + 1} description`}
                       disabled={isLoading || rewritingId === li.id}
                       rows={2}
-                      className={`w-full text-xs bg-transparent border border-gray-200/40 rounded-md px-3 py-2 resize-y leading-relaxed focus:outline-none focus:ring-2 focus:ring-emerald-600/30 disabled:opacity-50 ${
+                      className={`w-full text-xs bg-transparent border border-sand-200 rounded-md px-3 py-2 resize-y leading-relaxed focus:outline-none focus:ring-2 focus:ring-terra-600/30 disabled:opacity-50 ${
                         li.description.trim().length > 3 ? "pr-10" : ""
                       }`}
                     />
@@ -1083,7 +1083,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
                         type="button"
                         onClick={() => handleAiRewrite(li.id)}
                         disabled={isLoading || rewritingId !== null}
-                        className="absolute right-1 top-1 h-7 w-7 flex items-center justify-center text-purple-300 hover:text-purple-600 hover:bg-purple-50 disabled:hover:text-gray-300 disabled:hover:bg-transparent transition-colors rounded-md border border-transparent hover:border-purple-200"
+                        className="absolute right-1 top-1 h-7 w-7 flex items-center justify-center text-purple-300 hover:text-purple-600 hover:bg-purple-50 disabled:hover:text-charcoal-300 disabled:hover:bg-transparent transition-colors rounded-md border border-transparent hover:border-purple-200"
                         title="AI rewrite for professional invoice voice"
                       >
                         {rewritingId === li.id ? (
@@ -1104,12 +1104,12 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
                     onChange={(e) => updateLineItem(li.id, "qty", e.target.value)}
                     placeholder={isLabor ? "Hrs" : "Qty"}
                     disabled={isLoading}
-                    className="h-8 text-xs text-center bg-transparent border-gray-200/40"
+                    className="h-8 text-xs text-center bg-transparent border-sand-200"
                   />
 
                   {/* Unit Price — all line types */}
                   <div className="relative">
-                    <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]">$</span>
+                    <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-charcoal-400 text-[10px]">$</span>
                     <Input
                       type="number"
                       step="0.01"
@@ -1118,7 +1118,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
                       onChange={(e) => updateLineItem(li.id, "rate", e.target.value)}
                       placeholder={isLabor ? "/hr" : "ea"}
                       disabled={isLoading}
-                      className="h-8 text-xs pl-4 text-right bg-transparent border-gray-200/40"
+                      className="h-8 text-xs pl-4 text-right bg-transparent border-sand-200"
                     />
                   </div>
 
@@ -1134,7 +1134,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
                       className={`flex items-center justify-center h-8 w-full rounded-lg text-[10px] font-bold transition-all duration-200 ${
                         li.rateType === "after-hours"
                           ? "bg-red-100 text-red-700 ring-2 ring-red-400 shadow-sm"
-                          : "bg-emerald-50 text-emerald-500 ring-1 ring-emerald-300 hover:bg-red-50 hover:text-red-500 hover:ring-red-300"
+                          : "bg-terra-50 text-terra-500 ring-1 ring-terra-300 hover:bg-red-50 hover:text-red-500 hover:ring-red-300"
                       }`}
                     >
                       <Clock className="h-3 w-3 mr-0.5" />
@@ -1146,7 +1146,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
 
                   {/* Extended Amount (qty × price) */}
                   <div className="relative">
-                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-charcoal-400 text-xs">$</span>
                     <Input
                       type="number"
                       step="0.01"
@@ -1154,7 +1154,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
                       value={li.amount}
                       onChange={(e) => updateLineItem(li.id, "amount", e.target.value)}
                       disabled={isLoading}
-                      className={`h-8 text-xs pl-5 text-right bg-transparent border-gray-200/40 ${
+                      className={`h-8 text-xs pl-5 text-right bg-transparent border-sand-200 ${
                         isUnpriced ? "border-amber-300/60" : ""
                       }`}
                     />
@@ -1165,7 +1165,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
                     type="button"
                     onClick={() => removeLineItem(li.id)}
                     disabled={isLoading}
-                    className="flex items-center justify-center h-8 w-8 text-gray-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50/60"
+                    className="flex items-center justify-center h-8 w-8 text-charcoal-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50/60"
                     title="Remove line item"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -1175,11 +1175,11 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             })}
 
             {/* Subtotals + Total row */}
-            <div className="bg-gray-50/80 border-t border-gray-200/60 px-3 py-2.5 space-y-1">
+            <div className="bg-charcoal-50 border-t border-sand-200 px-3 py-2.5 space-y-1">
               {(laborTotal > 0 || materialsTotal > 0) && (laborTotal !== totalAmount) && (
                 <div className="grid grid-cols-[80px_1fr_60px_80px_48px_90px_36px] gap-2 items-center">
                   <span />
-                  <div className="flex justify-end gap-6 text-[10px] text-gray-400">
+                  <div className="flex justify-end gap-6 text-[10px] text-charcoal-400">
                     {laborTotal > 0 && (
                       <span>Labor: <span className="font-medium text-blue-600">${laborTotal.toFixed(2)}</span></span>
                     )}
@@ -1199,8 +1199,8 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
                 <span />
                 <span />
                 <span />
-                <span className="text-right text-xs font-semibold text-gray-600">Total</span>
-                <span className="text-right text-sm font-bold text-gray-900">
+                <span className="text-right text-xs font-semibold text-charcoal-600">Total</span>
+                <span className="text-right text-sm font-bold text-charcoal-900">
                   ${totalAmount.toFixed(2)}
                 </span>
                 <span />
@@ -1211,7 +1211,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
 
         {/* Internal Notes */}
         <div>
-          <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+          <label className="block text-xs font-medium text-charcoal-400 uppercase tracking-wider mb-1.5">
             Internal Notes (not shown on invoice)
           </label>
           <textarea
@@ -1220,12 +1220,12 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
             placeholder="Internal notes, vendor instructions, property notes..."
             rows={6}
             disabled={isLoading}
-            className="flex w-full rounded-xl border border-input bg-white/70 backdrop-blur-sm px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+            className="flex w-full rounded-xl border border-input bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terra-600/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
           />
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200/50">
+        <div className="flex items-center justify-end gap-3 pt-4 border-t border-sand-200">
           <Button
             variant="outline"
             onClick={() => handleSave(false)}
@@ -1241,7 +1241,7 @@ export function InvoiceForm({ workOrder, editInvoice, onBack, onSaved }: Invoice
           <Button
             onClick={() => handleSave(true)}
             disabled={isLoading}
-            className="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-glow hover:shadow-glow-lg transition-all duration-200"
+            className="bg-terra-500 hover:bg-terra-600 text-white transition-all duration-200"
           >
             {isGenerating ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />

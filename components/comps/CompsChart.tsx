@@ -38,8 +38,8 @@ export function CompsChart({ townStats, baselines, loading, bedrooms }: CompsCha
     return (
       <div className="glass glass-shine rounded-2xl p-6">
         <div className="animate-pulse">
-          <div className="h-4 w-48 bg-gray-200 rounded mb-6" />
-          <div className="h-64 bg-gray-100 rounded-xl" />
+          <div className="h-4 w-48 bg-charcoal-200 rounded mb-6" />
+          <div className="h-64 bg-charcoal-100 rounded-xl" />
         </div>
       </div>
     );
@@ -48,7 +48,7 @@ export function CompsChart({ townStats, baselines, loading, bedrooms }: CompsCha
   if (townStats.length === 0) {
     return (
       <div className="glass glass-shine rounded-2xl p-6">
-        <p className="text-center text-gray-400 text-sm py-12">
+        <p className="text-center text-charcoal-400 text-sm py-12">
           No data to chart with current filters
         </p>
       </div>
@@ -72,7 +72,7 @@ export function CompsChart({ townStats, baselines, loading, bedrooms }: CompsCha
   return (
     <div className="glass glass-shine rounded-2xl p-6">
       <div className="flex items-center justify-between mb-4">
-        <h4 className="text-sm font-semibold text-gray-700">
+        <h4 className="text-sm font-semibold text-charcoal-700">
           Average Rent by Town
         </h4>
         {fmrValue && (
@@ -143,13 +143,13 @@ export function CompsChart({ townStats, baselines, loading, bedrooms }: CompsCha
       {/* Legend */}
       <div className="flex flex-wrap gap-3 mt-3 justify-center">
         {chartData.map((d) => (
-          <div key={d.town} className="flex items-center gap-1.5 text-xs text-gray-500">
+          <div key={d.town} className="flex items-center gap-1.5 text-xs text-charcoal-500">
             <div
               className="w-2.5 h-2.5 rounded-full"
               style={{ backgroundColor: TOWN_COLORS[d.town] || "#059669" }}
             />
             <span>{d.town}</span>
-            <span className="text-gray-300">({d.count})</span>
+            <span className="text-charcoal-300">({d.count})</span>
           </div>
         ))}
       </div>

@@ -3,12 +3,9 @@
 import React, { useState, useCallback, useEffect, useMemo } from "react";
 import Link from "next/link";
 import {
-  ArrowLeft,
-  BarChart3,
   Table2,
   BarChartHorizontal,
   Plus,
-  Loader2,
   FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -212,34 +209,16 @@ export function CompsDashboard({ userEmail, userName }: CompsDashboardProps) {
     <div className="max-w-6xl mx-auto space-y-6 animate-slide-up">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link href="/">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              Home
-            </Button>
-          </Link>
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-green-700 rounded-xl flex items-center justify-center shadow-glow">
-              <BarChart3 className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-900 tracking-tight">
-                Rent Comparison Toolkit
-              </h2>
-              <p className="text-xs text-gray-400">
-                Central Oregon rental market data
-              </p>
-            </div>
-          </div>
-        </div>
+        <h2 className="text-xl font-semibold text-charcoal-900 tracking-tight">
+          Rent Comparison Toolkit
+        </h2>
 
         <div className="flex items-center gap-2">
           <Link href="/comps/analysis">
             <Button
               size="sm"
               variant="outline"
-              className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+              className="border-sand-200 text-charcoal-700 hover:bg-sand-50"
             >
               <FileText className="h-4 w-4 mr-1.5" />
               Rent Analysis
@@ -248,7 +227,7 @@ export function CompsDashboard({ userEmail, userName }: CompsDashboardProps) {
           <Button
             onClick={() => setView("add")}
             size="sm"
-            className="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-glow hover:shadow-glow-lg transition-all duration-200"
+            className="bg-terra-500 hover:bg-terra-600 text-white shadow-sm transition-all duration-200"
           >
             <Plus className="h-4 w-4 mr-1.5" />
             Add Comp
@@ -263,14 +242,14 @@ export function CompsDashboard({ userEmail, userName }: CompsDashboardProps) {
       <CompsStatsCards stats={stats} baselines={baselines} loading={loading} />
 
       {/* View Toggle */}
-      <div className="flex items-center gap-1 bg-white/40 backdrop-blur-sm rounded-xl p-1 w-fit">
+      <div className="flex items-center gap-1 bg-sand-100 rounded-xl p-1 w-fit">
         <button
           type="button"
           onClick={() => setDataView("table")}
           className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
             dataView === "table"
-              ? "bg-white text-gray-900 shadow-sm"
-              : "text-gray-400 hover:text-gray-600"
+              ? "bg-white text-charcoal-900 shadow-sm"
+              : "text-charcoal-400 hover:text-charcoal-600"
           }`}
         >
           <Table2 className="h-3.5 w-3.5" />
@@ -281,8 +260,8 @@ export function CompsDashboard({ userEmail, userName }: CompsDashboardProps) {
           onClick={() => setDataView("chart")}
           className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
             dataView === "chart"
-              ? "bg-white text-gray-900 shadow-sm"
-              : "text-gray-400 hover:text-gray-600"
+              ? "bg-white text-charcoal-900 shadow-sm"
+              : "text-charcoal-400 hover:text-charcoal-600"
           }`}
         >
           <BarChartHorizontal className="h-3.5 w-3.5" />
@@ -307,7 +286,7 @@ export function CompsDashboard({ userEmail, userName }: CompsDashboardProps) {
 
       {/* Footer info */}
       {!loading && displayComps.length > 0 && (
-        <p className="text-center text-[10px] text-gray-300 pb-8">
+        <p className="text-center text-[10px] text-charcoal-300 pb-8">
           Data from AppFolio, Rentometer, HUD FMR, and manual entry •{" "}
           {displayComps.length} records loaded
         </p>
