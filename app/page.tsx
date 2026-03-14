@@ -1,5 +1,14 @@
+"use client";
+
 import Link from "next/link";
 import { FileText, BarChart3, ArrowUpRight, Zap, TrendingUp, Clock } from "lucide-react";
+
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
 
 export default function Home() {
   return (
@@ -11,7 +20,7 @@ export default function Home() {
             Dashboard
           </p>
           <h1 className="text-2xl font-bold text-charcoal-900 tracking-tight">
-            Good morning
+            {getGreeting()}
           </h1>
           <p className="text-sm text-charcoal-400 mt-1">
             Your automation tools are ready.
