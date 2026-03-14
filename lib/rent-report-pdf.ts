@@ -277,7 +277,7 @@ export function generateRentReportPdf(analysis: RentAnalysis): Buffer {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(32);
   doc.text(
-    `${fmt(analysis.recommended_rent_low)} – ${fmt(analysis.recommended_rent_high)}`,
+    `${fmt(analysis.recommended_rent_low)} - ${fmt(analysis.recommended_rent_high)}`,
     MARGIN + 20,
     y + 52
   );
@@ -295,7 +295,7 @@ export function generateRentReportPdf(analysis: RentAnalysis): Buffer {
   const statItems = [
     { label: 'AVG RENT', value: fmt(stats.avg_rent) },
     { label: 'MEDIAN RENT', value: fmt(stats.median_rent) },
-    { label: 'RANGE', value: `${fmt(stats.min_rent)} – ${fmt(stats.max_rent)}` },
+    { label: 'RANGE', value: `${fmt(stats.min_rent)} - ${fmt(stats.max_rent)}` },
     { label: 'SAMPLE SIZE', value: String(stats.count) },
   ];
 

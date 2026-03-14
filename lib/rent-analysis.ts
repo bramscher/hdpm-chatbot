@@ -177,7 +177,7 @@ function computeRecommendedRent(
           const adjustment = sqftDiff * avgRentPerSqft * 0.5; // 50% weight on sqft diff
           recommended += adjustment;
           notes.push(
-            `Sqft adjustment: subject ${subject.sqft} sqft vs avg ${round(avgCompSqft)} sqft → ${adjustment > 0 ? '+' : ''}$${round(adjustment)}`
+            `Sqft adjustment: subject ${subject.sqft} sqft vs avg ${round(avgCompSqft)} sqft: ${adjustment > 0 ? '+' : ''}$${round(adjustment)}`
           );
         }
       }
@@ -235,7 +235,7 @@ function computeRecommendedRent(
     const compMedian = median(compPrices);
     const blendedRec = recommended * 0.8 + compMedian * 0.2;
     notes.push(
-      `Zillow competing median ($${round(compMedian)}) blended at 20% weight → $${round(blendedRec)}`
+      `Zillow competing median ($${round(compMedian)}) blended at 20% weight: $${round(blendedRec)}`
     );
     recommended = blendedRec;
   }
@@ -245,7 +245,7 @@ function computeRecommendedRent(
     const rcRent = rentCastRent.rent;
     const blendedRec = recommended * 0.85 + rcRent * 0.15;
     notes.push(
-      `RentCast rent estimate: $${round(rcRent)}/mo (range: $${round(rentCastRent.rentRangeLow)}–$${round(rentCastRent.rentRangeHigh)}) blended at 15% weight → $${round(blendedRec)}`
+      `RentCast rent estimate: $${round(rcRent)}/mo (range: $${round(rentCastRent.rentRangeLow)}-$${round(rentCastRent.rentRangeHigh)}) blended at 15% weight: $${round(blendedRec)}`
     );
     if (rentCastRent.comparables.length > 0) {
       notes.push(
@@ -258,7 +258,7 @@ function computeRecommendedRent(
   // Add RentCast value estimate context (informational, not blended into rent)
   if (rentCastValue) {
     notes.push(
-      `RentCast property value estimate: $${rentCastValue.price.toLocaleString()} (range: $${rentCastValue.priceRangeLow.toLocaleString()}–$${rentCastValue.priceRangeHigh.toLocaleString()})`
+      `RentCast property value estimate: $${rentCastValue.price.toLocaleString()} (range: $${rentCastValue.priceRangeLow.toLocaleString()}-$${rentCastValue.priceRangeHigh.toLocaleString()})`
     );
     if (rentCastValue.comparables.length > 0) {
       notes.push(
@@ -273,7 +273,7 @@ function computeRecommendedRent(
   const high = round(recommended * 1.05);
 
   notes.push(
-    `Recommended range: $${low.toLocaleString()} – $${high.toLocaleString()}/mo`
+    `Recommended range: $${low.toLocaleString()} - $${high.toLocaleString()}/mo`
   );
 
   return { low, mid, high, notes };
