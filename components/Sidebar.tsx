@@ -155,7 +155,7 @@ export function Sidebar({ collapsed = false, onToggleChat, isChatOpen = false }:
             className="flex items-center justify-center w-full py-2 rounded-lg text-charcoal-500 hover:text-white hover:bg-white/[0.05] transition-all duration-150"
             title="Close chat"
           >
-            <ChevronLeft className={cn("w-4 h-4 transition-transform", !collapsed && "rotate-180")} />
+            <ChevronLeft className={cn("w-4 h-4 transition-transform", collapsed && "rotate-180")} />
             {!collapsed && <span className="text-2xs ml-1">Collapse</span>}
           </button>
         </div>
