@@ -65,6 +65,7 @@ export function RentAnalysisWizard({
   const [ownerName, setOwnerName] = useState("");
   const [ownerEmail, setOwnerEmail] = useState("");
   const [rentOverride, setRentOverride] = useState("");
+  const [managerNotes, setManagerNotes] = useState("");
 
   // Saved reports
   const [savedReports, setSavedReports] = useState<SavedRentAnalysis[]>([]);
@@ -172,6 +173,7 @@ export function RentAnalysisWizard({
           prepared_for: ownerName.trim() || undefined,
           recommended_rent_override: rentOverride ? Number(rentOverride) : undefined,
           owner_email: ownerEmail.trim() || undefined,
+          manager_notes: managerNotes.trim() || undefined,
         }),
       });
 
@@ -202,6 +204,7 @@ export function RentAnalysisWizard({
     setOwnerName(saved.prepared_for || "");
     setOwnerEmail(saved.owner_email || "");
     setRentOverride(saved.recommended_rent_override ? String(saved.recommended_rent_override) : "");
+    setManagerNotes(saved.manager_notes || "");
     setPdfBase64(null);
     setDownloadUrl(null);
     setShortUrl(saved.short_url || null);
@@ -263,6 +266,7 @@ export function RentAnalysisWizard({
     setOwnerName("");
     setOwnerEmail("");
     setRentOverride("");
+    setManagerNotes("");
     setEditingId(null);
     setError(null);
   }
@@ -455,6 +459,8 @@ export function RentAnalysisWizard({
           onOwnerEmailChange={setOwnerEmail}
           rentOverride={rentOverride}
           onRentOverrideChange={setRentOverride}
+          managerNotes={managerNotes}
+          onManagerNotesChange={setManagerNotes}
         />
       )}
 

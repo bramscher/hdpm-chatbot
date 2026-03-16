@@ -30,12 +30,13 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { subject, competing_listings, prepared_for, recommended_rent_override, owner_email } = body as {
+    const { subject, competing_listings, prepared_for, recommended_rent_override, owner_email, manager_notes } = body as {
       subject: SubjectProperty;
       competing_listings?: CompetingListing[];
       prepared_for?: string;
       recommended_rent_override?: number;
       owner_email?: string;
+      manager_notes?: string;
     };
 
     // Validate required subject fields
@@ -62,7 +63,12 @@ export async function POST(request: NextRequest) {
       analysis.prepared_for = prepared_for;
     }
 
-    // 2b. Apply recommended rent override if provided
+    // 2b. Attach manager notes if provided
+    if (manager_notes) {
+      analysis.manager_notes = manager_notes;
+    }
+
+    // 2c. Apply recommended rent override if provided
     if (recommended_rent_override && recommended_rent_override > 0) {
       analysis.recommended_rent_override = recommended_rent_override;
       analysis.methodology_notes.push(
@@ -156,6 +162,7 @@ export async function POST(request: NextRequest) {
         recommended_rent_override: recommended_rent_override ?? null,
         prepared_for: prepared_for ?? null,
         owner_email: owner_email ?? null,
+        manager_notes: manager_notes ?? null,
         pdf_file_path: fileName,
         short_url: shortUrl,
         created_by: session.user.email,

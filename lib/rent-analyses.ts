@@ -10,6 +10,7 @@ export interface SaveAnalysisInput {
   recommended_rent_override?: number | null;
   prepared_for?: string | null;
   owner_email?: string | null;
+  manager_notes?: string | null;
   pdf_file_path?: string | null;
   short_url?: string | null;
   created_by: string;
@@ -34,6 +35,7 @@ export async function saveRentAnalysis(input: SaveAnalysisInput): Promise<SavedR
       recommended_rent_override: input.recommended_rent_override ?? null,
       prepared_for: input.prepared_for ?? null,
       owner_email: input.owner_email ?? null,
+      manager_notes: input.manager_notes ?? null,
       analysis_json: analysis,
       pdf_file_path: input.pdf_file_path ?? null,
       short_url: input.short_url ?? null,
@@ -91,6 +93,7 @@ export async function updateRentAnalysis(
     recommended_rent_override?: number | null;
     prepared_for?: string | null;
     owner_email?: string | null;
+    manager_notes?: string | null;
     analysis_json?: RentAnalysis;
     pdf_file_path?: string | null;
     short_url?: string | null;

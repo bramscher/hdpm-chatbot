@@ -266,7 +266,7 @@ export function generateRentReportPdf(analysis: RentAnalysis): Buffer {
 
   // Recommended rent (prominent green box)
   const hasOverride = analysis.recommended_rent_override && analysis.recommended_rent_override > 0;
-  const recBoxH = hasOverride ? 100 : 80;
+  const recBoxH = hasOverride ? 90 : 80;
   doc.setFillColor(GREEN);
   doc.roundedRect(MARGIN, y, CONTENT_W, recBoxH, 6, 6, 'F');
 
@@ -279,27 +279,20 @@ export function generateRentReportPdf(analysis: RentAnalysis): Buffer {
     // Show override as the primary number
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(32);
-    doc.text(fmt(analysis.recommended_rent_override!), MARGIN + 20, y + 52);
+    doc.text(`${fmt(analysis.recommended_rent_override!)}/mo`, MARGIN + 20, y + 52);
 
+    // Subtitle on its own line
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    doc.text('/mo  —  Recommended for current market conditions', MARGIN + 20 + doc.getTextWidth(fmt(analysis.recommended_rent_override!)) + 4, y + 52);
+    doc.text('Recommended for current market conditions', MARGIN + 20, y + 66);
 
-    // Show calculated range below as reference
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor('#ffffffbb');
+    // Calculated range as small reference text
+    doc.setFontSize(8);
+    doc.setTextColor('#ffffffcc');
     doc.text(
       `Calculated range: ${fmt(analysis.recommended_rent_low)} - ${fmt(analysis.recommended_rent_high)}/mo (target: ${fmt(analysis.recommended_rent_mid)})`,
       MARGIN + 20,
-      y + 72
-    );
-
-    doc.setFontSize(8);
-    doc.text(
-      'Override applied based on property manager market assessment',
-      MARGIN + 20,
-      y + 86
+      y + 80
     );
   } else {
     doc.setFont('helvetica', 'bold');
@@ -315,7 +308,36 @@ export function generateRentReportPdf(analysis: RentAnalysis): Buffer {
     doc.text(`Target: ${fmt(analysis.recommended_rent_mid)}/mo`, MARGIN + 20, y + 68);
   }
 
-  y += recBoxH + 24;
+  y += recBoxH + 16;
+
+  // Manager notes — gray box similar to subject property
+  if (analysis.manager_notes) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    const noteLines: string[] = doc.splitTextToSize(analysis.manager_notes, CONTENT_W - 24);
+    const noteBoxH = Math.max(noteLines.length * 13 + 32, 46);
+
+    y = checkPageBreak(doc, y, noteBoxH + 8);
+
+    doc.setFillColor(BG_GRAY);
+    doc.roundedRect(MARGIN, y, CONTENT_W, noteBoxH, 4, 4, 'F');
+
+    // Label
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(LABEL);
+    doc.text('NOTES FROM HIGH DESERT PROPERTY MANAGEMENT', MARGIN + 12, y + 13);
+
+    // Note text
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(DARK);
+    for (let li = 0; li < noteLines.length; li++) {
+      doc.text(noteLines[li], MARGIN + 12, y + 26 + li * 13);
+    }
+
+    y += noteBoxH + 16;
+  }
 
   // Quick stats summary
   y = drawSectionTitle(doc, y, 'MARKET SNAPSHOT');

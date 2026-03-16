@@ -262,6 +262,7 @@ export interface RentAnalysis {
   rentcast_value_estimate?: RentCastValueEstimate;
   rentcast_rent_estimate?: RentCastRentEstimate;
   prepared_for?: string;
+  manager_notes?: string;
   generated_at: string;
   generated_by: string;
 }
@@ -285,6 +286,7 @@ export interface SavedRentAnalysis {
   recommended_rent_override: number | null;
   prepared_for: string | null;
   owner_email: string | null;
+  manager_notes: string | null;
   analysis_json: RentAnalysis;
   pdf_file_path: string | null;
   short_url: string | null;

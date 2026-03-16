@@ -28,6 +28,8 @@ interface AnalysisResultsProps {
   onOwnerEmailChange: (value: string) => void;
   rentOverride: string;
   onRentOverrideChange: (value: string) => void;
+  managerNotes: string;
+  onManagerNotesChange: (value: string) => void;
 }
 
 function fmt(amount: number): string {
@@ -120,6 +122,8 @@ export function AnalysisResults({
   onOwnerEmailChange,
   rentOverride,
   onRentOverrideChange,
+  managerNotes,
+  onManagerNotesChange,
 }: AnalysisResultsProps) {
   const { subject, stats, comparable_comps, competing_listings, methodology_notes } =
     analysis;
@@ -391,6 +395,23 @@ export function AnalysisResults({
         </p>
       </div>
 
+      {/* Notes from HDPM */}
+      <div className="glass-heavy rounded-xl p-4">
+        <h4 className="text-xs font-medium text-charcoal-400 uppercase tracking-wider mb-3">
+          Notes from High Desert Property Management
+        </h4>
+        <textarea
+          placeholder="Add any notes about the property, market conditions, or recommendations for the owner..."
+          value={managerNotes}
+          onChange={(e) => onManagerNotesChange(e.target.value)}
+          rows={4}
+          className="w-full rounded-lg border border-charcoal-200 bg-white/60 px-3 py-2 text-sm text-charcoal-900 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-terra-500/30 focus:border-terra-500 resize-y"
+        />
+        <p className="text-[10px] text-charcoal-400 mt-1.5">
+          These notes will appear on the PDF report under a dedicated section.
+        </p>
+      </div>
+
       {/* Action buttons */}
       <div className="flex flex-wrap gap-3 justify-center pt-2">
         {competing_listings.length === 0 && (
@@ -536,6 +557,18 @@ highdesertpm.com`;
           </p>
         )}
       </div>
+
+      {/* Manager notes (read-only display) */}
+      {analysis.manager_notes && (
+        <div className="bg-charcoal-50 rounded-xl p-4">
+          <p className="text-[10px] font-semibold text-charcoal-400 uppercase tracking-wider mb-2">
+            Notes from High Desert Property Management
+          </p>
+          <p className="text-sm text-charcoal-700 whitespace-pre-wrap">
+            {analysis.manager_notes}
+          </p>
+        </div>
+      )}
 
       {/* Action buttons */}
       <div className="space-y-3">

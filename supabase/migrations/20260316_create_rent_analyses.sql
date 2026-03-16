@@ -18,6 +18,7 @@ create table if not exists rent_analyses (
   -- Owner personalization
   prepared_for  text,
   owner_email   text,
+  manager_notes text,            -- free-text notes shown on PDF
 
   -- The full analysis payload (for reprinting / editing)
   analysis_json jsonb not null,
