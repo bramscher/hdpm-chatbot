@@ -1,11 +1,17 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
   BarChart3,
   ChevronRight,
+  Clock,
+  Download,
+  Edit3,
+  FileText,
+  Loader2,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PropertyInput } from "@/components/comps/PropertyInput";
@@ -17,6 +23,7 @@ import type {
   SubjectProperty,
   RentAnalysis,
   CompetingListing,
+  SavedRentAnalysis,
 } from "@/types/comps";
 
 interface RentAnalysisWizardProps {
@@ -25,6 +32,18 @@ interface RentAnalysisWizardProps {
 }
 
 type Step = "input" | "results" | "report";
+
+function fmt(amount: number): string {
+  return `$${Math.round(amount).toLocaleString()}`;
+}
+
+function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 
 export function RentAnalysisWizard({
   userEmail,
@@ -45,6 +64,31 @@ export function RentAnalysisWizard({
   const [shortUrl, setShortUrl] = useState<string | null>(null);
   const [ownerName, setOwnerName] = useState("");
   const [ownerEmail, setOwnerEmail] = useState("");
+  const [rentOverride, setRentOverride] = useState("");
+
+  // Saved reports
+  const [savedReports, setSavedReports] = useState<SavedRentAnalysis[]>([]);
+  const [loadingReports, setLoadingReports] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Fetch saved reports on mount
+  const fetchSavedReports = useCallback(async () => {
+    try {
+      const res = await fetch("/api/comps/analyses");
+      if (res.ok) {
+        const data = await res.json();
+        setSavedReports(data.analyses || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch saved reports:", err);
+    } finally {
+      setLoadingReports(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSavedReports();
+  }, [fetchSavedReports]);
 
   // Step 1: Analyze property
   async function handlePropertySubmit(subjectProp: SubjectProperty) {
@@ -103,7 +147,6 @@ export function RentAnalysisWizard({
           setAnalysis(reportData.analysis);
         }
       } else if (data.zillow_url) {
-        // Scraping failed or no results — open Zillow in new tab
         window.open(data.zillow_url, "_blank");
       }
     } catch (err) {
@@ -127,6 +170,8 @@ export function RentAnalysisWizard({
           subject,
           competing_listings: competingListings,
           prepared_for: ownerName.trim() || undefined,
+          recommended_rent_override: rentOverride ? Number(rentOverride) : undefined,
+          owner_email: ownerEmail.trim() || undefined,
         }),
       });
 
@@ -138,10 +183,71 @@ export function RentAnalysisWizard({
       setDownloadUrl(data.download_url || null);
       setShortUrl(data.short_url || null);
       setStep("report");
+      // Refresh saved reports list
+      fetchSavedReports();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Report generation failed");
     } finally {
       setGeneratingReport(false);
+    }
+  }
+
+  // Load a saved report for editing
+  async function handleEditReport(saved: SavedRentAnalysis) {
+    setEditingId(saved.id);
+    const analysisData = saved.analysis_json;
+    setSubject(analysisData.subject);
+    setAnalysis(analysisData);
+    setCompetingListings(analysisData.competing_listings || []);
+    setOwnerName(saved.prepared_for || "");
+    setOwnerEmail(saved.owner_email || "");
+    setRentOverride(saved.recommended_rent_override ? String(saved.recommended_rent_override) : "");
+    setPdfBase64(null);
+    setDownloadUrl(null);
+    setShortUrl(saved.short_url || null);
+    setError(null);
+    setStep("results");
+  }
+
+  // Reprint a saved report (regenerate PDF with same data)
+  async function handleReprintReport(saved: SavedRentAnalysis) {
+    setEditingId(saved.id);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/comps/analyses/${saved.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ regenerate_pdf: true }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      setSubject(saved.analysis_json.subject);
+      setAnalysis(data.analysis.analysis_json);
+      setPdfBase64(data.pdf_base64);
+      setDownloadUrl(null);
+      setShortUrl(saved.short_url || null);
+      setOwnerName(saved.prepared_for || "");
+      setOwnerEmail(saved.owner_email || "");
+      setRentOverride(saved.recommended_rent_override ? String(saved.recommended_rent_override) : "");
+      setStep("report");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Reprint failed");
+    }
+  }
+
+  // Delete a saved report
+  async function handleDeleteReport(id: string) {
+    if (!confirm("Delete this saved report?")) return;
+    try {
+      const res = await fetch(`/api/comps/analyses/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setSavedReports((prev) => prev.filter((r) => r.id !== id));
+      }
+    } catch (err) {
+      console.error("Delete failed:", err);
     }
   }
 
@@ -156,6 +262,8 @@ export function RentAnalysisWizard({
     setShortUrl(null);
     setOwnerName("");
     setOwnerEmail("");
+    setRentOverride("");
+    setEditingId(null);
     setError(null);
   }
 
@@ -233,7 +341,105 @@ export function RentAnalysisWizard({
 
       {/* Steps */}
       {step === "input" && (
-        <PropertyInput onSubmit={handlePropertySubmit} loading={analyzing} />
+        <>
+          <PropertyInput onSubmit={handlePropertySubmit} loading={analyzing} />
+
+          {/* Saved Reports List */}
+          <div className="bg-white rounded-xl border border-sand-200 shadow-card overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-sand-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-charcoal-400" />
+                <h3 className="text-sm font-semibold text-charcoal-800">
+                  Saved Reports
+                </h3>
+              </div>
+              {savedReports.length > 0 && (
+                <span className="text-[11px] text-charcoal-400">
+                  {savedReports.length} report{savedReports.length !== 1 ? "s" : ""}
+                </span>
+              )}
+            </div>
+
+            {loadingReports ? (
+              <div className="p-8 text-center">
+                <Loader2 className="h-5 w-5 animate-spin text-charcoal-300 mx-auto" />
+              </div>
+            ) : savedReports.length === 0 ? (
+              <div className="p-8 text-center text-sm text-charcoal-400">
+                No saved reports yet. Generate your first analysis above.
+              </div>
+            ) : (
+              <div className="divide-y divide-sand-100">
+                {savedReports.map((report) => (
+                  <div
+                    key={report.id}
+                    className="px-5 py-3 flex items-center justify-between hover:bg-sand-50 transition-colors"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-charcoal-900 truncate">
+                          {report.address}
+                        </p>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-sand-100 text-charcoal-500 flex-shrink-0">
+                          {report.town}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-0.5">
+                        <span className="text-xs text-charcoal-500">
+                          {report.bedrooms} BR &middot; {report.property_type}
+                        </span>
+                        <span className="text-xs font-medium text-terra-600">
+                          {report.recommended_rent_override
+                            ? fmt(report.recommended_rent_override)
+                            : `${fmt(report.recommended_rent_low)} – ${fmt(report.recommended_rent_high)}`}
+                          /mo
+                        </span>
+                        {report.prepared_for && (
+                          <span className="text-[10px] text-charcoal-400">
+                            for {report.prepared_for}
+                          </span>
+                        )}
+                        <span className="text-[10px] text-charcoal-300">
+                          {formatDate(report.created_at)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 flex-shrink-0 ml-3">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-2 text-charcoal-400 hover:text-blue-600"
+                        onClick={() => handleEditReport(report)}
+                        title="Edit & regenerate"
+                      >
+                        <Edit3 className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-2 text-charcoal-400 hover:text-terra-600"
+                        onClick={() => handleReprintReport(report)}
+                        title="Reprint PDF"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-2 text-charcoal-400 hover:text-red-600"
+                        onClick={() => handleDeleteReport(report.id)}
+                        title="Delete"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {step === "results" && analysis && (
@@ -247,6 +453,8 @@ export function RentAnalysisWizard({
           ownerEmail={ownerEmail}
           onOwnerNameChange={setOwnerName}
           onOwnerEmailChange={setOwnerEmail}
+          rentOverride={rentOverride}
+          onRentOverrideChange={setRentOverride}
         />
       )}
 

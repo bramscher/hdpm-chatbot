@@ -265,7 +265,8 @@ export function generateRentReportPdf(analysis: RentAnalysis): Buffer {
   y += propBoxH + 24;
 
   // Recommended rent (prominent green box)
-  const recBoxH = 80;
+  const hasOverride = analysis.recommended_rent_override && analysis.recommended_rent_override > 0;
+  const recBoxH = hasOverride ? 100 : 80;
   doc.setFillColor(GREEN);
   doc.roundedRect(MARGIN, y, CONTENT_W, recBoxH, 6, 6, 'F');
 
@@ -274,17 +275,45 @@ export function generateRentReportPdf(analysis: RentAnalysis): Buffer {
   doc.setTextColor(WHITE);
   doc.text('RECOMMENDED RENT', MARGIN + 20, y + 22);
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(32);
-  doc.text(
-    `${fmt(analysis.recommended_rent_low)} - ${fmt(analysis.recommended_rent_high)}`,
-    MARGIN + 20,
-    y + 52
-  );
+  if (hasOverride) {
+    // Show override as the primary number
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(32);
+    doc.text(fmt(analysis.recommended_rent_override!), MARGIN + 20, y + 52);
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(11);
-  doc.text(`Target: ${fmt(analysis.recommended_rent_mid)}/mo`, MARGIN + 20, y + 68);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text('/mo  —  Recommended for current market conditions', MARGIN + 20 + doc.getTextWidth(fmt(analysis.recommended_rent_override!)) + 4, y + 52);
+
+    // Show calculated range below as reference
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor('#ffffffbb');
+    doc.text(
+      `Calculated range: ${fmt(analysis.recommended_rent_low)} - ${fmt(analysis.recommended_rent_high)}/mo (target: ${fmt(analysis.recommended_rent_mid)})`,
+      MARGIN + 20,
+      y + 72
+    );
+
+    doc.setFontSize(8);
+    doc.text(
+      'Override applied based on property manager market assessment',
+      MARGIN + 20,
+      y + 86
+    );
+  } else {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(32);
+    doc.text(
+      `${fmt(analysis.recommended_rent_low)} - ${fmt(analysis.recommended_rent_high)}`,
+      MARGIN + 20,
+      y + 52
+    );
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.text(`Target: ${fmt(analysis.recommended_rent_mid)}/mo`, MARGIN + 20, y + 68);
+  }
 
   y += recBoxH + 24;
 

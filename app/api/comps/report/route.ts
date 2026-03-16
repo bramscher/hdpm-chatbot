@@ -4,6 +4,7 @@ import { randomBytes } from 'crypto';
 import { generateRentAnalysis } from '@/lib/rent-analysis';
 import { generateRentReportPdf } from '@/lib/rent-report-pdf';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { saveRentAnalysis } from '@/lib/rent-analyses';
 import type { SubjectProperty, CompetingListing } from '@/types/comps';
 
 /** Generate a URL-safe short ID (8 chars) */
@@ -29,10 +30,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { subject, competing_listings, prepared_for } = body as {
+    const { subject, competing_listings, prepared_for, recommended_rent_override, owner_email } = body as {
       subject: SubjectProperty;
       competing_listings?: CompetingListing[];
       prepared_for?: string;
+      recommended_rent_override?: number;
+      owner_email?: string;
     };
 
     // Validate required subject fields
@@ -57,6 +60,14 @@ export async function POST(request: NextRequest) {
     // 2. Attach prepared_for personalization if provided
     if (prepared_for) {
       analysis.prepared_for = prepared_for;
+    }
+
+    // 2b. Apply recommended rent override if provided
+    if (recommended_rent_override && recommended_rent_override > 0) {
+      analysis.recommended_rent_override = recommended_rent_override;
+      analysis.methodology_notes.push(
+        `Manual override: Recommended rent set to $${recommended_rent_override.toLocaleString()}/mo based on current market conditions`
+      );
     }
 
     // 3. Generate PDF
@@ -137,6 +148,25 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Report] Report uploaded. URL: ${downloadUrl ? 'yes' : 'no'}, Short: ${shortUrl ? 'yes' : 'no'}`);
 
+    // 7. Save analysis to database for future reprinting/editing
+    let savedId: string | null = null;
+    try {
+      const saved = await saveRentAnalysis({
+        analysis,
+        recommended_rent_override: recommended_rent_override ?? null,
+        prepared_for: prepared_for ?? null,
+        owner_email: owner_email ?? null,
+        pdf_file_path: fileName,
+        short_url: shortUrl,
+        created_by: session.user.email,
+      });
+      savedId = saved.id;
+      console.log(`[Report] Analysis saved to DB: ${savedId}`);
+    } catch (saveErr) {
+      // Non-fatal — user still gets their PDF
+      console.warn('[Report] Failed to save analysis to DB:', saveErr);
+    }
+
     // Also return base64 for immediate download
     const base64 = pdfBuffer.toString('base64');
 
@@ -145,6 +175,7 @@ export async function POST(request: NextRequest) {
       pdf_base64: base64,
       download_url: downloadUrl,
       short_url: shortUrl,
+      saved_id: savedId,
     });
   } catch (error) {
     console.error('[Report] Error:', error);

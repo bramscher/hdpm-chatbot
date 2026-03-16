@@ -258,11 +258,39 @@ export interface RentAnalysis {
   recommended_rent_mid: number;
   recommended_rent_high: number;
   methodology_notes: string[];
+  recommended_rent_override?: number;
   rentcast_value_estimate?: RentCastValueEstimate;
   rentcast_rent_estimate?: RentCastRentEstimate;
   prepared_for?: string;
   generated_at: string;
   generated_by: string;
+}
+
+// ============================================
+// Saved Rent Analysis
+// ============================================
+
+/** A saved rent analysis report (persisted in rent_analyses table) */
+export interface SavedRentAnalysis {
+  id: string;
+  address: string;
+  town: string;
+  bedrooms: number;
+  bathrooms: number | null;
+  sqft: number | null;
+  property_type: string;
+  recommended_rent_low: number;
+  recommended_rent_mid: number;
+  recommended_rent_high: number;
+  recommended_rent_override: number | null;
+  prepared_for: string | null;
+  owner_email: string | null;
+  analysis_json: RentAnalysis;
+  pdf_file_path: string | null;
+  short_url: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
 }
 
 // ============================================

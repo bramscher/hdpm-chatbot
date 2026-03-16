@@ -26,6 +26,8 @@ interface AnalysisResultsProps {
   ownerEmail: string;
   onOwnerNameChange: (value: string) => void;
   onOwnerEmailChange: (value: string) => void;
+  rentOverride: string;
+  onRentOverrideChange: (value: string) => void;
 }
 
 function fmt(amount: number): string {
@@ -116,6 +118,8 @@ export function AnalysisResults({
   ownerEmail,
   onOwnerNameChange,
   onOwnerEmailChange,
+  rentOverride,
+  onRentOverrideChange,
 }: AnalysisResultsProps) {
   const { subject, stats, comparable_comps, competing_listings, methodology_notes } =
     analysis;
@@ -144,22 +148,61 @@ export function AnalysisResults({
         )}
       </div>
 
-      {/* Recommended Rent — hero card */}
-      <div className="bg-gradient-to-r from-terra-600 to-green-700 rounded-2xl p-6 text-white shadow-glow-lg">
+      {/* Calculated Rent Range */}
+      <div className="bg-white rounded-xl border border-sand-200 shadow-card p-5">
         <div className="flex items-center gap-2 mb-3">
-          <TrendingUp className="h-5 w-5 text-white/70" />
-          <span className="text-sm font-medium text-white/70 uppercase tracking-wider">
-            Recommended Rent
+          <TrendingUp className="h-4 w-4 text-charcoal-400" />
+          <span className="text-xs font-medium text-charcoal-400 uppercase tracking-wider">
+            Calculated Rent Range
           </span>
         </div>
-        <p className="text-4xl font-bold tracking-tight">
+        <p className="text-2xl font-bold text-charcoal-900 tracking-tight">
           {fmt(analysis.recommended_rent_low)} &ndash;{" "}
           {fmt(analysis.recommended_rent_high)}
-          <span className="text-lg font-normal text-white/70">/mo</span>
+          <span className="text-sm font-normal text-charcoal-400">/mo</span>
         </p>
-        <p className="text-white/80 mt-1">
+        <p className="text-sm text-charcoal-500 mt-1">
           Target: {fmt(analysis.recommended_rent_mid)}/mo
         </p>
+      </div>
+
+      {/* Recommended Rent Override */}
+      <div className="bg-terra-50 rounded-xl border border-terra-200 p-5">
+        <div className="flex items-center gap-2 mb-1">
+          <DollarSign className="h-4 w-4 text-terra-600" />
+          <span className="text-xs font-medium text-terra-700 uppercase tracking-wider">
+            Recommended Rent for Current Market Conditions
+          </span>
+        </div>
+        <p className="text-[11px] text-charcoal-400 mb-3">
+          Override the calculated range with your recommended rent. This value will appear on the PDF report.
+        </p>
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-[200px]">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-400 font-medium">$</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder={String(analysis.recommended_rent_mid)}
+              value={rentOverride}
+              onChange={(e) => {
+                // Allow only digits
+                const val = e.target.value.replace(/[^\d]/g, "");
+                onRentOverrideChange(val);
+              }}
+              className="w-full rounded-lg border border-terra-300 bg-white pl-7 pr-3 py-2.5 text-lg font-bold text-charcoal-900 placeholder-charcoal-300 focus:outline-none focus:ring-2 focus:ring-terra-500/30 focus:border-terra-500"
+            />
+          </div>
+          <span className="text-sm text-charcoal-500">/mo</span>
+          {rentOverride && (
+            <button
+              onClick={() => onRentOverrideChange("")}
+              className="text-xs text-charcoal-400 hover:text-charcoal-600 underline"
+            >
+              Use calculated range
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Stats grid */}
@@ -471,15 +514,27 @@ highdesertpm.com`;
       </div>
 
       {/* Recommendation preview */}
-      <div className="glass-heavy rounded-xl p-5 text-center">
+      <div className="bg-white rounded-xl border border-sand-200 shadow-card p-5 text-center">
         <p className="text-xs font-medium text-charcoal-400 uppercase tracking-wider mb-2">
           Recommended Rent
         </p>
-        <p className="text-3xl font-bold text-terra-700">
-          {fmt(analysis.recommended_rent_low)} &ndash;{" "}
-          {fmt(analysis.recommended_rent_high)}
-          <span className="text-base font-normal text-charcoal-400">/mo</span>
-        </p>
+        {analysis.recommended_rent_override ? (
+          <>
+            <p className="text-3xl font-bold text-terra-700">
+              {fmt(analysis.recommended_rent_override)}
+              <span className="text-base font-normal text-charcoal-400">/mo</span>
+            </p>
+            <p className="text-xs text-charcoal-400 mt-1">
+              Calculated range: {fmt(analysis.recommended_rent_low)} &ndash; {fmt(analysis.recommended_rent_high)}/mo
+            </p>
+          </>
+        ) : (
+          <p className="text-3xl font-bold text-terra-700">
+            {fmt(analysis.recommended_rent_low)} &ndash;{" "}
+            {fmt(analysis.recommended_rent_high)}
+            <span className="text-base font-normal text-charcoal-400">/mo</span>
+          </p>
+        )}
       </div>
 
       {/* Action buttons */}
