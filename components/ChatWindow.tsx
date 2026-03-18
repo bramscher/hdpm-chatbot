@@ -494,7 +494,7 @@ export function ChatWindow({ isOpen, onClose, onMinimize }: ChatWindowProps) {
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-green-500" />
             <h2 className="text-sm font-semibold text-charcoal-900 tracking-tight">
-              Knowledge Base
+              ORS 90 Chat
             </h2>
             <span className="text-xs text-charcoal-400 hidden sm:inline">
               ORS Chapter 90 &middot; 163 sections
