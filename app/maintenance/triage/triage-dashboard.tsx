@@ -84,6 +84,24 @@ export function TriageDashboard() {
   const [scoreSummary, setScoreSummary] = useState<ScoreSummary | null>(null);
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [completionStats, setCompletionStats] = useState<{ closed: number; kept: number; migrated: number } | null>(null);
+  const [syncing, setSyncing] = useState(false);
+
+  // ── Sync all work orders from AppFolio ──
+  const handleSyncAll = async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/sync/work-orders?days=730", { method: "POST" });
+      if (!res.ok) throw new Error("Sync failed");
+      const data = await res.json();
+      console.log("Sync complete:", data);
+      // Re-fetch and re-score after sync
+      await handleScore();
+    } catch (err) {
+      console.error("Sync error:", err);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   // ── Fetch work orders (no row limit) ──
   const fetchWorkOrders = useCallback(async () => {
@@ -253,8 +271,19 @@ export function TriageDashboard() {
             <span className="text-xs text-charcoal-400">Last scored: {lastScored}</span>
           )}
           <button
+            onClick={handleSyncAll}
+            disabled={syncing || scoring}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+              "border border-charcoal-300 text-charcoal-700 hover:bg-charcoal-50 disabled:opacity-60"
+            )}
+          >
+            <RefreshCw className={cn("w-4 h-4", syncing && "animate-spin")} />
+            {syncing ? "Syncing..." : "Sync All from AppFolio"}
+          </button>
+          <button
             onClick={handleScore}
-            disabled={scoring}
+            disabled={scoring || syncing}
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
               "bg-terra-500 text-white hover:bg-terra-600 disabled:opacity-60"
