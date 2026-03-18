@@ -10,8 +10,10 @@ import {
   ChevronDown,
   AlertTriangle,
   Sparkles,
+  Repeat,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { RecurringPanel } from "./recurring-panel";
 
 // ────────────────────────────────────────────────
 // Types
@@ -89,6 +91,7 @@ export function TriageDashboard() {
   const [syncing, setSyncing] = useState(false);
   const [aiReviewing, setAiReviewing] = useState(false);
   const [aiProgress, setAiProgress] = useState<{ completed: number; total: number } | null>(null);
+  const [viewMode, setViewMode] = useState<"triage" | "recurring">("triage");
 
   // ── AI Review — send work orders through Claude ──
   const handleAiReview = async () => {
@@ -412,10 +415,10 @@ export function TriageDashboard() {
             return (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => { setActiveTab(tab); setViewMode("triage"); }}
                 className={cn(
                   "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors",
-                  activeTab === tab
+                  viewMode === "triage" && activeTab === tab
                     ? "border-charcoal-900 text-charcoal-900"
                     : "border-transparent text-charcoal-500 hover:text-charcoal-700 hover:border-charcoal-300"
                 )}
@@ -428,11 +431,28 @@ export function TriageDashboard() {
               </button>
             );
           })}
+
+          {/* Recurring tab */}
+          <button
+            onClick={() => setViewMode("recurring")}
+            className={cn(
+              "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ml-2",
+              viewMode === "recurring"
+                ? "border-indigo-600 text-indigo-700"
+                : "border-transparent text-charcoal-500 hover:text-charcoal-700 hover:border-charcoal-300"
+            )}
+          >
+            <Repeat className={cn("w-4 h-4", viewMode === "recurring" ? "text-indigo-500" : "")} />
+            Recurring
+          </button>
         </nav>
       </div>
 
+      {/* ── Recurring Panel ── */}
+      {viewMode === "recurring" && <RecurringPanel />}
+
       {/* ── Bulk Action Bar ── */}
-      {selected.size > 0 && (
+      {viewMode === "triage" && selected.size > 0 && (
         <div className="bg-charcoal-900 text-white rounded-lg px-4 py-3 flex items-center justify-between">
           <span className="text-sm font-medium">{selected.size} selected</span>
           <div className="flex items-center gap-2">
@@ -482,7 +502,7 @@ export function TriageDashboard() {
       )}
 
       {/* ── Table ── */}
-      {currentOrders.length === 0 ? (
+      {viewMode === "triage" && (currentOrders.length === 0 ? (
         <div className="text-center py-16 text-charcoal-400">
           <CheckCircle2 className="w-10 h-10 mx-auto mb-3 text-charcoal-300" />
           <p className="font-medium">All done — nothing left in this category</p>
@@ -586,10 +606,11 @@ export function TriageDashboard() {
             </tbody>
           </table>
         </div>
-      )}
+      ))}
 
       {/* ── Pending / Manual Review notice ── */}
-      {tabOrders("close").length === 0 &&
+      {viewMode === "triage" &&
+        tabOrders("close").length === 0 &&
         tabOrders("finish").length === 0 &&
         tabOrders("migrate").length === 0 &&
         unactioned.length > 0 && (
