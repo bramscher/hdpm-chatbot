@@ -104,6 +104,7 @@ export async function POST() {
           .update({
             triage_recommendation: row.triage_recommendation,
             triage_reason: row.triage_reason,
+            triage_scored_by: 'rules',
           })
           .eq('id', row.id)
       );

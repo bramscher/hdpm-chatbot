@@ -19,7 +19,7 @@ export async function GET() {
     const { data, error } = await supabase
       .from('work_orders')
       .select(
-        'id, wo_number, property_name, property_address, unit_name, description, vendor_name, vendor_id, scheduled_start, created_at, updated_at, triage_recommendation, triage_reason, triage_action_taken'
+        'id, wo_number, property_name, property_address, unit_name, description, vendor_name, vendor_id, scheduled_start, created_at, updated_at, triage_recommendation, triage_reason, triage_action_taken, triage_scored_by'
       )
       .eq('status', 'open')
       .order('created_at', { ascending: false });

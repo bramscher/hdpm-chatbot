@@ -9,6 +9,7 @@ import {
   Clock,
   ChevronDown,
   AlertTriangle,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +30,7 @@ interface TriageWorkOrder {
   triage_recommendation: "close" | "finish" | "migrate" | "pending";
   triage_reason: string | null;
   triage_action_taken: string | null;
+  triage_scored_by: string | null;
 }
 
 interface ScoreSummary {
@@ -85,6 +87,65 @@ export function TriageDashboard() {
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [completionStats, setCompletionStats] = useState<{ closed: number; kept: number; migrated: number } | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [aiReviewing, setAiReviewing] = useState(false);
+  const [aiProgress, setAiProgress] = useState<{ completed: number; total: number } | null>(null);
+
+  // ── AI Review — send work orders through Claude ──
+  const handleAiReview = async () => {
+    setAiReviewing(true);
+    setAiProgress(null);
+    try {
+      const res = await fetch("/api/triage/ai-review", { method: "POST" });
+      if (!res.ok) throw new Error("AI review failed");
+      if (!res.body) throw new Error("No response body");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // Parse SSE events
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.type === "start") {
+              setAiProgress({ completed: 0, total: data.total });
+            } else if (data.type === "progress") {
+              setAiProgress({ completed: data.completed, total: data.total });
+            } else if (data.type === "complete") {
+              setScoreSummary({
+                close: data.summary.close,
+                finish: data.summary.finish,
+                migrate: data.summary.migrate,
+                pending: 0,
+                skipped: 0,
+              });
+              setLastScored(new Date().toLocaleTimeString());
+            }
+          } catch {
+            // skip malformed SSE lines
+          }
+        }
+      }
+
+      // Refresh work orders after AI review
+      await fetchWorkOrders();
+      setSelected(new Set());
+    } catch (err) {
+      console.error("AI review error:", err);
+    } finally {
+      setAiReviewing(false);
+      setAiProgress(null);
+    }
+  };
 
   // ── Sync all work orders from AppFolio ──
   const handleSyncAll = async () => {
@@ -283,7 +344,7 @@ export function TriageDashboard() {
           </button>
           <button
             onClick={handleScore}
-            disabled={scoring || syncing}
+            disabled={scoring || syncing || aiReviewing}
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
               "bg-terra-500 text-white hover:bg-terra-600 disabled:opacity-60"
@@ -291,6 +352,21 @@ export function TriageDashboard() {
           >
             <RefreshCw className={cn("w-4 h-4", scoring && "animate-spin")} />
             {scoring ? "Scoring..." : "Re-score"}
+          </button>
+          <button
+            onClick={handleAiReview}
+            disabled={aiReviewing || scoring || syncing}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+              "bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60"
+            )}
+          >
+            <Sparkles className={cn("w-4 h-4", aiReviewing && "animate-pulse")} />
+            {aiReviewing
+              ? aiProgress
+                ? `AI Review (${aiProgress.completed}/${aiProgress.total})`
+                : "Starting AI..."
+              : "AI Review"}
           </button>
         </div>
       </div>
@@ -304,6 +380,25 @@ export function TriageDashboard() {
           <span className="text-emerald-600">{scoreSummary.migrate} to migrate</span>
           {scoreSummary.pending > 0 && <span className="text-charcoal-500">{scoreSummary.pending} pending</span>}
           {scoreSummary.skipped > 0 && <span className="text-charcoal-400">{scoreSummary.skipped} already actioned</span>}
+        </div>
+      )}
+
+      {/* ── AI Review Progress Bar ── */}
+      {aiReviewing && aiProgress && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm text-charcoal-600">
+            <span className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-indigo-500 animate-pulse" />
+              AI analyzing work orders...
+            </span>
+            <span className="font-mono text-xs">{aiProgress.completed}/{aiProgress.total}</span>
+          </div>
+          <div className="w-full bg-charcoal-200 rounded-full h-2 overflow-hidden">
+            <div
+              className="bg-indigo-500 h-2 rounded-full transition-all duration-500 ease-out"
+              style={{ width: `${aiProgress.total > 0 ? (aiProgress.completed / aiProgress.total) * 100 : 0}%` }}
+            />
+          </div>
         </div>
       )}
 
@@ -463,7 +558,15 @@ export function TriageDashboard() {
                       </span>
                     </td>
                     <td className="px-3 py-3 hidden xl:table-cell">
-                      <span className="text-xs text-charcoal-400">{wo.triage_reason || "—"}</span>
+                      <div className="flex items-center gap-1.5">
+                        {wo.triage_scored_by === "ai" && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 text-indigo-700 flex-shrink-0">
+                            <Sparkles className="w-2.5 h-2.5" />
+                            AI
+                          </span>
+                        )}
+                        <span className="text-xs text-charcoal-400">{wo.triage_reason || "—"}</span>
+                      </div>
                     </td>
                     <td className="px-3 py-3">
                       <button
