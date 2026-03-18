@@ -7,8 +7,8 @@ import { getSupabaseAdmin } from '@/lib/supabase';
  * POST /api/triage/sync
  *
  * Sync ONLY open work orders from AppFolio.
- * Fetches last 120 days, filters to open status, then upserts only those.
- * 120 days covers the 90-day triage window plus a buffer for stragglers.
+ * Fetches last 180 days, filters to open status, then upserts only those.
+ * 180 days covers the 90-day triage window plus a wide buffer for older open tickets.
  */
 export const maxDuration = 300;
 
@@ -19,13 +19,13 @@ export async function POST() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    console.log('[Triage Sync] Starting open work orders sync (120 days)...');
+    console.log('[Triage Sync] Starting open work orders sync (180 days)...');
 
     // Fetch vendors for name resolution
     const vendorMap = await fetchAllVendors();
 
-    // Fetch work orders from last 120 days
-    const allOrders = await fetchAppFolioWorkOrders(120, vendorMap);
+    // Fetch work orders from last 180 days
+    const allOrders = await fetchAppFolioWorkOrders(180, vendorMap);
 
     // Filter to only open work orders
     const openOrders = allOrders.filter((wo) => wo.status === 'open');
