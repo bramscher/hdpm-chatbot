@@ -90,7 +90,7 @@ export function TriageDashboard() {
   const handleSyncAll = async () => {
     setSyncing(true);
     try {
-      const res = await fetch("/api/sync/work-orders?days=730", { method: "POST" });
+      const res = await fetch("/api/triage/sync", { method: "POST" });
       if (!res.ok) throw new Error("Sync failed");
       const data = await res.json();
       console.log("Sync complete:", data);
