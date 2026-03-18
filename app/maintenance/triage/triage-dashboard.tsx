@@ -85,13 +85,20 @@ export function TriageDashboard() {
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [completionStats, setCompletionStats] = useState<{ closed: number; kept: number; migrated: number } | null>(null);
 
-  // ── Fetch work orders ──
+  // ── Fetch work orders (no row limit) ──
   const fetchWorkOrders = useCallback(async () => {
     try {
-      const res = await fetch("/api/work-orders?status=open");
+      const res = await fetch("/api/triage/work-orders");
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
-      setWorkOrders(data.workOrders || []);
+      const orders: TriageWorkOrder[] = data.workOrders || [];
+      setWorkOrders(orders);
+
+      // Auto-select first tab that has unactioned items
+      const unact = orders.filter((wo) => !wo.triage_action_taken);
+      const tabs: Tab[] = ["close", "finish", "migrate"];
+      const firstWithItems = tabs.find((t) => unact.some((wo) => wo.triage_recommendation === t));
+      if (firstWithItems) setActiveTab(firstWithItems);
     } catch (err) {
       console.error("Fetch error:", err);
     } finally {
