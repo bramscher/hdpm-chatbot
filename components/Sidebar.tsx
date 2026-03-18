@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { FileText, BarChart3, Home, MessageCircle, LogOut, ChevronRight, ChevronLeft } from "lucide-react";
+import { FileText, BarChart3, Home, MessageCircle, LogOut, ChevronRight, ChevronLeft, ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -18,8 +18,14 @@ const NAV_ITEMS = [
     label: "Invoices",
     href: "/maintenance/invoices",
     icon: FileText,
-    matchPrefix: "/maintenance",
+    matchPrefix: "/maintenance/invoices",
     badge: null as string | null,
+  },
+  {
+    label: "Backlog Triage",
+    href: "/maintenance/triage",
+    icon: ClipboardList,
+    matchPrefix: "/maintenance/triage",
   },
   {
     label: "Rent Comps",
