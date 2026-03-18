@@ -502,10 +502,9 @@ export function TriageDashboard() {
                 </th>
                 <th className="text-left px-3 py-3 font-semibold text-charcoal-600">WO #</th>
                 <th className="text-left px-3 py-3 font-semibold text-charcoal-600">Property / Unit</th>
-                <th className="text-left px-3 py-3 font-semibold text-charcoal-600 hidden lg:table-cell">Description</th>
+                <th className="text-left px-3 py-3 font-semibold text-charcoal-600">Description</th>
                 <th className="text-left px-3 py-3 font-semibold text-charcoal-600 w-20">Age</th>
                 <th className="text-left px-3 py-3 font-semibold text-charcoal-600 hidden md:table-cell">Vendor</th>
-                <th className="text-left px-3 py-3 font-semibold text-charcoal-600 hidden xl:table-cell">Reason</th>
                 <th className="w-10 px-3 py-3"></th>
               </tr>
             </thead>
@@ -539,8 +538,19 @@ export function TriageDashboard() {
                         <div className="text-xs text-charcoal-400">{wo.unit_name}</div>
                       )}
                     </td>
-                    <td className="px-3 py-3 hidden lg:table-cell">
-                      <div className="text-charcoal-600 truncate max-w-[300px]">{wo.description}</div>
+                    <td className="px-3 py-3">
+                      <div className="text-charcoal-600 truncate max-w-[400px]">{wo.description}</div>
+                      {wo.triage_reason && (
+                        <div className="flex items-center gap-1.5 mt-1">
+                          {wo.triage_scored_by === "ai" && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 text-indigo-700 flex-shrink-0">
+                              <Sparkles className="w-2.5 h-2.5" />
+                              AI
+                            </span>
+                          )}
+                          <span className="text-xs text-charcoal-400 italic">{wo.triage_reason}</span>
+                        </div>
+                      )}
                     </td>
                     <td className="px-3 py-3">
                       <span
@@ -556,17 +566,6 @@ export function TriageDashboard() {
                       <span className="text-charcoal-500 truncate max-w-[150px] block">
                         {wo.vendor_name || "—"}
                       </span>
-                    </td>
-                    <td className="px-3 py-3 hidden xl:table-cell">
-                      <div className="flex items-center gap-1.5">
-                        {wo.triage_scored_by === "ai" && (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 text-indigo-700 flex-shrink-0">
-                            <Sparkles className="w-2.5 h-2.5" />
-                            AI
-                          </span>
-                        )}
-                        <span className="text-xs text-charcoal-400">{wo.triage_reason || "—"}</span>
-                      </div>
                     </td>
                     <td className="px-3 py-3">
                       <button

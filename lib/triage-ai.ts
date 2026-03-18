@@ -152,7 +152,7 @@ export async function triageWorkOrderBatch(
   const userMessage = `Classify the following ${workOrders.length} work orders:\n\n${woList}`;
 
   const message = await getAnthropic().messages.create({
-    model: 'claude-haiku-4-20250514',
+    model: 'claude-sonnet-4-20250514',
     max_tokens: 2048,
     system: SYSTEM_PROMPT,
     tools: [CLASSIFY_TOOL],
