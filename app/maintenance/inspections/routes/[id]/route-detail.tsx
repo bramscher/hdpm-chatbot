@@ -15,8 +15,14 @@ import {
   CheckCircle2,
   Route,
   Send,
+  Map,
+  AlertTriangle,
+  Check,
+  SkipForward,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { GoogleMap } from "@/components/GoogleMap";
 
 // ────────────────────────────────────────────────
 // Types
@@ -37,6 +43,8 @@ interface RouteStop {
   drive_miles: number | null;
   service_minutes: number | null;
   estimated_arrival: string | null;
+  lat: number | null;
+  lng: number | null;
 }
 
 interface InspectionRoute {
@@ -151,6 +159,10 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
   const [optimizing, setOptimizing] = useState(false);
   const [dispatching, setDispatching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showMap, setShowMap] = useState(true);
+  const [completingStop, setCompletingStop] = useState<string | null>(null);
+  const [stopNotes, setStopNotes] = useState<Record<string, string>>({});
+  const [polyline, setPolyline] = useState<string | null>(null);
 
   // ── Fetch route ──
   const fetchRoute = useCallback(async () => {
@@ -189,10 +201,13 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
             drive_miles: null,
             service_minutes: s.service_minutes as number | null,
             estimated_arrival: s.estimated_arrival as string | null,
+            lat: (prop.latitude as number) || null,
+            lng: (prop.longitude as number) || null,
           };
         }),
       };
       setRoute(transformed);
+      if (raw.polyline) setPolyline(raw.polyline);
     } catch (err) {
       console.error("Fetch route error:", err);
       setError("Failed to load route details.");
@@ -236,6 +251,33 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
       console.error("Dispatch error:", err);
     } finally {
       setDispatching(false);
+    }
+  };
+
+  // ── Complete / Skip / Flag stop ──
+  const handleStopAction = async (
+    stopId: string,
+    action: "complete" | "skip" | "flag_issue"
+  ) => {
+    setCompletingStop(stopId);
+    try {
+      const res = await fetch(`/api/inspections/routes/${routeId}/stops`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          stop_id: stopId,
+          action,
+          notes: stopNotes[stopId] || undefined,
+          issues_found: action === "flag_issue",
+          issue_severity: action === "flag_issue" ? "medium" : undefined,
+        }),
+      });
+      if (!res.ok) throw new Error("Stop update failed");
+      await fetchRoute();
+    } catch (err) {
+      console.error("Stop action error:", err);
+    } finally {
+      setCompletingStop(null);
     }
   };
 
@@ -395,6 +437,43 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
         </div>
       </div>
 
+      {/* ── Map ── */}
+      {stops.length > 0 && (
+        <div className="bg-white rounded-lg border border-charcoal-200 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-charcoal-200">
+            <h2 className="text-sm font-semibold text-charcoal-900 flex items-center gap-2">
+              <Map className="w-4 h-4 text-charcoal-400" />
+              Route Map
+            </h2>
+            <button
+              onClick={() => setShowMap(!showMap)}
+              className="text-xs text-charcoal-500 hover:text-charcoal-700"
+            >
+              {showMap ? "Hide" : "Show"}
+            </button>
+          </div>
+          {showMap && (
+            <GoogleMap
+              pins={stops
+                .filter((s) => s.lat && s.lng)
+                .map((s) => ({
+                  lat: s.lat!,
+                  lng: s.lng!,
+                  label: String(s.stop_order),
+                  title: `${s.stop_order}. ${s.address}${s.city ? `, ${s.city}` : ""}`,
+                  color: (s.status === "completed"
+                    ? "green"
+                    : s.status === "skipped"
+                    ? "gray"
+                    : "terra") as "green" | "gray" | "terra",
+                }))}
+              polyline={polyline}
+              height="400px"
+            />
+          )}
+        </div>
+      )}
+
       {/* ── Stop Timeline ── */}
       <div className="bg-white rounded-lg border border-charcoal-200 p-6">
         <h2 className="text-lg font-semibold text-charcoal-900 mb-6">Route Timeline</h2>
@@ -518,6 +597,65 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
                       </span>
                     )}
                   </div>
+
+                  {/* ── Stop Actions ── */}
+                  {stop.status === "pending" && (route.status === "dispatched" || route.status === "optimized" || route.status === "draft") && (
+                    <div className="mt-3 space-y-2">
+                      {/* Notes input */}
+                      <input
+                        type="text"
+                        placeholder="Add notes..."
+                        value={stopNotes[stop.id] || ""}
+                        onChange={(e) =>
+                          setStopNotes((prev) => ({
+                            ...prev,
+                            [stop.id]: e.target.value,
+                          }))
+                        }
+                        className="w-full text-xs bg-charcoal-50 border border-charcoal-200 rounded-md px-2.5 py-1.5 text-charcoal-700 placeholder:text-charcoal-400 focus:outline-none focus:ring-1 focus:ring-terra-400"
+                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleStopAction(stop.id, "complete")}
+                          disabled={completingStop === stop.id}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors disabled:opacity-50"
+                        >
+                          <Check className="w-3 h-3" />
+                          Complete
+                        </button>
+                        <button
+                          onClick={() => handleStopAction(stop.id, "flag_issue")}
+                          disabled={completingStop === stop.id}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors disabled:opacity-50"
+                        >
+                          <AlertTriangle className="w-3 h-3" />
+                          Flag Issue
+                        </button>
+                        <button
+                          onClick={() => handleStopAction(stop.id, "skip")}
+                          disabled={completingStop === stop.id}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium bg-charcoal-100 text-charcoal-600 hover:bg-charcoal-200 transition-colors disabled:opacity-50"
+                        >
+                          <SkipForward className="w-3 h-3" />
+                          Skip
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Completed indicator */}
+                  {stop.status === "completed" && (
+                    <div className="mt-2 flex items-center gap-1.5 text-xs text-green-600">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Completed
+                    </div>
+                  )}
+                  {stop.status === "skipped" && (
+                    <div className="mt-2 flex items-center gap-1.5 text-xs text-charcoal-400">
+                      <SkipForward className="w-3.5 h-3.5" />
+                      Skipped
+                    </div>
+                  )}
                 </div>
               </div>
             );

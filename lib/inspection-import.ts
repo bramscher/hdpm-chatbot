@@ -130,7 +130,7 @@ export function validateInspectionRows(
 
     const address = getMapped(row, columnMapping, 'address_1');
     const city = getMapped(row, columnMapping, 'city');
-    const inspectionType = getMapped(row, columnMapping, 'inspection_type') || 'annual';
+    const inspectionType = getMapped(row, columnMapping, 'inspection_type') || 'biannual';
     const state = getMapped(row, columnMapping, 'state') || 'OR';
     let zip = getMapped(row, columnMapping, 'zip');
     const dueDateRaw = getMapped(row, columnMapping, 'due_date');
@@ -275,7 +275,7 @@ export async function commitInspectionImport(
       .from('inspections')
       .insert({
         property_id: propertyId,
-        inspection_type: data.inspection_type || 'annual',
+        inspection_type: data.inspection_type || 'biannual',
         status: 'imported',
         due_date: data.due_date || null,
         unit_name: data.unit_name || null,
