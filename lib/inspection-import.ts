@@ -113,7 +113,8 @@ export function validateInspectionRows(
   rows.forEach((row, idx) => {
     const address = getMapped(row, columnMapping, 'address_1');
     const city = getMapped(row, columnMapping, 'city');
-    const key = `${address.toLowerCase().trim()}|${city.toLowerCase().trim()}`;
+    const unit = getMapped(row, columnMapping, 'unit_name');
+    const key = `${address.toLowerCase().trim()}|${city.toLowerCase().trim()}|${unit.toLowerCase().trim()}`;
 
     if (seen.has(key)) {
       duplicateKeys.add(key);
@@ -159,16 +160,23 @@ export function validateInspectionRows(
     }
 
     // --- Due date calculation ---
+    // If no explicit due_date, calculate from last_inspection_date + 6 months.
+    // If that's already past, set to today (overdue — do ASAP).
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
     let dueDate = dueDateRaw.trim();
     if (!dueDate) {
       if (lastInspectionRaw.trim()) {
         const lastDate = new Date(lastInspectionRaw.trim());
         if (!isNaN(lastDate.getTime())) {
-          lastDate.setDate(lastDate.getDate() + 365);
-          dueDate = lastDate.toISOString().split('T')[0];
+          lastDate.setMonth(lastDate.getMonth() + 6);
+          const calculated = lastDate.toISOString().split('T')[0];
+          // If calculated date is in the past, it's overdue — set to today
+          dueDate = calculated < todayStr ? todayStr : calculated;
         }
       }
       if (!dueDate) {
+        // No last inspection date at all — default to 30 days from now
         const fallback = new Date();
         fallback.setDate(fallback.getDate() + 30);
         dueDate = fallback.toISOString().split('T')[0];
@@ -179,7 +187,8 @@ export function validateInspectionRows(
     data.due_date = dueDate;
 
     // --- Duplicate check ---
-    const key = `${address.toLowerCase().trim()}|${city.toLowerCase().trim()}`;
+    const unitVal = getMapped(row, columnMapping, 'unit_name');
+    const key = `${address.toLowerCase().trim()}|${city.toLowerCase().trim()}|${unitVal.toLowerCase().trim()}`;
     if (duplicateKeys.has(key)) {
       duplicates.push({ rowNumber, data, status: 'duplicate', issues: ['Duplicate address_1 + city combination in import'] });
       return;
@@ -267,10 +276,13 @@ export async function commitInspectionImport(
       .insert({
         property_id: propertyId,
         inspection_type: data.inspection_type || 'annual',
-        status: 'pending',
+        status: 'imported',
         due_date: data.due_date || null,
+        unit_name: data.unit_name || null,
+        resident_name: data.resident_name || null,
+        last_inspection_date: data.last_inspection_date || null,
         import_batch_id: batchId,
-        created_by: uploadedBy,
+        assigned_to: uploadedBy,
       });
 
     if (inspErr) {
@@ -286,9 +298,7 @@ export async function commitInspectionImport(
     .from('import_batches')
     .update({
       status: 'committed',
-      committed_at: new Date().toISOString(),
-      committed_by: uploadedBy,
-      records_created: inspectionsCreated,
+      valid_rows: inspectionsCreated,
     })
     .eq('id', batchId);
 

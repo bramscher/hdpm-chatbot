@@ -66,12 +66,21 @@ export async function GET() {
         .in('status', ['queued', 'validated', 'imported']),
     ]);
 
+    // Also fetch distinct assignees for filter dropdown
+    const { data: assigneeData } = await supabase
+      .from('inspections')
+      .select('assigned_to')
+      .not('assigned_to', 'is', null);
+
+    const assignees = [...new Set((assigneeData || []).map((r: { assigned_to: string }) => r.assigned_to).filter(Boolean))];
+
     return NextResponse.json({
       total: totalRes.count ?? 0,
       overdue: overdueRes.count ?? 0,
-      thisWeek: thisWeekRes.count ?? 0,
+      this_week: thisWeekRes.count ?? 0,
       completed: completedRes.count ?? 0,
       unassigned: unassignedRes.count ?? 0,
+      assignees,
     });
   } catch (error) {
     console.error('Inspection stats error:', error);

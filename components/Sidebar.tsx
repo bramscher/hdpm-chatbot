@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { FileText, BarChart3, Home, MessageCircle, LogOut, ChevronRight, ChevronLeft, ClipboardList, ClipboardCheck } from "lucide-react";
+import { FileText, BarChart3, Home, MessageCircle, LogOut, ChevronRight, ChevronLeft, ClipboardList, ClipboardCheck, Navigation } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -32,6 +32,13 @@ const NAV_ITEMS = [
     href: "/maintenance/inspections",
     icon: ClipboardCheck,
     matchPrefix: "/maintenance/inspections",
+    matchExclude: "/maintenance/inspections/routes",
+  },
+  {
+    label: "Route Builder",
+    href: "/maintenance/inspections/routes",
+    icon: Navigation,
+    matchPrefix: "/maintenance/inspections/routes",
   },
   {
     label: "Rent Comps",
@@ -101,9 +108,12 @@ export function Sidebar({ collapsed = false, onToggleChat, isChatOpen = false }:
       <nav className="flex-1 px-2 mt-2">
         <div className="space-y-0.5">
           {NAV_ITEMS.map((item) => {
+            const prefixMatch = pathname.startsWith(item.matchPrefix ?? item.href);
+            const excludePrefix = "matchExclude" in item ? item.matchExclude : undefined;
+            const excluded = excludePrefix ? pathname.startsWith(excludePrefix) : false;
             const isActive = item.matchExact
               ? pathname === item.href
-              : pathname.startsWith(item.matchPrefix ?? item.href);
+              : prefixMatch && !excluded;
             const Icon = item.icon;
             return (
               <Link

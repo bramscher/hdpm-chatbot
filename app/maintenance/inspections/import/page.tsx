@@ -12,6 +12,7 @@ import {
   ArrowRight,
   RefreshCw,
   Copy,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -118,6 +119,7 @@ export default function InspectionImportPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [columns, setColumns] = useState<ParsedColumn[]>([]);
   const [previewRows, setPreviewRows] = useState<PreviewRow[]>([]);
+  const [rawRows, setRawRows] = useState<Record<string, string>[]>([]);
   const [rowCount, setRowCount] = useState(0);
   const [importId, setImportId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -153,6 +155,7 @@ export default function InspectionImportPage() {
       const data = await res.json();
       setColumns(data.columns || []);
       setPreviewRows(data.preview || []);
+      setRawRows(data.rows || []);
       setRowCount(data.row_count || 0);
       setImportId(data.import_id || null);
 
@@ -197,12 +200,65 @@ export default function InspectionImportPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          import_id: importId,
-          mapping: columnMapping,
+          batch_id: importId,
+          column_mapping: columnMapping,
+          rows: rawRows,
         }),
       });
       if (!res.ok) throw new Error("Validation failed");
-      const data: ValidationResult = await res.json();
+      const raw = await res.json();
+
+      // Transform API response into the shape the UI expects
+      const allRows: ValidationRow[] = [
+        ...(raw.valid || []).map((r: { rowNumber: number; data: Record<string, string>; issues: string[] }) => ({
+          row_number: r.rowNumber,
+          address: r.data.address_1 || "",
+          city: r.data.city || "",
+          unit: r.data.unit_name || "",
+          type: r.data.inspection_type || "annual",
+          due_date: r.data.due_date || "",
+          status: "valid" as const,
+          issues: r.issues,
+        })),
+        ...(raw.warnings || []).map((r: { rowNumber: number; data: Record<string, string>; issues: string[] }) => ({
+          row_number: r.rowNumber,
+          address: r.data.address_1 || "",
+          city: r.data.city || "",
+          unit: r.data.unit_name || "",
+          type: r.data.inspection_type || "annual",
+          due_date: r.data.due_date || "",
+          status: "warning" as const,
+          issues: r.issues,
+        })),
+        ...(raw.errors || []).map((r: { rowNumber: number; data: Record<string, string>; issues: string[] }) => ({
+          row_number: r.rowNumber,
+          address: r.data.address_1 || "",
+          city: r.data.city || "",
+          unit: r.data.unit_name || "",
+          type: r.data.inspection_type || "annual",
+          due_date: r.data.due_date || "",
+          status: "error" as const,
+          issues: r.issues,
+        })),
+        ...(raw.duplicates || []).map((r: { rowNumber: number; data: Record<string, string>; issues: string[] }) => ({
+          row_number: r.rowNumber,
+          address: r.data.address_1 || "",
+          city: r.data.city || "",
+          unit: r.data.unit_name || "",
+          type: r.data.inspection_type || "annual",
+          due_date: r.data.due_date || "",
+          status: "duplicate" as const,
+          issues: r.issues,
+        })),
+      ].sort((a, b) => a.row_number - b.row_number);
+
+      const data: ValidationResult = {
+        valid: raw.summary?.valid ?? 0,
+        warnings: raw.summary?.warnings ?? 0,
+        errors: raw.summary?.errors ?? 0,
+        duplicates: raw.summary?.duplicates ?? 0,
+        rows: allRows,
+      };
       setValidationResult(data);
 
       // Pre-select valid and warning rows
@@ -229,13 +285,15 @@ export default function InspectionImportPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          import_id: importId,
+          batch_id: importId,
           selected_rows: Array.from(selectedRows),
+          column_mapping: columnMapping,
+          rows: rawRows,
         }),
       });
       if (!res.ok) throw new Error("Commit failed");
       const data = await res.json();
-      setCommittedCount(data.imported_count || selectedRows.size);
+      setCommittedCount(data.created || data.selected || selectedRows.size);
       setCommitted(true);
     } catch (err) {
       console.error("Commit error:", err);

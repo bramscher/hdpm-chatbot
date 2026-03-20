@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
         uploaded_by: session.user.email,
         status: 'pending',
         total_rows: parsed.totalRows,
-        headers: parsed.headers,
+        column_mapping: { raw_headers: parsed.headers },
       })
       .select('id')
       .single();
@@ -69,11 +69,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: batchErr.message }, { status: 500 });
     }
 
+    // Build columns array with index + header for the mapping UI
+    const columns = parsed.headers.map((h, i) => ({ index: i, header: h }));
+
+    // Build preview rows (first 5) with row_number + data
+    const preview = parsed.rows.slice(0, 5).map((row, i) => ({
+      row_number: i + 1,
+      data: row,
+    }));
+
     return NextResponse.json({
-      batch_id: batch.id,
+      import_id: batch.id,
+      columns,
+      preview,
+      row_count: parsed.totalRows,
+      // Also send raw data for validation step
       headers: parsed.headers,
       rows: parsed.rows,
-      totalRows: parsed.totalRows,
     });
   } catch (error) {
     console.error('Inspection import error:', error);

@@ -77,6 +77,12 @@ const CITY_OPTIONS = [
   "Metolius",
 ];
 
+const ASSIGNEE_OPTIONS = [
+  { value: "brody@highdesertpm.com", label: "Brody" },
+  { value: "matt@highdesertpm.com", label: "Matt" },
+  { value: "craig@highdesertpm.com", label: "Craig" },
+];
+
 const STATUS_BADGE: Record<string, string> = {
   imported: "bg-charcoal-100 text-charcoal-700",
   validated: "bg-blue-100 text-blue-700",
@@ -130,6 +136,7 @@ export function InspectionDashboard() {
   const [stats, setStats] = useState<InspectionStats | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [geocoding, setGeocoding] = useState(false);
+  const [geocodeProgress, setGeocodeProgress] = useState<{ completed: number; total: number } | null>(null);
 
   // Filters
   const [filterStatus, setFilterStatus] = useState("");
@@ -154,7 +161,17 @@ export function InspectionDashboard() {
       const res = await fetch(`/api/inspections${qs ? `?${qs}` : ""}`);
       if (!res.ok) throw new Error("Failed to fetch inspections");
       const data = await res.json();
-      setInspections(data.inspections || []);
+      // Flatten nested inspection_properties into each inspection row
+      const flattened = (data.inspections || []).map((insp: Record<string, unknown>) => {
+        const prop = (insp.inspection_properties || {}) as Record<string, unknown>;
+        return {
+          ...insp,
+          property_name: prop.name || null,
+          address_1: prop.address_1 || null,
+          city: prop.city || null,
+        };
+      });
+      setInspections(flattened);
     } catch (err) {
       console.error("Fetch inspections error:", err);
     } finally {
@@ -179,17 +196,47 @@ export function InspectionDashboard() {
     fetchStats();
   }, [fetchInspections, fetchStats]);
 
-  // ── Batch geocode ──
+  // ── Batch geocode with SSE progress ──
   const handleBatchGeocode = async () => {
     setGeocoding(true);
+    setGeocodeProgress(null);
     try {
       const res = await fetch("/api/inspections/geocode", { method: "POST" });
       if (!res.ok) throw new Error("Geocode failed");
+
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("No stream");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const match = line.match(/^data: (.+)$/m);
+          if (!match) continue;
+          try {
+            const event = JSON.parse(match[1]);
+            if (event.type === "progress") {
+              setGeocodeProgress({ completed: event.completed, total: event.total });
+            }
+          } catch { /* skip malformed */ }
+        }
+      }
+
       await fetchInspections();
+      await fetchStats();
     } catch (err) {
       console.error("Geocode error:", err);
     } finally {
       setGeocoding(false);
+      setGeocodeProgress(null);
     }
   };
 
@@ -249,16 +296,17 @@ export function InspectionDashboard() {
   const handleAddToRoute = async () => {
     setBulkActioning(true);
     try {
-      const res = await fetch("/api/inspections/bulk", {
-        method: "POST",
+      const res = await fetch("/api/inspections", {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ids: Array.from(selected),
-          action: "add_to_route",
+          updates: { status: "scheduled" },
         }),
       });
       if (!res.ok) throw new Error("Add to route failed");
       await fetchInspections();
+      await fetchStats();
       setSelected(new Set());
     } catch (err) {
       console.error("Add to route error:", err);
@@ -328,7 +376,11 @@ export function InspectionDashboard() {
             )}
           >
             <MapPin className={cn("w-4 h-4", geocoding && "animate-pulse")} />
-            {geocoding ? "Geocoding..." : "Batch Geocode"}
+            {geocoding
+              ? geocodeProgress
+                ? `Geocoding ${geocodeProgress.completed}/${geocodeProgress.total}`
+                : "Geocoding..."
+              : "Batch Geocode"}
           </button>
         </div>
       </div>
@@ -414,9 +466,9 @@ export function InspectionDashboard() {
             className="appearance-none bg-white border border-charcoal-300 rounded-lg px-3 py-2 pr-8 text-sm text-charcoal-700 focus:outline-none focus:ring-2 focus:ring-terra-400 focus:border-transparent"
           >
             <option value="">All Assignees</option>
-            {(stats?.assignees ?? []).map((name) => (
-              <option key={name} value={name}>
-                {name}
+            {ASSIGNEE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
               </option>
             ))}
           </select>
@@ -447,9 +499,9 @@ export function InspectionDashboard() {
                 className="appearance-none bg-white/10 border border-white/20 rounded-md px-2 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-white/40"
               >
                 <option value="">Assign To...</option>
-                {(stats?.assignees ?? []).map((name) => (
-                  <option key={name} value={name} className="text-charcoal-900">
-                    {name}
+                {ASSIGNEE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value} className="text-charcoal-900">
+                    {opt.label}
                   </option>
                 ))}
               </select>
