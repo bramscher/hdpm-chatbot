@@ -155,19 +155,79 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Step 3: Build route plans using the engine
-    const result = buildRoutePlans(geoInspections, {
+    // Step 3: Build ONE route per request — user picks the day and stop count
+    const maxStops = max_stops_per_route || 10;
+
+    // Group inspections by city so we don't mix e.g. Redmond + Sisters
+    const cityGroups = new Map<string, GeoInspection[]>();
+    for (const insp of geoInspections) {
+      const city = (insp.city || 'Unknown').trim();
+      if (!cityGroups.has(city)) cityGroups.set(city, []);
+      cityGroups.get(city)!.push(insp);
+    }
+
+    // Sort each city group by priority (most overdue first)
+    for (const [, group] of cityGroups) {
+      group.sort((a, b) => {
+        if (b.days_overdue !== a.days_overdue) return b.days_overdue - a.days_overdue;
+        const aDate = a.due_date ? new Date(a.due_date).getTime() : Infinity;
+        const bDate = b.due_date ? new Date(b.due_date).getTime() : Infinity;
+        return aDate - bDate;
+      });
+    }
+
+    // Pick the city with the most pending inspections
+    // (weighted by overdue count to prioritize cities with urgent work)
+    const cityEntries = [...cityGroups.entries()].sort((a, b) => {
+      // Compare total overdue days as tiebreaker
+      const aOverdue = a[1].reduce((sum, i) => sum + i.days_overdue, 0);
+      const bOverdue = b[1].reduce((sum, i) => sum + i.days_overdue, 0);
+      if (b[1].length !== a[1].length) return b[1].length - a[1].length;
+      return bOverdue - aOverdue;
+    });
+
+    // Take top N from the biggest city group
+    const [topCity, topGroup] = cityEntries[0];
+    let selectedInspections = topGroup.slice(0, maxStops);
+
+    // If the top city doesn't have enough to fill the route,
+    // backfill from nearby cities (sorted by distance from city centroid)
+    if (selectedInspections.length < maxStops && cityEntries.length > 1) {
+      const centroidLat = selectedInspections.reduce((s, i) => s + i.lat, 0) / selectedInspections.length;
+      const centroidLng = selectedInspections.reduce((s, i) => s + i.lng, 0) / selectedInspections.length;
+
+      // Get remaining inspections from other cities, sorted by distance
+      const remaining: GeoInspection[] = [];
+      for (const [city, group] of cityEntries) {
+        if (city === topCity) continue;
+        remaining.push(...group);
+      }
+
+      // Sort by distance from the main city centroid
+      remaining.sort((a, b) => {
+        const distA = Math.hypot(a.lat - centroidLat, a.lng - centroidLng);
+        const distB = Math.hypot(b.lat - centroidLat, b.lng - centroidLng);
+        return distA - distB;
+      });
+
+      const needed = maxStops - selectedInspections.length;
+      selectedInspections = [...selectedInspections, ...remaining.slice(0, needed)];
+    }
+
+    const result = buildRoutePlans(selectedInspections, {
       date_range_start,
       date_range_end,
       assigned_to,
-      max_stops_per_route,
+      max_stops_per_route: maxStops,
     });
 
     // Step 4: Persist proposed routes to the database
+    // Only create ONE route per request (take the first/largest)
     const createdRoutes = [];
     const scheduledInspectionIds: string[] = [];
+    const routesToCreate = result.routes.slice(0, 1);
 
-    for (const proposed of result.routes) {
+    for (const proposed of routesToCreate) {
       // Insert route plan
       const { data: routePlan, error: planError } = await supabase
         .from('route_plans')

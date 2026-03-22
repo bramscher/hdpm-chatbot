@@ -846,3 +846,118 @@ export async function fetchPropertyById(
     return null;
   }
 }
+
+// ============================================
+// v0 Tenant Types
+// ============================================
+
+interface V0Tenant {
+  Id: string;
+  FirstName?: string;
+  LastName?: string;
+  PropertyId?: string;
+  UnitId?: string;
+  Status?: string;
+  MoveInOn?: string;
+  MoveOutOn?: string;
+  LeaseStartDate?: string;
+  LeaseEndDate?: string;
+  LeaseSignedDate?: string;
+  IsMonthlyLease?: boolean;
+  CurrentRent?: string;
+  PrimaryTenant?: boolean;
+  HiddenAt?: string | null;
+  LastUpdatedAt?: string;
+  Addresses?: Array<{
+    Address1?: string;
+    Address2?: string;
+    City?: string;
+    State?: string;
+    PostalCode?: string;
+    IsPrimary?: boolean;
+  }>;
+}
+
+export interface AppFolioTenant {
+  id: string;
+  firstName: string;
+  lastName: string;
+  propertyId: string | null;
+  unitId: string | null;
+  status: string;
+  moveInOn: string | null;
+  moveOutOn: string | null;
+  leaseStartDate: string | null;
+  leaseEndDate: string | null;
+  address1: string | null;
+  address2: string | null;
+  city: string | null;
+  currentRent: number | null;
+  isPrimary: boolean;
+}
+
+// ============================================
+// Public: Fetch All Tenants (paginated)
+// ============================================
+
+export async function fetchAppFolioTenants(): Promise<AppFolioTenant[]> {
+  const config = getConfig();
+  if (!config) return [];
+
+  const { clientId, clientSecret, developerId } = config;
+  const allTenants: AppFolioTenant[] = [];
+  let pageNumber = 1;
+  const pageSize = 200;
+
+  while (true) {
+    console.log(`[AppFolio] Fetching tenants page ${pageNumber}...`);
+    const res = await v0Fetch<V0Tenant>(
+      '/tenants',
+      {
+        'filters[LastUpdatedAtFrom]': '2000-01-01T00:00:00Z',
+        'page[number]': String(pageNumber),
+        'page[size]': String(pageSize),
+      },
+      clientId,
+      clientSecret,
+      developerId
+    );
+
+    const tenants = res.data || [];
+    console.log(`[AppFolio] Page ${pageNumber}: ${tenants.length} tenants`);
+
+    for (const t of tenants) {
+      if (t.HiddenAt) continue; // Skip hidden/removed tenants
+
+      const primaryAddr = t.Addresses?.find(a => a.IsPrimary) || t.Addresses?.[0];
+
+      allTenants.push({
+        id: t.Id,
+        firstName: t.FirstName || '',
+        lastName: t.LastName || '',
+        propertyId: t.PropertyId || null,
+        unitId: t.UnitId || null,
+        status: t.Status || '',
+        moveInOn: t.MoveInOn || null,
+        moveOutOn: t.MoveOutOn || null,
+        leaseStartDate: t.LeaseStartDate || null,
+        leaseEndDate: t.LeaseEndDate || null,
+        address1: primaryAddr?.Address1 || null,
+        address2: primaryAddr?.Address2 || null,
+        city: primaryAddr?.City || null,
+        currentRent: t.CurrentRent ? parseFloat(t.CurrentRent) : null,
+        isPrimary: t.PrimaryTenant || false,
+      });
+    }
+
+    if (tenants.length < pageSize || !res.next_page_path) break;
+    pageNumber++;
+    if (pageNumber > 50) {
+      console.warn('[AppFolio] Hit max tenant page limit (50), stopping');
+      break;
+    }
+  }
+
+  console.log(`[AppFolio] Total tenants fetched: ${allTenants.length}`);
+  return allTenants;
+}

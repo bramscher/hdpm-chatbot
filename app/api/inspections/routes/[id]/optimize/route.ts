@@ -75,6 +75,20 @@ export async function POST(
       return NextResponse.json({ error: 'Route has no stops to optimize' }, { status: 400 });
     }
 
+    // Safety: if any stops have negative stop_order from a failed previous optimize,
+    // reset them to sequential positive values first
+    const hasNegative = stops.some((s) => s.stop_order < 0);
+    if (hasNegative) {
+      console.warn('Found negative stop_order values — resetting before optimize');
+      for (let i = 0; i < stops.length; i++) {
+        await supabase
+          .from('route_stops')
+          .update({ stop_order: i + 1 })
+          .eq('id', stops[i].id);
+        stops[i].stop_order = i + 1;
+      }
+    }
+
     // Step 2: Map stops to ProposedStop format for the optimizer
     const proposedStops: ProposedStop[] = stops.map((stop) => {
       const insp = stop.inspections as Record<string, unknown> | null;
@@ -101,8 +115,24 @@ export async function POST(
     const optimized = await optimizeRouteWithGoogle(proposedStops, startLat, startLng);
 
     // Step 4: Update each route_stop with new ordering and drive data
-    // Also compute scheduled_arrival times starting at 8:00 AM
+    // Use a single bulk approach: delete all stops and re-insert to avoid unique constraint issues
     const routeDate = routePlan.route_date;
+
+    // First, clear all stop_orders to avoid unique constraint violations during reorder
+    // Set to large negative numbers that won't collide — must be sequential
+    // because parallel updates could race and temporarily violate the unique constraint
+    for (let i = 0; i < stops.length; i++) {
+      const { error: clearErr } = await supabase
+        .from('route_stops')
+        .update({ stop_order: -(1000 + i) })
+        .eq('id', stops[i].id);
+      if (clearErr) {
+        console.error(`Error clearing stop_order for stop ${stops[i].id}:`, clearErr);
+        return NextResponse.json({ error: `Failed to clear stop orders: ${clearErr.message}` }, { status: 500 });
+      }
+    }
+
+    // Now apply the optimized order (all negatives are set, so positive values won't collide)
     let cumulativeMinutes = 0; // minutes from 8:00 AM start
 
     for (const optimizedStop of optimized.stops) {
@@ -137,14 +167,32 @@ export async function POST(
     }
 
     // Step 5: Update route_plan totals and status
-    const { error: planUpdateError } = await supabase
+    // Build update payload — only include polyline if column exists
+    const planUpdate: Record<string, unknown> = {
+      total_drive_minutes: Math.round(optimized.total_drive_minutes || 0),
+      status: 'optimized',
+      optimization_method: optimized.source,
+      updated_at: new Date().toISOString(),
+    };
+
+    // Try with polyline first, fall back without if column doesn't exist
+    let planUpdateError;
+    const { error: withPolyErr } = await supabase
       .from('route_plans')
-      .update({
-        total_drive_minutes: Math.round(optimized.total_drive_minutes || 0),
-        status: 'optimized',
-        updated_at: new Date().toISOString(),
-      })
+      .update({ ...planUpdate, polyline: optimized.polyline || null })
       .eq('id', id);
+
+    if (withPolyErr && withPolyErr.message?.includes('polyline')) {
+      // polyline column doesn't exist — update without it
+      console.warn('polyline column not found on route_plans, updating without it');
+      const { error: withoutPolyErr } = await supabase
+        .from('route_plans')
+        .update(planUpdate)
+        .eq('id', id);
+      planUpdateError = withoutPolyErr;
+    } else {
+      planUpdateError = withPolyErr;
+    }
 
     if (planUpdateError) {
       console.error('Error updating route plan after optimization:', planUpdateError);

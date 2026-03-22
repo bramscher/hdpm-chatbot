@@ -244,6 +244,39 @@ export function RouteBuilder() {
             setRouteDate(date);
             setShowModal(true);
           }}
+          onDeleteRoute={async (routeId) => {
+            try {
+              const res = await fetch(`/api/inspections/routes/${routeId}`, { method: "DELETE" });
+              if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                alert(`Delete failed: ${body.error || res.statusText}`);
+                return;
+              }
+              await fetchRoutes();
+            } catch (err) {
+              console.error("Delete route error:", err);
+              alert("Failed to delete route");
+            }
+          }}
+          onClearDay={async (date) => {
+            try {
+              const res = await fetch("/api/inspections/routes/bulk-delete", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ date }),
+              });
+              const body = await res.json();
+              if (!res.ok) {
+                alert(`Clear day failed: ${body.error || res.statusText}`);
+                return;
+              }
+              alert(body.message);
+              await fetchRoutes();
+            } catch (err) {
+              console.error("Clear day error:", err);
+              alert("Failed to clear day");
+            }
+          }}
         />
       )}
 

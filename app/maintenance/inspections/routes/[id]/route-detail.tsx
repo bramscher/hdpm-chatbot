@@ -20,7 +20,9 @@ import {
   Check,
   SkipForward,
   MessageSquare,
+  Trash2,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { GoogleMap } from "@/components/GoogleMap";
 
@@ -154,10 +156,12 @@ interface RouteDetailProps {
 }
 
 export function RouteDetail({ routeId }: RouteDetailProps) {
+  const router = useRouter();
   const [route, setRoute] = useState<InspectionRoute | null>(null);
   const [loading, setLoading] = useState(true);
   const [optimizing, setOptimizing] = useState(false);
   const [dispatching, setDispatching] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showMap, setShowMap] = useState(true);
   const [completingStop, setCompletingStop] = useState<string | null>(null);
@@ -227,10 +231,17 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
       const res = await fetch(`/api/inspections/routes/${routeId}/optimize`, {
         method: "POST",
       });
-      if (!res.ok) throw new Error("Optimization failed");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const msg = body.error || `Optimization failed (${res.status})`;
+        console.error("Optimize API error:", msg);
+        alert(`Optimization failed: ${msg}`);
+        return;
+      }
       await fetchRoute();
     } catch (err) {
       console.error("Optimize error:", err);
+      alert(`Optimization error: ${err instanceof Error ? err.message : err}`);
     } finally {
       setOptimizing(false);
     }
@@ -251,6 +262,27 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
       console.error("Dispatch error:", err);
     } finally {
       setDispatching(false);
+    }
+  };
+
+  // ── Delete route ──
+  const handleDelete = async () => {
+    if (!confirm("Delete this route? All stops will be returned to the inspection queue.")) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/inspections/routes/${routeId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Delete failed");
+      }
+      // Navigate back to route builder
+      router.push("/maintenance/inspections/routes");
+    } catch (err) {
+      console.error("Delete error:", err);
+      alert(`Delete failed: ${err instanceof Error ? err.message : err}`);
+      setDeleting(false);
     }
   };
 
@@ -392,6 +424,28 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
                 <>
                   <Send className="w-4 h-4" />
                   Dispatch
+                </>
+              )}
+            </button>
+          )}
+          {route.status !== "completed" && (
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                "border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-60"
+              )}
+            >
+              {deleting ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4" />
+                  Delete Route
                 </>
               )}
             </button>

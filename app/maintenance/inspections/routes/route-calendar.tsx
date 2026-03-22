@@ -10,6 +10,7 @@ import {
   Clock,
   User,
   Plus,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +33,8 @@ interface RouteForCalendar {
 interface RouteCalendarProps {
   routes: RouteForCalendar[];
   onCreateRoute: (date: string) => void;
+  onDeleteRoute?: (routeId: string) => void;
+  onClearDay?: (date: string) => void;
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -108,7 +111,7 @@ function isWeekend(d: Date): boolean {
 // Component
 // ────────────────────────────────────────────────
 
-export function RouteCalendar({ routes, onCreateRoute }: RouteCalendarProps) {
+export function RouteCalendar({ routes, onCreateRoute, onDeleteRoute, onClearDay }: RouteCalendarProps) {
   const router = useRouter();
   const [viewMode, setViewMode] = useState<"week" | "month">("week");
   const [anchorDate, setAnchorDate] = useState(() => getMonday(new Date()));
@@ -329,29 +332,61 @@ export function RouteCalendar({ routes, onCreateRoute }: RouteCalendarProps) {
                       {formatDayNumber(day)}
                     </span>
                   </div>
-                  {dayRoutes.length > 0 && (
-                    <span className="text-xs text-charcoal-400">
-                      {dayRoutes.reduce((sum, r) => sum + (r.total_stops || 0), 0)} stops
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {dayRoutes.length > 0 && (
+                      <span className="text-xs text-charcoal-400">
+                        {dayRoutes.reduce((sum, r) => sum + (r.total_stops || 0), 0)} stops
+                      </span>
+                    )}
+                    {dayRoutes.length > 0 && onClearDay && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm(`Clear all ${dayRoutes.length} route(s) for this day? Inspections will return to the pool.`)) {
+                            onClearDay(key);
+                          }
+                        }}
+                        className="text-xs text-red-400 hover:text-red-600 transition-colors"
+                        title="Clear all routes for this day"
+                      >
+                        Clear Day
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Route cards */}
                 <div className="flex-1 p-2 space-y-2 overflow-y-auto">
                   {dayRoutes.map((route) => (
-                    <button
+                    <div
                       key={route.id}
+                      className={cn(
+                        "relative w-full text-left p-3 rounded-lg border transition-all hover:shadow-md cursor-pointer group",
+                        STATUS_COLOR[route.status] ??
+                          "bg-charcoal-50 border-charcoal-200 text-charcoal-700"
+                      )}
                       onClick={() =>
                         router.push(
                           `/maintenance/inspections/routes/${route.id}`
                         )
                       }
-                      className={cn(
-                        "w-full text-left p-3 rounded-lg border transition-all hover:shadow-md",
-                        STATUS_COLOR[route.status] ??
-                          "bg-charcoal-50 border-charcoal-200 text-charcoal-700"
-                      )}
                     >
+                      {/* Delete button */}
+                      {onDeleteRoute && route.status !== "completed" && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm("Delete this route? Inspections will return to the queue.")) {
+                              onDeleteRoute(route.id);
+                            }
+                          }}
+                          className="absolute top-1.5 right-1.5 w-5 h-5 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity bg-red-100 hover:bg-red-200 text-red-500"
+                          title="Delete route"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+
                       {/* Status + assignee */}
                       <div className="flex items-center gap-1.5 mb-2">
                         <span
@@ -392,7 +427,7 @@ export function RouteCalendar({ routes, onCreateRoute }: RouteCalendarProps) {
                           <span className="truncate">{route.assigned_to}</span>
                         </div>
                       )}
-                    </button>
+                    </div>
                   ))}
 
                   {/* Add route button */}
