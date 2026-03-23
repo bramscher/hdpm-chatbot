@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 
 interface Inspection {
   id: string;
+  property_id: string;
   property_name: string | null;
   address_1: string | null;
   unit_name: string | null;
@@ -488,16 +489,6 @@ export function InspectionDashboard() {
                 ? `Geocoding ${geocodeProgress.completed}/${geocodeProgress.total}`
                 : "Geocoding..."
               : "Batch Geocode"}
-          </button>
-          <button
-            onClick={() => { setShowBulkModal(true); setBulkResult(null); }}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-              "border border-charcoal-300 text-charcoal-700 hover:bg-charcoal-50"
-            )}
-          >
-            <Settings className="w-4 h-4" />
-            Bulk Update
           </button>
         </div>
       </div>
@@ -964,10 +955,10 @@ export function InspectionDashboard() {
 
 function MonthlySummary({ inspections }: { inspections: Inspection[] }) {
   // Tag each inspection as "first" or "second" for its property
-  // Group by property (using address_1 as proxy since we don't have property_id in flat data)
+  // Group by property_id (unique per unit)
   const byProperty = new Map<string, Inspection[]>();
   for (const insp of inspections) {
-    const propKey = insp.address_1 || insp.id;
+    const propKey = insp.property_id || insp.id;
     if (!byProperty.has(propKey)) byProperty.set(propKey, []);
     byProperty.get(propKey)!.push(insp);
   }

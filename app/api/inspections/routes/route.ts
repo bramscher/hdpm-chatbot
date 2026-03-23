@@ -200,9 +200,28 @@ export async function POST(request: NextRequest) {
       });
 
       const [topCity, topGroup] = cityEntries[0];
-      selectedInspections = topGroup.slice(0, maxStops);
 
-      if (selectedInspections.length < maxStops && cityEntries.length > 1) {
+      // Group inspections by address so multi-unit properties count as 1 physical stop
+      // Select up to maxStops unique addresses, including all units at each address
+      const addressGroups = new Map<string, GeoInspection[]>();
+      for (const insp of topGroup) {
+        const addrKey = `${insp.lat.toFixed(5)},${insp.lng.toFixed(5)}`;
+        if (!addressGroups.has(addrKey)) addressGroups.set(addrKey, []);
+        addressGroups.get(addrKey)!.push(insp);
+      }
+
+      // Take up to maxStops unique addresses (physical stops)
+      const addressEntries = [...addressGroups.values()];
+      selectedInspections = [];
+      let physicalStops = 0;
+      for (const group of addressEntries) {
+        if (physicalStops >= maxStops) break;
+        selectedInspections.push(...group);
+        physicalStops++;
+      }
+
+      // Backfill from nearby cities if needed
+      if (physicalStops < maxStops && cityEntries.length > 1) {
         const centroidLat = selectedInspections.reduce((s, i) => s + i.lat, 0) / selectedInspections.length;
         const centroidLng = selectedInspections.reduce((s, i) => s + i.lng, 0) / selectedInspections.length;
 
@@ -218,8 +237,19 @@ export async function POST(request: NextRequest) {
           return distA - distB;
         });
 
-        const needed = maxStops - selectedInspections.length;
-        selectedInspections = [...selectedInspections, ...remaining.slice(0, needed)];
+        // Group remaining by address too
+        const remAddrGroups = new Map<string, GeoInspection[]>();
+        for (const insp of remaining) {
+          const addrKey = `${insp.lat.toFixed(5)},${insp.lng.toFixed(5)}`;
+          if (!remAddrGroups.has(addrKey)) remAddrGroups.set(addrKey, []);
+          remAddrGroups.get(addrKey)!.push(insp);
+        }
+
+        for (const group of remAddrGroups.values()) {
+          if (physicalStops >= maxStops) break;
+          selectedInspections.push(...group);
+          physicalStops++;
+        }
       }
     }
 

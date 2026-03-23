@@ -508,7 +508,8 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
           </div>
           {showMap && (
             <GoogleMap
-              pins={stops
+              pins={[...stops]
+                .sort((a, b) => a.stop_order - b.stop_order)
                 .filter((s) => s.lat && s.lng)
                 .map((s) => ({
                   lat: s.lat!,
@@ -522,6 +523,7 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
                     : "terra") as "green" | "gray" | "terra",
                 }))}
               polyline={polyline}
+              showOffice
               height="400px"
             />
           )}

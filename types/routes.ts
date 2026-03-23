@@ -40,9 +40,9 @@ export type InspectionPriority = 'urgent' | 'high' | 'normal' | 'low';
 // HDPM Office — Default Start Location
 // ============================================
 
-/** HDPM office coordinates in Bend, OR */
-export const HDPM_OFFICE_LAT = 44.2726;
-export const HDPM_OFFICE_LNG = -121.1739;
+/** HDPM office coordinates — 1515 SW Reindeer Ave, Redmond, OR 97756 */
+export const HDPM_OFFICE_LAT = 44.256798;
+export const HDPM_OFFICE_LNG = -121.184346;
 
 // ============================================
 // Database Row Types

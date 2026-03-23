@@ -108,8 +108,8 @@ export async function POST(
       };
     });
 
-    const startLat = routePlan.start_lat ?? 44.2726;
-    const startLng = routePlan.start_lng ?? -121.1739;
+    const startLat = routePlan.start_lat ?? 44.256798;
+    const startLng = routePlan.start_lng ?? -121.184346;
 
     // Step 3: Call Google Directions optimization
     const optimized = await optimizeRouteWithGoogle(proposedStops, startLat, startLng);

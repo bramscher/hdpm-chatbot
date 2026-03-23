@@ -40,7 +40,7 @@ CREATE TABLE inspection_properties (
 
 CREATE INDEX idx_inspection_properties_city ON inspection_properties (city);
 CREATE INDEX idx_inspection_properties_region ON inspection_properties (region);
-CREATE UNIQUE INDEX idx_inspection_properties_address ON inspection_properties (address_1, city, zip);
+CREATE UNIQUE INDEX idx_inspection_properties_address ON inspection_properties (address_1, COALESCE(address_2, ''), city, zip);
 
 CREATE TRIGGER trg_inspection_properties_updated_at
   BEFORE UPDATE ON inspection_properties
