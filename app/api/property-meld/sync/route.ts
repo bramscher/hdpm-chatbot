@@ -308,10 +308,9 @@ export async function POST(req: Request) {
           stats.properties_created++;
 
           // Create TWO inspections per property (next 12 months)
-          // Logic: next inspection = effective date + 6 months
-          // effective date = LastInspectedDate (best) or MoveInOn (fallback)
-          // If neither available → due today + 6 months
+          // Rule: if a calculated due date is in the past, clamp it to today
           const now = new Date();
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
           const dueDates: Date[] = [];
 
           if (effectiveDateStr) {
@@ -319,15 +318,15 @@ export async function POST(req: Request) {
             // First due date = base + 6 months
             const due1 = new Date(baseDate);
             due1.setMonth(due1.getMonth() + 6);
-            dueDates.push(due1);
+            dueDates.push(due1 < today ? new Date(today) : due1);
             // Second due date = base + 12 months
             const due2 = new Date(baseDate);
             due2.setMonth(due2.getMonth() + 12);
-            dueDates.push(due2);
+            dueDates.push(due2 < today ? new Date(today) : due2);
           } else {
-            // No date found at all → due now, then again in 6 months
-            dueDates.push(new Date(now));
-            const sixOut = new Date(now);
+            // No date found at all → due today, then again in 6 months
+            dueDates.push(new Date(today));
+            const sixOut = new Date(today);
             sixOut.setMonth(sixOut.getMonth() + 6);
             dueDates.push(sixOut);
           }
