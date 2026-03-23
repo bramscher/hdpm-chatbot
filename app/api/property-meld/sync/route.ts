@@ -22,7 +22,7 @@ import {
   type PMProperty,
   type PMUnit,
 } from '@/lib/property-meld';
-import { fetchAppFolioTenants, type AppFolioTenant } from '@/lib/appfolio';
+import { fetchAppFolioUnits, fetchAppFolioTenants, type AppFolioUnit, type AppFolioTenant } from '@/lib/appfolio';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -54,6 +54,43 @@ function normalizeAddress(addr: string | null | undefined): string {
     .replace(/\b(northeast|ne)\b/g, 'ne');
 }
 
+/**
+ * Properties/names to exclude from inspection sync.
+ * Case-insensitive partial match against property name and address.
+ * Add entries here to skip HOAs, commercial properties, etc.
+ */
+const EXCLUSION_LIST = [
+  'cedar creek hoa',
+  // Add more exclusions as needed:
+  // 'some commercial property name',
+];
+
+/** Words that indicate a property should be excluded (matched as whole words) */
+const EXCLUSION_KEYWORDS = [
+  'hoa',
+];
+
+function isExcluded(propertyName: string, address: string): boolean {
+  const name = (propertyName || '').toLowerCase();
+  const addr = (address || '').toLowerCase();
+  const combined = `${name} ${addr}`;
+
+  // Check exact phrase matches
+  if (EXCLUSION_LIST.some(term => combined.includes(term.toLowerCase()))) {
+    return true;
+  }
+
+  // Check whole-word keyword matches (avoids false positives like "Shoals")
+  if (EXCLUSION_KEYWORDS.some(kw => {
+    const regex = new RegExp(`\\b${kw}\\b`, 'i');
+    return regex.test(combined);
+  })) {
+    return true;
+  }
+
+  return false;
+}
+
 interface SyncStats {
   properties_fetched: number;
   units_fetched: number;
@@ -82,19 +119,19 @@ export async function POST(req: Request) {
       errors: [],
     };
 
-    // Step 1: Pull data from Property Meld + AppFolio tenants
+    // Step 1: Pull data from Property Meld + AppFolio units
     const multitenantId = await getMultitenantId();
     const pmProperties = await getProperties(multitenantId);
     const pmUnits = await getUnits(multitenantId);
 
-    // Pull tenant move-in dates from AppFolio v0 API
-    let afTenants: AppFolioTenant[] = [];
+    // Pull LastInspectedDate from AppFolio units API
+    let afUnits: AppFolioUnit[] = [];
     try {
-      afTenants = await fetchAppFolioTenants();
-      console.log(`[Sync] Fetched ${afTenants.length} tenants from AppFolio`);
+      afUnits = await fetchAppFolioUnits();
+      console.log(`[Sync] Fetched ${afUnits.length} units from AppFolio`);
     } catch (err) {
-      console.error('[Sync] Failed to fetch AppFolio tenants:', err);
-      stats.errors.push(`AppFolio tenant fetch failed: ${err instanceof Error ? err.message : String(err)}`);
+      console.error('[Sync] Failed to fetch AppFolio units:', err);
+      stats.errors.push(`AppFolio unit fetch failed: ${err instanceof Error ? err.message : String(err)}`);
     }
 
     stats.properties_fetched = pmProperties.length;
@@ -115,21 +152,41 @@ export async function POST(req: Request) {
       unitsByProperty.get(propId)!.push(u);
     }
 
-    // Build a lookup: AppFolio normalized address → MoveInOn date
-    // We match by street address since PM and AppFolio use different IDs
-    // For multi-unit properties, we keep the most recent move-in for each address
-    const moveInByAddress = new Map<string, string>();
-    for (const t of afTenants) {
-      if (t.status !== 'Current' || !t.moveInOn) continue;
-      const addr = normalizeAddress(t.address1);
+    // Build a lookup: normalized address → LastInspectedDate from AppFolio units
+    // This is the most accurate source for "when was this unit last inspected?"
+    const lastInspectionByAddress = new Map<string, string>();
+    for (const u of afUnits) {
+      if (!u.lastInspectedDate) continue;
+      const addr = normalizeAddress(u.address1);
       if (!addr) continue;
-      const existing = moveInByAddress.get(addr);
-      // Keep the most recent move-in date for this address
-      if (!existing || t.moveInOn > existing) {
-        moveInByAddress.set(addr, t.moveInOn);
+      const existing = lastInspectionByAddress.get(addr);
+      // Keep the most recent inspection date for this address
+      if (!existing || u.lastInspectedDate > existing) {
+        lastInspectionByAddress.set(addr, u.lastInspectedDate);
       }
     }
-    console.log(`[Sync] Built move-in lookup with ${moveInByAddress.size} unique addresses from ${afTenants.length} tenants`);
+    console.log(`[Sync] Built last-inspection lookup with ${lastInspectionByAddress.size} unique addresses from ${afUnits.length} units`);
+
+    // Fallback: Build a lookup of MoveInOn dates from AppFolio tenants
+    // Used when a property has no LastInspectedDate
+    const moveInByAddress = new Map<string, string>();
+    try {
+      const afTenants = await fetchAppFolioTenants();
+      for (const t of afTenants) {
+        if (t.status !== 'Current' || !t.moveInOn) continue;
+        const addr = normalizeAddress(t.address1);
+        if (!addr) continue;
+        const existing = moveInByAddress.get(addr);
+        // Keep the most recent move-in for this address
+        if (!existing || t.moveInOn > existing) {
+          moveInByAddress.set(addr, t.moveInOn);
+        }
+      }
+      console.log(`[Sync] Built move-in fallback lookup with ${moveInByAddress.size} addresses from ${afTenants.length} tenants`);
+    } catch (err) {
+      console.error('[Sync] Failed to fetch AppFolio tenants for fallback:', err);
+      stats.errors.push(`AppFolio tenant fetch failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
 
     // Step 2: Get existing inspection_properties from Supabase for matching
     const { data: existingProps } = await supabase
@@ -166,7 +223,17 @@ export async function POST(req: Request) {
     }
 
     // Step 3: Upsert properties and create inspections
+    let excludedCount = 0;
     for (const [propId, prop] of propMap) {
+      const propertyName = (prop as Record<string, unknown>).property_name as string || '';
+      const propertyAddr = (prop as Record<string, unknown>).line_1 as string || '';
+
+      // Skip excluded properties (HOAs, commercial, etc.)
+      if (isExcluded(propertyName, propertyAddr)) {
+        excludedCount++;
+        continue;
+      }
+
       const units = unitsByProperty.get(propId) || [];
 
       // If no units, treat the property as a single-family residence
@@ -187,9 +254,14 @@ export async function POST(req: Request) {
         const zip = (prop as Record<string, unknown>).postcode as string || '';
         const propertyName = (prop as Record<string, unknown>).property_name as string || '';
 
-        // Look up move-in date for this address
+        // Look up last inspection date from AppFolio units
+        // Fallback to move-in date from AppFolio tenants if no inspection date
         const pmAddr = normalizeAddress(address1);
-        const moveInDateStr = moveInByAddress.get(pmAddr) || null;
+        const lastInspectedStr = lastInspectionByAddress.get(pmAddr) || null;
+        const moveInStr = moveInByAddress.get(pmAddr) || null;
+        // Use last inspection date if available, otherwise move-in date as proxy
+        const effectiveDateStr = lastInspectedStr || moveInStr;
+        const dateSource = lastInspectedStr ? 'inspection' : (moveInStr ? 'move_in' : null);
 
         const propertyData: Record<string, unknown> = {
           address_1: address1,
@@ -202,7 +274,8 @@ export async function POST(req: Request) {
           pm_unit_id: entry.unitId,
           source: 'property_meld',
           active: prop.is_active !== false,
-          move_in_date: moveInDateStr,
+          last_inspection_date: lastInspectedStr,
+          move_in_date: moveInStr,
         };
 
         const existing = existingMap.get(key);
@@ -235,30 +308,24 @@ export async function POST(req: Request) {
           stats.properties_created++;
 
           // Create TWO inspections per property (next 12 months)
-          // Logic: inspections every 6 months from move-in date
-          // If no tenant found → due today + 6 months
+          // Logic: next inspection = effective date + 6 months
+          // effective date = LastInspectedDate (best) or MoveInOn (fallback)
+          // If neither available → due today + 6 months
           const now = new Date();
-          const twelveMonthsOut = new Date(now);
-          twelveMonthsOut.setMonth(twelveMonthsOut.getMonth() + 12);
-
-          // Find all upcoming 6-month cycles within 12 months
           const dueDates: Date[] = [];
 
-          if (moveInDateStr) {
-            const moveIn = new Date(moveInDateStr + 'T12:00:00');
-            const candidate = new Date(moveIn);
-            // Roll forward in 6-month increments
-            while (candidate <= twelveMonthsOut) {
-              if (candidate > new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)) {
-                // Include if within last 30 days (slightly overdue) or future
-                dueDates.push(new Date(candidate));
-              }
-              candidate.setMonth(candidate.getMonth() + 6);
-            }
-          }
-
-          // If no dates found (vacant or no match), default to today + 6 months
-          if (dueDates.length === 0) {
+          if (effectiveDateStr) {
+            const baseDate = new Date(effectiveDateStr + 'T12:00:00');
+            // First due date = base + 6 months
+            const due1 = new Date(baseDate);
+            due1.setMonth(due1.getMonth() + 6);
+            dueDates.push(due1);
+            // Second due date = base + 12 months
+            const due2 = new Date(baseDate);
+            due2.setMonth(due2.getMonth() + 12);
+            dueDates.push(due2);
+          } else {
+            // No date found at all → due now, then again in 6 months
             dueDates.push(new Date(now));
             const sixOut = new Date(now);
             sixOut.setMonth(sixOut.getMonth() + 6);
@@ -288,7 +355,7 @@ export async function POST(req: Request) {
       }
     }
 
-    return NextResponse.json({ stats });
+    return NextResponse.json({ stats, excluded_count: excludedCount });
   } catch (error) {
     console.error('Property Meld sync error:', error);
     return NextResponse.json(

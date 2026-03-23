@@ -107,6 +107,14 @@ interface V0Unit {
   AvailableOn?: string;
   MarketingDescription?: string;
   AppliancesIncluded?: string[];
+  LastInspectedDate?: string | null;
+  Address1?: string;
+  Address2?: string | null;
+  City?: string;
+  State?: string;
+  Zip?: string;
+  Status?: string;
+  Name?: string;
 }
 
 interface V0Vendor {
@@ -960,4 +968,76 @@ export async function fetchAppFolioTenants(): Promise<AppFolioTenant[]> {
 
   console.log(`[AppFolio] Total tenants fetched: ${allTenants.length}`);
   return allTenants;
+}
+
+// ============================================
+// Public: Fetch All Units with LastInspectedDate
+// ============================================
+
+export interface AppFolioUnit {
+  id: string;
+  propertyId: string | null;
+  address1: string | null;
+  address2: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  name: string | null;
+  status: string | null;
+  lastInspectedDate: string | null;
+}
+
+export async function fetchAppFolioUnits(): Promise<AppFolioUnit[]> {
+  const config = getConfig();
+  if (!config) return [];
+
+  const { clientId, clientSecret, developerId } = config;
+  const allUnits: AppFolioUnit[] = [];
+  let pageNumber = 1;
+  const pageSize = 200;
+
+  while (true) {
+    console.log(`[AppFolio] Fetching units page ${pageNumber}...`);
+    const res = await v0Fetch<V0Unit>(
+      '/units',
+      {
+        'filters[LastUpdatedAtFrom]': '2000-01-01T00:00:00Z',
+        'page[number]': String(pageNumber),
+        'page[size]': String(pageSize),
+      },
+      clientId,
+      clientSecret,
+      developerId
+    );
+
+    const units = res.data || [];
+    console.log(`[AppFolio] Page ${pageNumber}: ${units.length} units`);
+
+    for (const u of units) {
+      if ((u as unknown as Record<string, unknown>).HiddenAt) continue;
+
+      allUnits.push({
+        id: u.Id,
+        propertyId: u.PropertyId || null,
+        address1: u.Address1 || null,
+        address2: u.Address2 || null,
+        city: u.City || null,
+        state: u.State || null,
+        zip: u.Zip || null,
+        name: u.Name || null,
+        status: u.Status || null,
+        lastInspectedDate: u.LastInspectedDate || null,
+      });
+    }
+
+    if (units.length < pageSize || !res.next_page_path) break;
+    pageNumber++;
+    if (pageNumber > 50) {
+      console.warn('[AppFolio] Hit max unit page limit (50), stopping');
+      break;
+    }
+  }
+
+  console.log(`[AppFolio] Total units fetched: ${allUnits.length}`);
+  return allUnits;
 }
