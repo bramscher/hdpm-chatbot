@@ -59,14 +59,22 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      // Search across property address and city
+      // Search across property fields — use textSearch on joined table
+      // Supabase referenced table filters don't exclude parent rows,
+      // so we filter client-side after fetching. Mark search as active.
       query = query.or(
-        `address_1.ilike.%${search}%,city.ilike.%${search}%`,
+        `address_1.ilike.%${search}%,address_2.ilike.%${search}%,city.ilike.%${search}%,name.ilike.%${search}%`,
         { referencedTable: 'inspection_properties' }
       );
     }
 
-    query = query.order('due_date', { ascending: true });
+    // Pagination
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const pageSize = Math.min(parseInt(searchParams.get('page_size') || '100', 10), 2000);
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    query = query.order('due_date', { ascending: true }).range(from, to);
 
     const { data, error, count } = await query;
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -19,6 +19,7 @@ import {
   CloudDownload,
   BarChart3,
   List,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -144,14 +145,29 @@ export function InspectionDashboard() {
   const [geocoding, setGeocoding] = useState(false);
   const [geocodeProgress, setGeocodeProgress] = useState<{ completed: number; total: number } | null>(null);
   const [syncing, setSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<{ properties_created: number; properties_updated: number; inspections_created: number; errors: string[] } | null>(null);
+  const [syncResult, setSyncResult] = useState<{ properties_created: number; properties_updated: number; inspections_created: number; units_fetched?: number; errors: string[] } | null>(null);
   const [activeTab, setActiveTab] = useState<"queue" | "summary">("queue");
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkFilter, setBulkFilter] = useState({ fromStatus: "", beforeDate: "", toStatus: "" });
+  const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [bulkResult, setBulkResult] = useState<string | null>(null);
 
   // Filters
   const [filterStatus, setFilterStatus] = useState("");
   const [filterCity, setFilterCity] = useState("");
   const [filterAssignee, setFilterAssignee] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const searchTimer = useRef<NodeJS.Timeout | null>(null);
+
+  // Debounce search — wait 400ms after user stops typing
+  const handleSearchChange = (value: string) => {
+    setSearchInput(value);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      setSearchQuery(value);
+    }, 400);
+  };
 
   // Bulk actions
   const [bulkAssignee, setBulkAssignee] = useState("");
@@ -165,7 +181,9 @@ export function InspectionDashboard() {
       if (filterStatus) params.set("status", filterStatus);
       if (filterCity) params.set("city", filterCity);
       if (filterAssignee) params.set("assigned_to", filterAssignee);
-      if (searchQuery) params.set("q", searchQuery);
+      if (searchQuery) params.set("search", searchQuery);
+      // Fetch all inspections for summary view (need full dataset for 12-month chart)
+      if (activeTab === "summary") params.set("page_size", "2000");
       const qs = params.toString();
       const res = await fetch(`/api/inspections${qs ? `?${qs}` : ""}`);
       if (!res.ok) throw new Error("Failed to fetch inspections");
@@ -175,19 +193,32 @@ export function InspectionDashboard() {
         const prop = (insp.inspection_properties || {}) as Record<string, unknown>;
         return {
           ...insp,
-          property_name: prop.name || null,
+          property_name: prop.name || prop.address_1 || null,
           address_1: prop.address_1 || null,
+          unit_name: prop.address_2 || null,
           city: prop.city || null,
           move_in_date: prop.move_in_date || null,
+          last_inspection_date: prop.last_inspection_date || null,
         };
       });
-      setInspections(flattened);
+      // Client-side search filter as fallback (Supabase referenced table filters
+      // don't properly exclude parent rows)
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const filtered = flattened.filter((insp: Record<string, unknown>) => {
+          const fields = [insp.property_name, insp.address_1, insp.unit_name, insp.city];
+          return fields.some((f) => typeof f === "string" && f.toLowerCase().includes(q));
+        });
+        setInspections(filtered);
+      } else {
+        setInspections(flattened);
+      }
     } catch (err) {
       console.error("Fetch inspections error:", err);
     } finally {
       setLoading(false);
     }
-  }, [filterStatus, filterCity, filterAssignee, searchQuery]);
+  }, [filterStatus, filterCity, filterAssignee, searchQuery, activeTab]);
 
   // ── Fetch stats ──
   const fetchStats = useCallback(async () => {
@@ -262,7 +293,7 @@ export function InspectionDashboard() {
         throw new Error(body.error || `Sync failed (${res.status})`);
       }
       const data = await res.json();
-      setSyncResult(data.stats);
+      setSyncResult({ ...data.stats, units_fetched: data.units_fetched });
       await fetchInspections();
       await fetchStats();
     } catch (err) {
@@ -322,6 +353,33 @@ export function InspectionDashboard() {
       console.error("Bulk status error:", err);
     } finally {
       setBulkActioning(false);
+    }
+  };
+
+  // ── Bulk update by filter ──
+  const handleBulkFilterUpdate = async () => {
+    if (!bulkFilter.fromStatus || !bulkFilter.toStatus) return;
+    const desc = `Change all "${bulkFilter.fromStatus}" inspections${bulkFilter.beforeDate ? ` before ${bulkFilter.beforeDate}` : ""} to "${bulkFilter.toStatus}"`;
+    if (!confirm(`${desc}?\n\nThis cannot be undone.`)) return;
+    setBulkUpdating(true);
+    setBulkResult(null);
+    try {
+      const filter: Record<string, string> = { status: bulkFilter.fromStatus };
+      if (bulkFilter.beforeDate) filter.before_date = bulkFilter.beforeDate;
+      const res = await fetch("/api/inspections/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filter, action: "status", value: bulkFilter.toStatus }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Bulk update failed");
+      setBulkResult(`Updated ${data.updated} inspections`);
+      await fetchInspections();
+      await fetchStats();
+    } catch (err) {
+      setBulkResult(`Error: ${err instanceof Error ? err.message : err}`);
+    } finally {
+      setBulkUpdating(false);
     }
   };
 
@@ -431,8 +489,104 @@ export function InspectionDashboard() {
                 : "Geocoding..."
               : "Batch Geocode"}
           </button>
+          <button
+            onClick={() => { setShowBulkModal(true); setBulkResult(null); }}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+              "border border-charcoal-300 text-charcoal-700 hover:bg-charcoal-50"
+            )}
+          >
+            <Settings className="w-4 h-4" />
+            Bulk Update
+          </button>
         </div>
       </div>
+
+      {/* ── Bulk Update Modal ── */}
+      {showBulkModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-charcoal-900">Bulk Status Update</h3>
+              <button onClick={() => setShowBulkModal(false)} className="text-charcoal-400 hover:text-charcoal-600 text-xl">&times;</button>
+            </div>
+            <p className="text-sm text-charcoal-500">Change all inspections matching a filter to a new status.</p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-charcoal-600 mb-1">Current Status</label>
+                <select
+                  value={bulkFilter.fromStatus}
+                  onChange={(e) => setBulkFilter({ ...bulkFilter, fromStatus: e.target.value })}
+                  className="w-full border border-charcoal-300 rounded-lg px-3 py-2 text-sm"
+                >
+                  <option value="">Select status...</option>
+                  <option value="imported">Imported</option>
+                  <option value="validated">Validated</option>
+                  <option value="queued">Queued</option>
+                  <option value="scheduled">Scheduled</option>
+                  <option value="in_progress">In Progress</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-charcoal-600 mb-1">Due Date Before (optional)</label>
+                <input
+                  type="date"
+                  value={bulkFilter.beforeDate}
+                  onChange={(e) => setBulkFilter({ ...bulkFilter, beforeDate: e.target.value })}
+                  className="w-full border border-charcoal-300 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-charcoal-600 mb-1">Change To</label>
+                <select
+                  value={bulkFilter.toStatus}
+                  onChange={(e) => setBulkFilter({ ...bulkFilter, toStatus: e.target.value })}
+                  className="w-full border border-charcoal-300 rounded-lg px-3 py-2 text-sm"
+                >
+                  <option value="">Select new status...</option>
+                  <option value="imported">Imported</option>
+                  <option value="validated">Validated</option>
+                  <option value="queued">Queued</option>
+                  <option value="scheduled">Scheduled</option>
+                  <option value="completed">Completed</option>
+                  <option value="skipped">Skipped</option>
+                </select>
+              </div>
+            </div>
+
+            {bulkResult && (
+              <div className={cn(
+                "text-sm px-3 py-2 rounded-lg",
+                bulkResult.startsWith("Error") ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"
+              )}>
+                {bulkResult}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                onClick={() => setShowBulkModal(false)}
+                className="px-4 py-2 rounded-lg text-sm text-charcoal-600 hover:bg-charcoal-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkFilterUpdate}
+                disabled={bulkUpdating || !bulkFilter.fromStatus || !bulkFilter.toStatus}
+                className={cn(
+                  "px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors",
+                  "bg-terra-500 hover:bg-terra-600 disabled:opacity-50"
+                )}
+              >
+                {bulkUpdating ? "Updating..." : "Update Inspections"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Sync Result Banner ── */}
       {syncResult && (
@@ -442,8 +596,15 @@ export function InspectionDashboard() {
               Property Meld Sync Complete
             </p>
             <p className="text-xs text-green-600 mt-1">
+              {syncResult.units_fetched != null && `${syncResult.units_fetched} units • `}
               {syncResult.properties_created} new properties &bull; {syncResult.properties_updated} updated &bull; {syncResult.inspections_created} new inspections
               {syncResult.errors.length > 0 && ` • ${syncResult.errors.length} errors`}
+              {syncResult.errors.length > 0 && (
+                <span className="block mt-1 text-red-600 text-[10px]">
+                  {syncResult.errors.slice(0, 3).join(" | ")}
+                  {syncResult.errors.length > 3 && ` ... and ${syncResult.errors.length - 3} more`}
+                </span>
+              )}
             </p>
           </div>
           <button onClick={() => setSyncResult(null)} className="text-green-400 hover:text-green-600 text-lg leading-none">&times;</button>
@@ -545,8 +706,8 @@ export function InspectionDashboard() {
           <input
             type="text"
             placeholder="Search by address, tenant, or property..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            value={searchInput}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="w-full bg-white border border-charcoal-300 rounded-lg pl-9 pr-3 py-2 text-sm text-charcoal-700 placeholder:text-charcoal-400 focus:outline-none focus:ring-2 focus:ring-terra-400 focus:border-transparent"
           />
         </div>

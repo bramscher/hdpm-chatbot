@@ -307,56 +307,43 @@ export async function POST(req: Request) {
 
           stats.properties_created++;
 
-          // Create TWO inspections per property (next 12 months)
-          // Rule: first overdue inspection → due today
-          //        second inspection → 6 months after the first
+          // Create ONE inspection per property
+          // The 2nd inspection is auto-created when the 1st is completed
+          // Rule: due date = last inspection/move-in + 6 months, clamped to today if past
           const now = new Date();
           const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          const dueDates: Date[] = [];
+          let dueDate: Date;
 
           if (effectiveDateStr) {
             const baseDate = new Date(effectiveDateStr + 'T12:00:00');
-            // First due date = base + 6 months (clamp to today if past)
-            const due1 = new Date(baseDate);
-            due1.setMonth(due1.getMonth() + 6);
-            const actualDue1 = due1 < today ? new Date(today) : due1;
-            dueDates.push(actualDue1);
-            // Second due date = 6 months AFTER the first due date
-            const due2 = new Date(actualDue1);
-            due2.setMonth(due2.getMonth() + 6);
-            dueDates.push(due2);
+            dueDate = new Date(baseDate);
+            dueDate.setMonth(dueDate.getMonth() + 6);
+            // If overdue, clamp to today
+            if (dueDate < today) dueDate = new Date(today);
           } else {
-            // No date found at all → due today, then again in 6 months
-            dueDates.push(new Date(today));
-            const sixOut = new Date(today);
-            sixOut.setMonth(sixOut.getMonth() + 6);
-            dueDates.push(sixOut);
+            // No date found at all → due today
+            dueDate = new Date(today);
           }
 
-          // Cap at 2 inspections per property
-          const inspectionsToCreate = dueDates.slice(0, 2);
+          const { error: inspError } = await supabase
+            .from('inspections')
+            .insert({
+              property_id: newProp.id,
+              inspection_type: 'biannual',
+              status: 'imported',
+              due_date: dueDate.toISOString().split('T')[0],
+            });
 
-          for (const dueDate of inspectionsToCreate) {
-            const { error: inspError } = await supabase
-              .from('inspections')
-              .insert({
-                property_id: newProp.id,
-                inspection_type: 'biannual',
-                status: 'imported',
-                due_date: dueDate.toISOString().split('T')[0],
-              });
-
-            if (inspError) {
-              stats.errors.push(`Create inspection for ${propId}/${entry.unitId}: ${inspError.message}`);
-            } else {
-              stats.inspections_created++;
-            }
+          if (inspError) {
+            stats.errors.push(`Create inspection for ${propId}/${entry.unitId}: ${inspError.message}`);
+          } else {
+            stats.inspections_created++;
           }
         }
       }
     }
 
-    return NextResponse.json({ stats, excluded_count: excludedCount });
+    return NextResponse.json({ stats, excluded_count: excludedCount, units_fetched: pmUnits.length });
   } catch (error) {
     console.error('Property Meld sync error:', error);
     return NextResponse.json(
