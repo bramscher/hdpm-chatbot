@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   RefreshCw,
   Upload,
@@ -135,6 +136,7 @@ function formatStatus(status: string): string {
 // ────────────────────────────────────────────────
 
 export function InspectionDashboard() {
+  const router = useRouter();
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<InspectionStats | null>(null);
@@ -323,8 +325,13 @@ export function InspectionDashboard() {
     }
   };
 
-  // ── Bulk add to route ──
+  // ── Build route from selected inspections ──
   const handleAddToRoute = async () => {
+    // Navigate to Route Builder with selected IDs pre-loaded
+    const ids = Array.from(selected).join(",");
+    router.push(`/maintenance/inspections/routes?ids=${ids}`);
+    return;
+    // Old code kept for reference - used to just change status
     setBulkActioning(true);
     try {
       const res = await fetch("/api/inspections", {
@@ -606,7 +613,7 @@ export function InspectionDashboard() {
                 "bg-white text-charcoal-900 hover:bg-charcoal-100 disabled:opacity-60"
               )}
             >
-              {bulkActioning ? "Processing..." : "Add to Route"}
+              Build Route
             </button>
           </div>
         </div>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   RefreshCw,
   MapPin,
@@ -19,6 +19,9 @@ import {
   Hash,
   LayoutGrid,
   List,
+  Search,
+  CheckSquare,
+  Square,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RouteCalendar } from "./route-calendar";
@@ -38,6 +41,15 @@ interface InspectionRoute {
   status: string;
   notes: string | null;
   created_at: string;
+}
+
+interface PickableInspection {
+  id: string;
+  property_name: string;
+  address: string;
+  city: string;
+  due_date: string | null;
+  status: string;
 }
 
 const ROUTE_STATUS_BADGE: Record<string, string> = {
@@ -87,6 +99,7 @@ function formatStatus(status: string): string {
 
 export function RouteBuilder() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [routes, setRoutes] = useState<InspectionRoute[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewStyle, setViewStyle] = useState<"list" | "calendar">("calendar");
@@ -102,6 +115,61 @@ export function RouteBuilder() {
   });
   const [assignee, setAssignee] = useState("");
   const [maxStops, setMaxStops] = useState(10);
+
+  // Manual pick mode state
+  const [pickMode, setPickMode] = useState<"auto" | "pick">("auto");
+  const [availableInspections, setAvailableInspections] = useState<PickableInspection[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [pickSearch, setPickSearch] = useState("");
+  const [loadingInspections, setLoadingInspections] = useState(false);
+
+  // Fetch available inspections for pick mode
+  const fetchAvailableInspections = useCallback(async () => {
+    setLoadingInspections(true);
+    try {
+      const res = await fetch("/api/inspections?page_size=2000");
+      if (!res.ok) return;
+      const data = await res.json();
+      const inspections = (data.inspections || [])
+        .filter((i: Record<string, string>) => ["imported", "validated", "queued"].includes(i.status))
+        .map((i: Record<string, unknown>) => ({
+          id: i.id as string,
+          property_name: (i.name as string) || (i.property_name as string) || "",
+          address: (i.address_1 as string) || "",
+          city: (i.city as string) || "",
+          due_date: (i.due_date as string) || null,
+          status: (i.status as string) || "",
+        }));
+      setAvailableInspections(inspections);
+    } catch (err) {
+      console.error("Fetch inspections error:", err);
+    } finally {
+      setLoadingInspections(false);
+    }
+  }, []);
+
+  // Check URL params for pre-selected inspection IDs (from dashboard)
+  useEffect(() => {
+    const idsParam = searchParams.get("ids");
+    if (idsParam) {
+      const ids = idsParam.split(",").filter(Boolean);
+      if (ids.length > 0) {
+        setSelectedIds(new Set(ids));
+        setPickMode("pick");
+        setShowModal(true);
+        fetchAvailableInspections();
+        // Clean up URL
+        router.replace("/maintenance/inspections/routes", { scroll: false });
+      }
+    }
+  }, [searchParams, fetchAvailableInspections, router]);
+
+  // Fetch inspections when switching to pick mode
+  useEffect(() => {
+    if (pickMode === "pick" && availableInspections.length === 0) {
+      fetchAvailableInspections();
+    }
+  }, [pickMode, availableInspections.length, fetchAvailableInspections]);
 
   // ── Fetch routes ──
   const fetchRoutes = useCallback(async () => {
@@ -123,19 +191,29 @@ export function RouteBuilder() {
 
   // ── Generate routes ──
   const handleGenerate = async () => {
+    if (pickMode === "pick" && selectedIds.size === 0) {
+      setGenError("Select at least one property");
+      return;
+    }
     setGenerating(true);
     setGenSuccess(null);
     setGenError(null);
     try {
+      const payload: Record<string, unknown> = {
+        date_range_start: routeDate,
+        date_range_end: routeDate,
+        assigned_to: assignee || undefined,
+      };
+      if (pickMode === "pick") {
+        payload.inspection_ids = [...selectedIds];
+      } else {
+        payload.max_stops_per_route = maxStops;
+      }
+
       const res = await fetch("/api/inspections/routes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          date_range_start: routeDate,
-          date_range_end: routeDate,
-          assigned_to: assignee || undefined,
-          max_stops_per_route: maxStops,
-        }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -159,7 +237,30 @@ export function RouteBuilder() {
     setRouteDate(new Date().toISOString().split("T")[0]);
     setAssignee("");
     setMaxStops(10);
+    setPickMode("auto");
+    setSelectedIds(new Set());
+    setPickSearch("");
   };
+
+  // Pick mode helpers
+  const togglePickId = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const filteredInspections = availableInspections.filter((i) => {
+    if (!pickSearch) return true;
+    const q = pickSearch.toLowerCase();
+    return (
+      i.property_name.toLowerCase().includes(q) ||
+      i.address.toLowerCase().includes(q) ||
+      i.city.toLowerCase().includes(q)
+    );
+  });
 
   // ────────────────────────────────────────────────
   // Render
@@ -367,7 +468,10 @@ export function RouteBuilder() {
           />
 
           {/* Modal */}
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+          <div className={cn(
+            "relative bg-white rounded-xl shadow-xl mx-4 p-6",
+            pickMode === "pick" ? "w-full max-w-2xl" : "w-full max-w-md"
+          )}>
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-lg font-bold text-charcoal-900">Schedule Route</h2>
               <button
@@ -437,24 +541,124 @@ export function RouteBuilder() {
                   </div>
                 </div>
 
-                {/* Max stops */}
+                {/* Mode toggle */}
                 <div>
-                  <label className="block text-xs font-medium text-charcoal-600 mb-1">
-                    Stops in Route: {maxStops}
+                  <label className="block text-xs font-medium text-charcoal-600 mb-1.5">
+                    Selection Mode
                   </label>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-charcoal-400">5</span>
-                    <input
-                      type="range"
-                      min={5}
-                      max={25}
-                      value={maxStops}
-                      onChange={(e) => setMaxStops(Number(e.target.value))}
-                      className="flex-1 accent-terra-500"
-                    />
-                    <span className="text-xs text-charcoal-400">25</span>
+                  <div className="flex rounded-lg border border-charcoal-200 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setPickMode("auto")}
+                      className={cn(
+                        "flex-1 px-3 py-1.5 text-xs font-medium transition-colors",
+                        pickMode === "auto"
+                          ? "bg-terra-500 text-white"
+                          : "bg-white text-charcoal-600 hover:bg-charcoal-50"
+                      )}
+                    >
+                      Auto-select
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPickMode("pick")}
+                      className={cn(
+                        "flex-1 px-3 py-1.5 text-xs font-medium transition-colors",
+                        pickMode === "pick"
+                          ? "bg-terra-500 text-white"
+                          : "bg-white text-charcoal-600 hover:bg-charcoal-50"
+                      )}
+                    >
+                      Pick Properties
+                    </button>
                   </div>
                 </div>
+
+                {/* Auto mode: Max stops slider */}
+                {pickMode === "auto" && (
+                  <div>
+                    <label className="block text-xs font-medium text-charcoal-600 mb-1">
+                      Stops in Route: {maxStops}
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-charcoal-400">5</span>
+                      <input
+                        type="range"
+                        min={5}
+                        max={25}
+                        value={maxStops}
+                        onChange={(e) => setMaxStops(Number(e.target.value))}
+                        className="flex-1 accent-terra-500"
+                      />
+                      <span className="text-xs text-charcoal-400">25</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Pick mode: Property search + checklist */}
+                {pickMode === "pick" && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-medium text-charcoal-600">
+                        Select Properties
+                      </label>
+                      <span className="text-xs text-terra-600 font-medium">
+                        {selectedIds.size} selected
+                      </span>
+                    </div>
+                    {/* Search */}
+                    <div className="relative mb-2">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-charcoal-400 pointer-events-none" />
+                      <input
+                        type="text"
+                        placeholder="Search by name, address, or city..."
+                        value={pickSearch}
+                        onChange={(e) => setPickSearch(e.target.value)}
+                        className="w-full bg-white border border-charcoal-200 rounded-lg pl-8 pr-3 py-1.5 text-xs text-charcoal-700 focus:outline-none focus:ring-2 focus:ring-terra-400 focus:border-transparent"
+                      />
+                    </div>
+                    {/* Scrollable list */}
+                    <div className="border border-charcoal-200 rounded-lg max-h-64 overflow-y-auto divide-y divide-charcoal-100">
+                      {loadingInspections ? (
+                        <div className="p-4 text-center text-xs text-charcoal-400">
+                          <RefreshCw className="w-4 h-4 animate-spin mx-auto mb-1" />
+                          Loading properties...
+                        </div>
+                      ) : filteredInspections.length === 0 ? (
+                        <div className="p-4 text-center text-xs text-charcoal-400">
+                          {pickSearch ? "No properties match your search" : "No eligible inspections found"}
+                        </div>
+                      ) : (
+                        filteredInspections.map((insp) => (
+                          <button
+                            key={insp.id}
+                            type="button"
+                            onClick={() => togglePickId(insp.id)}
+                            className={cn(
+                              "w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-charcoal-50",
+                              selectedIds.has(insp.id) && "bg-terra-50"
+                            )}
+                          >
+                            {selectedIds.has(insp.id) ? (
+                              <CheckSquare className="w-4 h-4 text-terra-500 flex-shrink-0" />
+                            ) : (
+                              <Square className="w-4 h-4 text-charcoal-300 flex-shrink-0" />
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <div className="text-xs font-medium text-charcoal-800 truncate">
+                                {insp.property_name || insp.address}
+                              </div>
+                              <div className="text-[10px] text-charcoal-400 truncate">
+                                {insp.address}{insp.city ? ` • ${insp.city}` : ""}
+                                {insp.due_date ? ` • Due ${insp.due_date}` : ""}
+                              </div>
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Error */}
                 {genError && (
@@ -474,7 +678,7 @@ export function RouteBuilder() {
                   </button>
                   <button
                     onClick={handleGenerate}
-                    disabled={generating || !routeDate}
+                    disabled={generating || !routeDate || (pickMode === "pick" && selectedIds.size === 0)}
                     className={cn(
                       "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
                       "bg-terra-500 text-white hover:bg-terra-600 disabled:opacity-60"
@@ -488,7 +692,9 @@ export function RouteBuilder() {
                     ) : (
                       <>
                         <Play className="w-4 h-4" />
-                        Generate
+                        {pickMode === "pick"
+                          ? `Schedule ${selectedIds.size} Stop${selectedIds.size !== 1 ? "s" : ""}`
+                          : "Generate"}
                       </>
                     )}
                   </button>

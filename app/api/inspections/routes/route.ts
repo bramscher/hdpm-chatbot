@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body: RouteGenerationRequest = await request.json();
-    const { date_range_start, date_range_end, assigned_to, max_stops_per_route } = body;
+    const { date_range_start, date_range_end, assigned_to, max_stops_per_route, inspection_ids } = body;
 
     if (!date_range_start || !date_range_end) {
       return NextResponse.json(
@@ -88,12 +88,22 @@ export async function POST(request: NextRequest) {
 
     const supabase = getSupabaseAdmin();
 
-    // Step 1: Fetch eligible inspections with geocoded properties
-    const { data: rawInspections, error: fetchError } = await supabase
+    // Step 1: Fetch inspections — either manually picked or auto-selected
+    let query = supabase
       .from('inspections')
-      .select('id, property_id, status, due_date, priority, inspection_type, inspection_properties(id, address_1, city, state, zip, latitude, longitude)')
-      .in('status', ['imported', 'validated', 'queued'])
-      .not('inspection_properties.latitude', 'is', null);
+      .select('id, property_id, status, due_date, priority, inspection_type, inspection_properties(id, address_1, city, state, zip, latitude, longitude)');
+
+    if (inspection_ids && inspection_ids.length > 0) {
+      // Manual pick mode — fetch specific inspections by ID
+      query = query.in('id', inspection_ids);
+    } else {
+      // Auto mode — fetch eligible inspections from the queue
+      query = query
+        .in('status', ['imported', 'validated', 'queued'])
+        .not('inspection_properties.latitude', 'is', null);
+    }
+
+    const { data: rawInspections, error: fetchError } = await query;
 
     if (fetchError) {
       console.error('Error fetching inspections for routing:', fetchError);
@@ -104,7 +114,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         routes: [],
         excluded_count: 0,
-        message: 'No eligible inspections found with geocoded properties',
+        message: inspection_ids ? 'None of the selected inspections were found' : 'No eligible inspections found with geocoded properties',
       });
     }
 
@@ -155,64 +165,65 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Step 3: Build ONE route per request — user picks the day and stop count
-    const maxStops = max_stops_per_route || 10;
+    // Step 3: Build ONE route per request
+    const isManualPick = inspection_ids && inspection_ids.length > 0;
+    let selectedInspections: GeoInspection[];
 
-    // Group inspections by city so we don't mix e.g. Redmond + Sisters
-    const cityGroups = new Map<string, GeoInspection[]>();
-    for (const insp of geoInspections) {
-      const city = (insp.city || 'Unknown').trim();
-      if (!cityGroups.has(city)) cityGroups.set(city, []);
-      cityGroups.get(city)!.push(insp);
-    }
+    if (isManualPick) {
+      // Manual pick mode — use all fetched inspections as-is (user chose them)
+      selectedInspections = geoInspections;
+    } else {
+      // Auto mode — group by city and pick top N
+      const maxStops = max_stops_per_route || 10;
 
-    // Sort each city group by priority (most overdue first)
-    for (const [, group] of cityGroups) {
-      group.sort((a, b) => {
-        if (b.days_overdue !== a.days_overdue) return b.days_overdue - a.days_overdue;
-        const aDate = a.due_date ? new Date(a.due_date).getTime() : Infinity;
-        const bDate = b.due_date ? new Date(b.due_date).getTime() : Infinity;
-        return aDate - bDate;
-      });
-    }
-
-    // Pick the city with the most pending inspections
-    // (weighted by overdue count to prioritize cities with urgent work)
-    const cityEntries = [...cityGroups.entries()].sort((a, b) => {
-      // Compare total overdue days as tiebreaker
-      const aOverdue = a[1].reduce((sum, i) => sum + i.days_overdue, 0);
-      const bOverdue = b[1].reduce((sum, i) => sum + i.days_overdue, 0);
-      if (b[1].length !== a[1].length) return b[1].length - a[1].length;
-      return bOverdue - aOverdue;
-    });
-
-    // Take top N from the biggest city group
-    const [topCity, topGroup] = cityEntries[0];
-    let selectedInspections = topGroup.slice(0, maxStops);
-
-    // If the top city doesn't have enough to fill the route,
-    // backfill from nearby cities (sorted by distance from city centroid)
-    if (selectedInspections.length < maxStops && cityEntries.length > 1) {
-      const centroidLat = selectedInspections.reduce((s, i) => s + i.lat, 0) / selectedInspections.length;
-      const centroidLng = selectedInspections.reduce((s, i) => s + i.lng, 0) / selectedInspections.length;
-
-      // Get remaining inspections from other cities, sorted by distance
-      const remaining: GeoInspection[] = [];
-      for (const [city, group] of cityEntries) {
-        if (city === topCity) continue;
-        remaining.push(...group);
+      const cityGroups = new Map<string, GeoInspection[]>();
+      for (const insp of geoInspections) {
+        const city = (insp.city || 'Unknown').trim();
+        if (!cityGroups.has(city)) cityGroups.set(city, []);
+        cityGroups.get(city)!.push(insp);
       }
 
-      // Sort by distance from the main city centroid
-      remaining.sort((a, b) => {
-        const distA = Math.hypot(a.lat - centroidLat, a.lng - centroidLng);
-        const distB = Math.hypot(b.lat - centroidLat, b.lng - centroidLng);
-        return distA - distB;
+      for (const [, group] of cityGroups) {
+        group.sort((a, b) => {
+          if (b.days_overdue !== a.days_overdue) return b.days_overdue - a.days_overdue;
+          const aDate = a.due_date ? new Date(a.due_date).getTime() : Infinity;
+          const bDate = b.due_date ? new Date(b.due_date).getTime() : Infinity;
+          return aDate - bDate;
+        });
+      }
+
+      const cityEntries = [...cityGroups.entries()].sort((a, b) => {
+        const aOverdue = a[1].reduce((sum, i) => sum + i.days_overdue, 0);
+        const bOverdue = b[1].reduce((sum, i) => sum + i.days_overdue, 0);
+        if (b[1].length !== a[1].length) return b[1].length - a[1].length;
+        return bOverdue - aOverdue;
       });
 
-      const needed = maxStops - selectedInspections.length;
-      selectedInspections = [...selectedInspections, ...remaining.slice(0, needed)];
+      const [topCity, topGroup] = cityEntries[0];
+      selectedInspections = topGroup.slice(0, maxStops);
+
+      if (selectedInspections.length < maxStops && cityEntries.length > 1) {
+        const centroidLat = selectedInspections.reduce((s, i) => s + i.lat, 0) / selectedInspections.length;
+        const centroidLng = selectedInspections.reduce((s, i) => s + i.lng, 0) / selectedInspections.length;
+
+        const remaining: GeoInspection[] = [];
+        for (const [city, group] of cityEntries) {
+          if (city === topCity) continue;
+          remaining.push(...group);
+        }
+
+        remaining.sort((a, b) => {
+          const distA = Math.hypot(a.lat - centroidLat, a.lng - centroidLng);
+          const distB = Math.hypot(b.lat - centroidLat, b.lng - centroidLng);
+          return distA - distB;
+        });
+
+        const needed = maxStops - selectedInspections.length;
+        selectedInspections = [...selectedInspections, ...remaining.slice(0, needed)];
+      }
     }
+
+    const maxStops = isManualPick ? selectedInspections.length : (max_stops_per_route || 10);
 
     const result = buildRoutePlans(selectedInspections, {
       date_range_start,

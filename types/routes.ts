@@ -119,6 +119,8 @@ export interface RouteGenerationRequest {
   date_range_end: string;
   assigned_to?: string;
   max_stops_per_route?: number;  // default 10
+  /** Optional: specific inspection IDs to include (manual pick mode) */
+  inspection_ids?: string[];
 }
 
 /** An inspection excluded from routing, with reason */
