@@ -97,10 +97,25 @@ export async function POST(request: NextRequest) {
       // Manual pick mode — fetch specific inspections by ID
       query = query.in('id', inspection_ids);
     } else {
-      // Auto mode — fetch eligible inspections from the queue
+      // Auto mode — fetch inspections within the scheduling window
+      // Window: 1 week BEFORE due date to 4 weeks AFTER due date
+      // relative to the route date (date_range_start)
+      const routeDate = new Date(date_range_start + 'T12:00:00');
+
+      // An inspection is eligible if:
+      //   route_date >= due_date - 28 days (we can do it up to 4 weeks early... wait, reversed)
+      //   Actually: due_date - 7 days <= route_date <= due_date + 28 days
+      //   Which means: due_date >= route_date - 28 days AND due_date <= route_date + 7 days
+      const windowStart = new Date(routeDate);
+      windowStart.setDate(windowStart.getDate() - 28); // inspections due up to 4 weeks ago (overdue)
+      const windowEnd = new Date(routeDate);
+      windowEnd.setDate(windowEnd.getDate() + 7); // inspections due up to 1 week from now (early)
+
       query = query
         .in('status', ['imported', 'validated', 'queued'])
-        .not('inspection_properties.latitude', 'is', null);
+        .not('inspection_properties.latitude', 'is', null)
+        .gte('due_date', windowStart.toISOString().split('T')[0])
+        .lte('due_date', windowEnd.toISOString().split('T')[0]);
     }
 
     const { data: rawInspections, error: fetchError } = await query;
@@ -201,53 +216,92 @@ export async function POST(request: NextRequest) {
 
       const [topCity, topGroup] = cityEntries[0];
 
-      // Group inspections by address so multi-unit properties count as 1 physical stop
-      // Select up to maxStops unique addresses, including all units at each address
-      const addressGroups = new Map<string, GeoInspection[]>();
-      for (const insp of topGroup) {
-        const addrKey = `${insp.lat.toFixed(5)},${insp.lng.toFixed(5)}`;
-        if (!addressGroups.has(addrKey)) addressGroups.set(addrKey, []);
-        addressGroups.get(addrKey)!.push(insp);
+      // Group ALL inspections (across cities) by street/neighborhood for proximity clustering
+      // Extract street name from address (e.g., "1534 SW 36th Lp" → "SW 36th Lp")
+      const getStreetKey = (address: string, city: string): string => {
+        const stripped = address.replace(/^\d+[-\s]?\d*\s*/, '').trim(); // Remove house number
+        return `${stripped}|${city}`.toLowerCase();
+      };
+
+      // Gather all eligible inspections across cities
+      const allEligible: GeoInspection[] = [];
+      for (const [, group] of cityEntries) {
+        allEligible.push(...group);
       }
 
-      // Take up to maxStops unique addresses (physical stops)
-      const addressEntries = [...addressGroups.values()];
+      // Group by street
+      const streetGroups = new Map<string, GeoInspection[]>();
+      for (const insp of allEligible) {
+        const streetKey = getStreetKey(insp.address.split(',')[0] || '', insp.city);
+        if (!streetGroups.has(streetKey)) streetGroups.set(streetKey, []);
+        streetGroups.get(streetKey)!.push(insp);
+      }
+
+      // Sort street groups by size (largest clusters first = most efficient routes)
+      // Then by total overdue days as tiebreaker
+      const sortedStreetGroups = [...streetGroups.entries()].sort((a, b) => {
+        if (b[1].length !== a[1].length) return b[1].length - a[1].length;
+        const aOverdue = a[1].reduce((s, i) => s + i.days_overdue, 0);
+        const bOverdue = b[1].reduce((s, i) => s + i.days_overdue, 0);
+        return bOverdue - aOverdue;
+      });
+
+      // Now also group by physical address (lat/lng) for multi-unit dedup
+      const groupByAddress = (inspections: GeoInspection[]): GeoInspection[][] => {
+        const addrMap = new Map<string, GeoInspection[]>();
+        for (const insp of inspections) {
+          const addrKey = `${insp.lat.toFixed(5)},${insp.lng.toFixed(5)}`;
+          if (!addrMap.has(addrKey)) addrMap.set(addrKey, []);
+          addrMap.get(addrKey)!.push(insp);
+        }
+        return [...addrMap.values()];
+      };
+
+      // Fill the route: start with the largest street cluster, then nearest neighbors
       selectedInspections = [];
       let physicalStops = 0;
-      for (const group of addressEntries) {
+      const usedInspectionIds = new Set<string>();
+
+      // First, take as many as we can from the biggest street cluster
+      for (const [, streetInspections] of sortedStreetGroups) {
         if (physicalStops >= maxStops) break;
-        selectedInspections.push(...group);
-        physicalStops++;
+
+        const addrGroups = groupByAddress(streetInspections);
+        for (const addrGroup of addrGroups) {
+          if (physicalStops >= maxStops) break;
+          const unused = addrGroup.filter(i => !usedInspectionIds.has(i.inspection_id));
+          if (unused.length === 0) continue;
+
+          selectedInspections.push(...unused);
+          unused.forEach(i => usedInspectionIds.add(i.inspection_id));
+          physicalStops++;
+        }
       }
 
-      // Backfill from nearby cities if needed
-      if (physicalStops < maxStops && cityEntries.length > 1) {
-        const centroidLat = selectedInspections.reduce((s, i) => s + i.lat, 0) / selectedInspections.length;
-        const centroidLng = selectedInspections.reduce((s, i) => s + i.lng, 0) / selectedInspections.length;
+      // If we still need more, backfill with nearest unrouted inspections
+      if (physicalStops < maxStops) {
+        const centroidLat = selectedInspections.length > 0
+          ? selectedInspections.reduce((s, i) => s + i.lat, 0) / selectedInspections.length
+          : (allEligible[0]?.lat || 44.256798);
+        const centroidLng = selectedInspections.length > 0
+          ? selectedInspections.reduce((s, i) => s + i.lng, 0) / selectedInspections.length
+          : (allEligible[0]?.lng || -121.184346);
 
-        const remaining: GeoInspection[] = [];
-        for (const [city, group] of cityEntries) {
-          if (city === topCity) continue;
-          remaining.push(...group);
-        }
+        const remaining = allEligible.filter(i => !usedInspectionIds.has(i.inspection_id));
+        const remAddrGroups = groupByAddress(remaining);
 
-        remaining.sort((a, b) => {
-          const distA = Math.hypot(a.lat - centroidLat, a.lng - centroidLng);
-          const distB = Math.hypot(b.lat - centroidLat, b.lng - centroidLng);
-          return distA - distB;
+        // Sort remaining address groups by distance from current route centroid
+        remAddrGroups.sort((a, b) => {
+          const aLat = a[0].lat, aLng = a[0].lng;
+          const bLat = b[0].lat, bLng = b[0].lng;
+          return Math.hypot(aLat - centroidLat, aLng - centroidLng) -
+                 Math.hypot(bLat - centroidLat, bLng - centroidLng);
         });
 
-        // Group remaining by address too
-        const remAddrGroups = new Map<string, GeoInspection[]>();
-        for (const insp of remaining) {
-          const addrKey = `${insp.lat.toFixed(5)},${insp.lng.toFixed(5)}`;
-          if (!remAddrGroups.has(addrKey)) remAddrGroups.set(addrKey, []);
-          remAddrGroups.get(addrKey)!.push(insp);
-        }
-
-        for (const group of remAddrGroups.values()) {
+        for (const addrGroup of remAddrGroups) {
           if (physicalStops >= maxStops) break;
-          selectedInspections.push(...group);
+          selectedInspections.push(...addrGroup);
+          addrGroup.forEach(i => usedInspectionIds.add(i.inspection_id));
           physicalStops++;
         }
       }
