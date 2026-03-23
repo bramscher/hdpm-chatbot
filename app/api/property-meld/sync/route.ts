@@ -308,21 +308,23 @@ export async function POST(req: Request) {
           stats.properties_created++;
 
           // Create TWO inspections per property (next 12 months)
-          // Rule: if a calculated due date is in the past, clamp it to today
+          // Rule: first overdue inspection → due today
+          //        second inspection → 6 months after the first
           const now = new Date();
           const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
           const dueDates: Date[] = [];
 
           if (effectiveDateStr) {
             const baseDate = new Date(effectiveDateStr + 'T12:00:00');
-            // First due date = base + 6 months
+            // First due date = base + 6 months (clamp to today if past)
             const due1 = new Date(baseDate);
             due1.setMonth(due1.getMonth() + 6);
-            dueDates.push(due1 < today ? new Date(today) : due1);
-            // Second due date = base + 12 months
-            const due2 = new Date(baseDate);
-            due2.setMonth(due2.getMonth() + 12);
-            dueDates.push(due2 < today ? new Date(today) : due2);
+            const actualDue1 = due1 < today ? new Date(today) : due1;
+            dueDates.push(actualDue1);
+            // Second due date = 6 months AFTER the first due date
+            const due2 = new Date(actualDue1);
+            due2.setMonth(due2.getMonth() + 6);
+            dueDates.push(due2);
           } else {
             // No date found at all → due today, then again in 6 months
             dueDates.push(new Date(today));
