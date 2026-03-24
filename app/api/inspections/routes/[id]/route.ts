@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
 // ============================================
@@ -109,6 +110,20 @@ export async function PATCH(
       return NextResponse.json({ error: 'Route plan not found' }, { status: 404 });
     }
 
+    // Enforce 7-day minimum lead time if route_date is being changed
+    if (body.route_date) {
+      const minRouteDate = new Date();
+      minRouteDate.setDate(minRouteDate.getDate() + 7);
+      const minDateStr = minRouteDate.toISOString().split('T')[0];
+
+      if (body.route_date < minDateStr) {
+        return NextResponse.json(
+          { error: 'Routes must be scheduled at least 7 days in advance to allow time for tenant notices.' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Update route plan fields (whitelisted)
     const allowedFields = ['name', 'status', 'assigned_to', 'route_date', 'notes'];
     const updates: Record<string, unknown> = {};
@@ -215,13 +230,39 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     if (!session?.user?.email?.endsWith('@highdesertpm.com')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id } = await params;
     const supabase = getSupabaseAdmin();
+
+    // Fetch the route plan to get calendar_event_id before deletion
+    const { data: routePlan } = await supabase
+      .from('route_plans')
+      .select('calendar_event_id')
+      .eq('id', id)
+      .single();
+
+    // Delete the calendar event if one was created
+    if (routePlan?.calendar_event_id && session.accessToken) {
+      try {
+        const graphRes = await fetch(
+          `https://graph.microsoft.com/v1.0/me/events/${routePlan.calendar_event_id}`,
+          {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${session.accessToken}` },
+          }
+        );
+        if (!graphRes.ok && graphRes.status !== 404) {
+          console.error('Failed to delete calendar event:', graphRes.status);
+        }
+      } catch (calErr) {
+        // Non-fatal: route deletion should proceed even if calendar cleanup fails
+        console.error('Calendar event cleanup error:', calErr);
+      }
+    }
 
     // Fetch the route stops to get inspection IDs before deletion
     const { data: stops, error: stopsError } = await supabase
@@ -274,6 +315,7 @@ export async function DELETE(
     return NextResponse.json({
       deleted: true,
       inspections_reset: inspectionIds.length,
+      calendar_event_deleted: !!routePlan?.calendar_event_id,
     });
   } catch (error) {
     console.error('Route plan DELETE error:', error);

@@ -107,6 +107,14 @@ function isWeekend(d: Date): boolean {
   return d.getDay() === 0 || d.getDay() === 6;
 }
 
+/** Returns true if the date is within the 7-day notice blackout window */
+function isInBlackout(d: Date): boolean {
+  const minDate = new Date();
+  minDate.setDate(minDate.getDate() + 7);
+  minDate.setHours(0, 0, 0, 0);
+  return d < minDate;
+}
+
 // ────────────────────────────────────────────────
 // Component
 // ────────────────────────────────────────────────
@@ -431,7 +439,7 @@ export function RouteCalendar({ routes, onCreateRoute, onDeleteRoute, onClearDay
                   ))}
 
                   {/* Add route button */}
-                  {!isPast && (
+                  {!isPast && !isInBlackout(day) && (
                     <button
                       onClick={() => onCreateRoute(key)}
                       className={cn(
@@ -444,6 +452,11 @@ export function RouteCalendar({ routes, onCreateRoute, onDeleteRoute, onClearDay
                       <Plus className="w-3.5 h-3.5" />
                       <span className="text-xs font-medium">Add Route</span>
                     </button>
+                  )}
+                  {!isPast && isInBlackout(day) && dayRoutes.length === 0 && (
+                    <p className="text-[10px] text-charcoal-300 text-center px-2 py-1">
+                      7-day notice required
+                    </p>
                   )}
                 </div>
               </div>
@@ -558,10 +571,11 @@ export function RouteCalendar({ routes, onCreateRoute, onDeleteRoute, onClearDay
                     )}
                   </div>
 
-                  {/* Add button for empty future workdays */}
+                  {/* Add button for empty future workdays outside blackout */}
                   {dayRoutes.length === 0 &&
                     !weekend &&
                     !isPast &&
+                    !isInBlackout(day) &&
                     isCurrentMonth && (
                       <button
                         onClick={() => onCreateRoute(key)}

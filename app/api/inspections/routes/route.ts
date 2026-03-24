@@ -86,6 +86,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Enforce 7-day minimum lead time for tenant notification
+    const minRouteDate = new Date();
+    minRouteDate.setDate(minRouteDate.getDate() + 7);
+    const minDateStr = minRouteDate.toISOString().split('T')[0];
+
+    if (date_range_start < minDateStr) {
+      return NextResponse.json(
+        { error: 'Routes must be scheduled at least 7 days in advance to allow time for tenant notices.' },
+        { status: 400 }
+      );
+    }
+
     const supabase = getSupabaseAdmin();
 
     // Step 1: Fetch inspections — either manually picked or auto-selected

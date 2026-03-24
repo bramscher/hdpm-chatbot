@@ -63,20 +63,27 @@ const ROUTE_STATUS_BADGE: Record<string, string> = {
 // Helpers
 // ────────────────────────────────────────────────
 
-function getNextMonday(): string {
+/** Earliest date a route can be scheduled (7 days from today) */
+function getMinRouteDate(): string {
   const d = new Date();
-  const day = d.getDay(); // 0=Sun, 1=Mon, ...
-  // Always advance to the NEXT Monday (not today even if today is Monday)
-  const diff = day === 0 ? 1 : (8 - day);
-  d.setDate(d.getDate() + diff);
+  d.setDate(d.getDate() + 7);
   return d.toISOString().split("T")[0];
 }
 
+/** Default route date: next Monday that is at least 7 days out */
+function getDefaultRouteDate(): string {
+  const minDate = new Date(getMinRouteDate());
+  const day = minDate.getDay(); // 0=Sun, 1=Mon, ...
+  // Advance to next Monday (or stay if already Monday)
+  const diff = day === 0 ? 1 : day === 1 ? 0 : (8 - day);
+  minDate.setDate(minDate.getDate() + diff);
+  return minDate.toISOString().split("T")[0];
+}
+
 function getNextFriday(): string {
-  // Friday of the same week as getNextMonday
-  const monday = new Date(getNextMonday());
+  const monday = new Date(getDefaultRouteDate());
   const d = new Date(monday);
-  d.setDate(d.getDate() + 4); // Monday + 4 = Friday
+  d.setDate(d.getDate() + 4);
   return d.toISOString().split("T")[0];
 }
 
@@ -109,10 +116,7 @@ export function RouteBuilder() {
   const [generating, setGenerating] = useState(false);
   const [genSuccess, setGenSuccess] = useState<number | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
-  const [routeDate, setRouteDate] = useState(() => {
-    const d = new Date();
-    return d.toISOString().split("T")[0];
-  });
+  const [routeDate, setRouteDate] = useState(getDefaultRouteDate);
   const [assignee, setAssignee] = useState("");
   const [maxStops, setMaxStops] = useState(10);
 
@@ -234,7 +238,7 @@ export function RouteBuilder() {
     setShowModal(false);
     setGenSuccess(null);
     setGenError(null);
-    setRouteDate(new Date().toISOString().split("T")[0]);
+    setRouteDate(getDefaultRouteDate());
     setAssignee("");
     setMaxStops(10);
     setPickMode("auto");
@@ -342,7 +346,8 @@ export function RouteBuilder() {
         <RouteCalendar
           routes={routes}
           onCreateRoute={(date) => {
-            setRouteDate(date);
+            const minDate = getMinRouteDate();
+            setRouteDate(date < minDate ? minDate : date);
             setShowModal(true);
           }}
           onDeleteRoute={async (routeId) => {
@@ -512,12 +517,13 @@ export function RouteBuilder() {
                     <input
                       type="date"
                       value={routeDate}
+                      min={getMinRouteDate()}
                       onChange={(e) => setRouteDate(e.target.value)}
                       className="w-full bg-white border border-charcoal-300 rounded-lg pl-9 pr-3 py-2 text-sm text-charcoal-700 focus:outline-none focus:ring-2 focus:ring-terra-400 focus:border-transparent"
                     />
                   </div>
                   <p className="text-xs text-charcoal-400 mt-1">
-                    Click a day on the calendar to pre-fill this date.
+                    Must be at least 7 days from today for tenant notification.
                   </p>
                 </div>
 
