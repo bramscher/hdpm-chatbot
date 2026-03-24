@@ -10,6 +10,7 @@ import {
   Building2,
   Navigation,
   Calendar,
+  CalendarPlus,
   ArrowLeft,
   Play,
   CheckCircle2,
@@ -21,6 +22,7 @@ import {
   SkipForward,
   MessageSquare,
   Trash2,
+  ExternalLink,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -167,6 +169,8 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
   const [completingStop, setCompletingStop] = useState<string | null>(null);
   const [stopNotes, setStopNotes] = useState<Record<string, string>>({});
   const [polyline, setPolyline] = useState<string | null>(null);
+  const [addingToCalendar, setAddingToCalendar] = useState(false);
+  const [calendarLink, setCalendarLink] = useState<string | null>(null);
 
   // ── Fetch route ──
   const fetchRoute = useCallback(async () => {
@@ -283,6 +287,28 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
       console.error("Delete error:", err);
       alert(`Delete failed: ${err instanceof Error ? err.message : err}`);
       setDeleting(false);
+    }
+  };
+
+  // ── Add to Outlook Calendar ──
+  const handleAddToCalendar = async () => {
+    setAddingToCalendar(true);
+    try {
+      const res = await fetch(`/api/inspections/routes/${routeId}/calendar`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to add to calendar");
+        return;
+      }
+      setCalendarLink(data.webLink || null);
+      alert("Route added to your Outlook calendar!");
+    } catch (err) {
+      console.error("Calendar error:", err);
+      alert(`Calendar error: ${err instanceof Error ? err.message : err}`);
+    } finally {
+      setAddingToCalendar(false);
     }
   };
 
@@ -427,6 +453,40 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
                 </>
               )}
             </button>
+          )}
+          {(route.status === "optimized" || route.status === "dispatched") && (
+            calendarLink ? (
+              <a
+                href={calendarLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-green-300 text-green-700 hover:bg-green-50"
+              >
+                <ExternalLink className="w-4 h-4" />
+                View in Outlook
+              </a>
+            ) : (
+              <button
+                onClick={handleAddToCalendar}
+                disabled={addingToCalendar}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                  "border border-blue-300 text-blue-700 hover:bg-blue-50 disabled:opacity-60"
+                )}
+              >
+                {addingToCalendar ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  <>
+                    <CalendarPlus className="w-4 h-4" />
+                    Add to Outlook
+                  </>
+                )}
+              </button>
+            )
           )}
           {route.status !== "completed" && (
             <button
