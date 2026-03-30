@@ -55,7 +55,7 @@ interface InspectionRoute {
   id: string;
   name: string;
   date: string;
-  status: "draft" | "optimized" | "dispatched" | "completed";
+  status: "draft" | "optimized" | "dispatched" | "in_progress" | "completed";
   assigned_to: string | null;
   stop_count: number;
   total_drive_minutes: number | null;
@@ -69,6 +69,7 @@ const ROUTE_STATUS_BADGE: Record<string, string> = {
   draft: "bg-charcoal-100 text-charcoal-700",
   optimized: "bg-blue-100 text-blue-700",
   dispatched: "bg-amber-100 text-amber-700",
+  in_progress: "bg-terra-100 text-terra-700",
   completed: "bg-green-100 text-green-700",
 };
 
@@ -167,6 +168,8 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
   const [error, setError] = useState<string | null>(null);
   const [showMap, setShowMap] = useState(true);
   const [completingStop, setCompletingStop] = useState<string | null>(null);
+  const [startingStop, setStartingStop] = useState<string | null>(null);
+  const [meldLinks, setMeldLinks] = useState<Record<string, number>>({});
   const [stopNotes, setStopNotes] = useState<Record<string, string>>({});
   const [polyline, setPolyline] = useState<string | null>(null);
   const [addingToCalendar, setAddingToCalendar] = useState(false);
@@ -336,6 +339,33 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
       console.error("Stop action error:", err);
     } finally {
       setCompletingStop(null);
+    }
+  };
+
+  // ── Start Inspection: create PM meld ──
+  const handleStartInspection = async (stopId: string) => {
+    setStartingStop(stopId);
+    try {
+      const res = await fetch(`/api/inspections/routes/${routeId}/stops`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stop_id: stopId, action: "start" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to start inspection");
+
+      if (data.meld_id) {
+        setMeldLinks((prev) => ({ ...prev, [stopId]: data.meld_id }));
+      }
+      if (data.meld_error) {
+        alert(`Inspection started but meld creation failed: ${data.meld_error}`);
+      }
+      await fetchRoute();
+    } catch (err) {
+      console.error("Start inspection error:", err);
+      alert(`Failed to start inspection: ${err instanceof Error ? err.message : err}`);
+    } finally {
+      setStartingStop(null);
     }
   };
 
@@ -716,11 +746,47 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
 
                   {/* ── Stop Actions ── */}
                   {stop.status === "pending" && (route.status === "dispatched" || route.status === "optimized" || route.status === "draft") && (
+                    <div className="mt-3 flex items-center gap-2">
+                      <button
+                        onClick={() => handleStartInspection(stop.id)}
+                        disabled={startingStop === stop.id}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold bg-terra-500 text-white hover:bg-terra-600 transition-colors disabled:opacity-60"
+                      >
+                        {startingStop === stop.id ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            Creating Meld...
+                          </>
+                        ) : (
+                          <>
+                            <Play className="w-3.5 h-3.5" />
+                            Start Inspection
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => handleStopAction(stop.id, "skip")}
+                        disabled={completingStop === stop.id}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium bg-charcoal-100 text-charcoal-600 hover:bg-charcoal-200 transition-colors disabled:opacity-50"
+                      >
+                        <SkipForward className="w-3 h-3" />
+                        Skip
+                      </button>
+                    </div>
+                  )}
+
+                  {/* In-progress: show complete/flag/notes */}
+                  {stop.status === "in_progress" && (
                     <div className="mt-3 space-y-2">
-                      {/* Notes input */}
+                      {meldLinks[stop.id] && (
+                        <div className="flex items-center gap-1.5 text-xs text-blue-600">
+                          <ExternalLink className="w-3 h-3" />
+                          Meld #{meldLinks[stop.id]} created — syncing to AppFolio
+                        </div>
+                      )}
                       <input
                         type="text"
-                        placeholder="Add notes..."
+                        placeholder="Add inspection notes..."
                         value={stopNotes[stop.id] || ""}
                         onChange={(e) =>
                           setStopNotes((prev) => ({
