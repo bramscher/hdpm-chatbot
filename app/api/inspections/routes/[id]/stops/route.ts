@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { getMultitenantId, createMeld, findWorkCategory } from '@/lib/property-meld';
+import { getMultitenantId, createMeld } from '@/lib/property-meld';
 
 /**
  * PATCH /api/inspections/routes/[id]/stops
@@ -96,15 +96,12 @@ export async function PATCH(
           const resident = inspection.resident_name ? ` — ${inspection.resident_name}` : '';
           const unit = inspection.unit_name ? ` (Unit ${inspection.unit_name})` : '';
 
-          // Resolve work_category from Property Meld's category list
-          const workCategoryId = await findWorkCategory(multitenantId, 'inspection');
-
           const meld = await createMeld(multitenantId, {
             ...(pmUnitId ? { unit: pmUnitId } : {}),
             ...(pmPropertyId && !pmUnitId ? { property: pmPropertyId } : {}),
-            work_location: pmUnitId || pmPropertyId,
-            work_type: 'manager_meld',
-            ...(workCategoryId ? { work_category: workCategoryId } : {}),
+            work_location: 'Interior',
+            work_type: 'PREVENTIVE_MAINTENANCE',
+            work_category: 'GENERAL',
             brief_description: `${inspType.charAt(0).toUpperCase() + inspType.slice(1)} Inspection — ${address}${unit}`,
             description: [
               `Scheduled ${inspType} property inspection.`,
@@ -113,8 +110,7 @@ export async function PATCH(
               `Inspector: ${session.user.email}`,
               `Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}`,
             ].filter(Boolean).join('\n'),
-            category: 'Inspection',
-            priority: 'low',
+            priority: 'LOW',
           });
 
           meldId = meld.id;
