@@ -95,6 +95,12 @@ export interface PMOwner {
   [key: string]: unknown;
 }
 
+export interface PMWorkCategory {
+  id: number;
+  name?: string;
+  [key: string]: unknown;
+}
+
 export interface PMManagement {
   id: number;
   multitenant_id: number;
@@ -338,6 +344,31 @@ export async function getVendors(multitenantId: number): Promise<PMVendor[]> {
  */
 export async function getOwners(multitenantId: number): Promise<PMOwner[]> {
   return pmFetchAll<PMOwner>('/api/v2/owner/', multitenantId);
+}
+
+/**
+ * List work categories.
+ */
+export async function getWorkCategories(multitenantId: number): Promise<PMWorkCategory[]> {
+  return pmFetchAll<PMWorkCategory>('/api/v2/work-category/', multitenantId);
+}
+
+/**
+ * Find a work category by name (case-insensitive partial match).
+ * Falls back to the first available category.
+ */
+export async function findWorkCategory(
+  multitenantId: number,
+  search: string
+): Promise<number | null> {
+  const categories = await getWorkCategories(multitenantId);
+  if (categories.length === 0) return null;
+
+  const lower = search.toLowerCase();
+  const match = categories.find(
+    (c) => c.name?.toLowerCase().includes(lower)
+  );
+  return match ? match.id : categories[0].id;
 }
 
 /**
