@@ -122,24 +122,30 @@ export async function PATCH(
         meldError = 'Property not linked to Property Meld (no pm_property_id/pm_unit_id)';
       }
 
-      // Update stop to in_progress
+      // If meld creation failed, keep stop as pending so user can retry
+      if (!meldId) {
+        return NextResponse.json({
+          success: false,
+          stop_status: 'pending',
+          meld_id: null,
+          meld_error: meldError,
+        });
+      }
+
+      // Meld created — transition stop to in_progress
       await supabase
         .from('route_stops')
         .update({ status: 'in_progress', actual_arrival: now })
         .eq('id', stop_id);
 
       // Update inspection with meld_id
-      const inspUpdate: Record<string, unknown> = {
-        status: 'scheduled',
-        updated_at: now,
-      };
-      if (meldId) {
-        inspUpdate.meld_id = String(meldId);
-      }
-
       await supabase
         .from('inspections')
-        .update(inspUpdate)
+        .update({
+          status: 'scheduled',
+          meld_id: String(meldId),
+          updated_at: now,
+        })
         .eq('id', stop.inspection_id);
 
       // Update route to in_progress if it's dispatched
@@ -153,7 +159,7 @@ export async function PATCH(
         success: true,
         stop_status: 'in_progress',
         meld_id: meldId,
-        meld_error: meldError,
+        meld_error: null,
       });
     }
 

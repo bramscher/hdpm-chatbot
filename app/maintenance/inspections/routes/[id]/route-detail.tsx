@@ -354,11 +354,13 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to start inspection");
 
+      if (data.meld_error) {
+        alert(`Meld creation failed: ${data.meld_error}\n\nThe stop remains pending — fix the issue and try again.`);
+        return;
+      }
+
       if (data.meld_id) {
         setMeldLinks((prev) => ({ ...prev, [stopId]: data.meld_id }));
-      }
-      if (data.meld_error) {
-        alert(`Inspection started but meld creation failed: ${data.meld_error}`);
       }
       await fetchRoute();
     } catch (err) {
