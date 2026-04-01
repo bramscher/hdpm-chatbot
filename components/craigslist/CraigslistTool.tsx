@@ -120,13 +120,11 @@ export function CraigslistTool() {
     }
   }, []);
 
-  const fetchPhotos = useCallback(async (unitId: string, propertyId: string) => {
+  const fetchPhotos = useCallback(async (address: string) => {
     setPhotosLoading(true);
     setPhotos([]);
     try {
-      const params = new URLSearchParams();
-      if (unitId) params.set("unit_id", unitId);
-      if (propertyId) params.set("property_id", propertyId);
+      const params = new URLSearchParams({ address });
       const res = await fetch(`/api/appfolio-photos?${params}`);
       const data = await res.json();
       if (res.ok) setPhotos(data.photos || []);
@@ -168,7 +166,7 @@ export function CraigslistTool() {
       setSelectedPhotos(new Set());
 
       // Fetch photos in parallel with generation
-      fetchPhotos(unit.appfolio_unit_id, unit.appfolio_property_id);
+      fetchPhotos(unit.address);
 
       try {
         const res = await fetch("/api/generate-listing", {
