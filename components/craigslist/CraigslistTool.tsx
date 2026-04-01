@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   Loader2,
   RefreshCw,
@@ -15,6 +15,13 @@ import {
   EyeOff,
   ToggleLeft,
   ToggleRight,
+  Save,
+  History,
+  Trash2,
+  ImageIcon,
+  Download,
+  X,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +43,34 @@ interface VacantUnit {
   amenities: string[];
 }
 
-type View = "list" | "editor";
+interface SavedListing {
+  id: string;
+  appfolio_unit_id: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string | null;
+  bedrooms: number;
+  bathrooms: number | null;
+  sqft: number | null;
+  monthly_rent: number;
+  listing_title: string;
+  listing_body: string;
+  rently_enabled: boolean;
+  rently_url: string | null;
+  created_by: string;
+  created_at: string;
+}
+
+interface UnitPhoto {
+  id: string;
+  url: string;
+  thumbnail_url: string;
+  caption: string;
+  is_primary: boolean;
+}
+
+type View = "list" | "editor" | "history";
 
 export function CraigslistTool() {
   const [view, setView] = useState<View>("list");
@@ -57,6 +91,18 @@ export function CraigslistTool() {
   const [editorRentlyUrl, setEditorRentlyUrl] = useState("");
   const [showPreview, setShowPreview] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  // Photos state
+  const [photos, setPhotos] = useState<UnitPhoto[]>([]);
+  const [photosLoading, setPhotosLoading] = useState(false);
+  const [showPhotos, setShowPhotos] = useState(false);
+  const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
+
+  // History state
+  const [savedListings, setSavedListings] = useState<SavedListing[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const fetchVacancies = useCallback(async () => {
     setLoading(true);
@@ -74,6 +120,36 @@ export function CraigslistTool() {
     }
   }, []);
 
+  const fetchPhotos = useCallback(async (unitId: string, propertyId: string) => {
+    setPhotosLoading(true);
+    setPhotos([]);
+    try {
+      const params = new URLSearchParams();
+      if (unitId) params.set("unit_id", unitId);
+      if (propertyId) params.set("property_id", propertyId);
+      const res = await fetch(`/api/appfolio-photos?${params}`);
+      const data = await res.json();
+      if (res.ok) setPhotos(data.photos || []);
+    } catch {
+      // Photos are optional — fail silently
+    } finally {
+      setPhotosLoading(false);
+    }
+  }, []);
+
+  const fetchHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    try {
+      const res = await fetch("/api/saved-listings");
+      const data = await res.json();
+      if (res.ok) setSavedListings(data.listings || []);
+    } catch {
+      // Non-critical
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
   const handleGenerate = useCallback(
     async (unit: VacantUnit) => {
       const rentlyEnabled = rentlyToggles[unit.appfolio_unit_id] || false;
@@ -87,6 +163,12 @@ export function CraigslistTool() {
       setBody("");
       setShowPreview(false);
       setCopied(false);
+      setSaved(false);
+      setShowPhotos(false);
+      setSelectedPhotos(new Set());
+
+      // Fetch photos in parallel with generation
+      fetchPhotos(unit.appfolio_unit_id, unit.appfolio_property_id);
 
       try {
         const res = await fetch("/api/generate-listing", {
@@ -111,8 +193,89 @@ export function CraigslistTool() {
         setGenerating(false);
       }
     },
-    [rentlyToggles, rentlyUrls]
+    [rentlyToggles, rentlyUrls, fetchPhotos]
   );
+
+  const handleSave = useCallback(async () => {
+    if (!selectedUnit || !title || !body) return;
+
+    setSaving(true);
+    try {
+      const rentlyEnabled = rentlyToggles[selectedUnit.appfolio_unit_id] || false;
+
+      const res = await fetch("/api/saved-listings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          appfolio_unit_id: selectedUnit.appfolio_unit_id,
+          address: selectedUnit.address,
+          city: selectedUnit.city,
+          state: selectedUnit.state,
+          zip: selectedUnit.zip,
+          bedrooms: selectedUnit.bedrooms,
+          bathrooms: selectedUnit.bathrooms,
+          sqft: selectedUnit.sqft,
+          monthly_rent: selectedUnit.rent,
+          unit_type: selectedUnit.unit_type,
+          amenities: selectedUnit.amenities,
+          available_date: selectedUnit.available_date,
+          listing_title: title,
+          listing_body: body,
+          rently_enabled: rentlyEnabled,
+          rently_url: editorRentlyUrl || null,
+          created_by: "staff@highdesertpm.com",
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save listing");
+    } finally {
+      setSaving(false);
+    }
+  }, [selectedUnit, title, body, editorRentlyUrl, rentlyToggles]);
+
+  const handleDeleteSaved = useCallback(async (id: string) => {
+    try {
+      await fetch("/api/saved-listings", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      setSavedListings((prev) => prev.filter((l) => l.id !== id));
+    } catch {
+      // Non-critical
+    }
+  }, []);
+
+  const handleLoadSaved = useCallback((listing: SavedListing) => {
+    setTitle(listing.listing_title);
+    setBody(listing.listing_body);
+    setEditorRentlyUrl(listing.rently_url || "");
+    setSelectedUnit({
+      appfolio_unit_id: listing.appfolio_unit_id,
+      appfolio_property_id: "",
+      address: listing.address,
+      city: listing.city,
+      state: listing.state,
+      zip: listing.zip || "",
+      bedrooms: listing.bedrooms,
+      bathrooms: listing.bathrooms || 0,
+      rent: listing.monthly_rent,
+      sqft: listing.sqft || 0,
+      available_date: "",
+      unit_type: "",
+      amenities: [],
+    });
+    setView("editor");
+    setSaved(false);
+    setCopied(false);
+    setShowPreview(false);
+  }, []);
 
   const handleCopy = useCallback(async () => {
     const fullText = `${title}\n\n${body}`;
@@ -121,7 +284,6 @@ export function CraigslistTool() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback for older browsers
       const textarea = document.createElement("textarea");
       textarea.value = fullText;
       textarea.style.position = "fixed";
@@ -135,6 +297,34 @@ export function CraigslistTool() {
     }
   }, [title, body]);
 
+  const handleDownloadPhotos = useCallback(async () => {
+    const photosToDownload = selectedPhotos.size > 0
+      ? photos.filter((p) => selectedPhotos.has(p.id))
+      : photos;
+
+    for (const photo of photosToDownload) {
+      const link = document.createElement("a");
+      link.href = photo.url;
+      link.download = `${photo.caption || photo.id}.jpg`;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      // Small delay between downloads
+      await new Promise((r) => setTimeout(r, 300));
+    }
+  }, [photos, selectedPhotos]);
+
+  const togglePhotoSelection = useCallback((photoId: string) => {
+    setSelectedPhotos((prev) => {
+      const next = new Set(prev);
+      if (next.has(photoId)) next.delete(photoId);
+      else next.add(photoId);
+      return next;
+    });
+  }, []);
+
   const handleStartOver = useCallback(() => {
     setView("list");
     setSelectedUnit(null);
@@ -142,7 +332,11 @@ export function CraigslistTool() {
     setBody("");
     setError(null);
     setCopied(false);
+    setSaved(false);
     setShowPreview(false);
+    setPhotos([]);
+    setShowPhotos(false);
+    setSelectedPhotos(new Set());
   }, []);
 
   const toggleRently = useCallback((unitId: string) => {
@@ -166,6 +360,107 @@ export function CraigslistTool() {
     }
   };
 
+  const formatTimestamp = (ts: string) => {
+    try {
+      return new Date(ts).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      });
+    } catch {
+      return ts;
+    }
+  };
+
+  // ── History View ──
+  if (view === "history") {
+    return (
+      <div className="max-w-5xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-charcoal-900">
+              Saved Listings
+            </h1>
+            <p className="text-sm text-charcoal-500 mt-1">
+              Previously generated Craigslist listing copy
+            </p>
+          </div>
+          <Button
+            onClick={handleStartOver}
+            variant="outline"
+            size="sm"
+            className="text-charcoal-600"
+          >
+            <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+            Back to Vacancies
+          </Button>
+        </div>
+
+        {historyLoading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="glass rounded-xl p-5 animate-pulse">
+                <div className="h-5 bg-charcoal-200 rounded w-2/3 mb-3" />
+                <div className="h-4 bg-charcoal-100 rounded w-1/3" />
+              </div>
+            ))}
+          </div>
+        ) : savedListings.length === 0 ? (
+          <div className="glass rounded-xl p-10 text-center">
+            <History className="h-10 w-10 text-charcoal-300 mx-auto mb-3" />
+            <p className="text-charcoal-500 text-sm">
+              No saved listings yet
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {savedListings.map((listing) => (
+              <div
+                key={listing.id}
+                className="glass glass-shine rounded-xl p-5"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-bold text-charcoal-900 truncate">
+                      {listing.listing_title}
+                    </h3>
+                    <p className="text-xs text-charcoal-500 mt-0.5">
+                      {listing.address}, {listing.city} &middot;{" "}
+                      ${listing.monthly_rent.toLocaleString()}/mo &middot;{" "}
+                      {listing.bedrooms}BR/{listing.bathrooms}BA
+                    </p>
+                    <p className="text-2xs text-charcoal-400 mt-1">
+                      Saved {formatTimestamp(listing.created_at)} by{" "}
+                      {listing.created_by}
+                    </p>
+                  </div>
+                  <div className="flex gap-1.5 flex-shrink-0">
+                    <Button
+                      onClick={() => handleLoadSaved(listing)}
+                      size="sm"
+                      className="bg-terra-600 hover:bg-terra-700 text-white"
+                    >
+                      Open
+                    </Button>
+                    <Button
+                      onClick={() => handleDeleteSaved(listing.id)}
+                      size="sm"
+                      variant="outline"
+                      className="text-red-500 hover:text-red-700 hover:border-red-300"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   // ── List View ──
   if (view === "list") {
     return (
@@ -181,18 +476,32 @@ export function CraigslistTool() {
               Craigslist
             </p>
           </div>
-          <Button
-            onClick={fetchVacancies}
-            disabled={loading}
-            className="bg-terra-600 hover:bg-terra-700 text-white"
-          >
-            {loading ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4 mr-2" />
-            )}
-            {fetched ? "Refresh" : "Pull Vacancies"}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => {
+                setView("history");
+                fetchHistory();
+              }}
+              variant="outline"
+              size="sm"
+              className="text-charcoal-600"
+            >
+              <History className="h-4 w-4 mr-1.5" />
+              Saved
+            </Button>
+            <Button
+              onClick={fetchVacancies}
+              disabled={loading}
+              className="bg-terra-600 hover:bg-terra-700 text-white"
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
+              {fetched ? "Refresh" : "Pull Vacancies"}
+            </Button>
+          </div>
         </div>
 
         {error && (
@@ -205,10 +514,7 @@ export function CraigslistTool() {
         {loading && (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="glass rounded-xl p-5 animate-pulse"
-              >
+              <div key={i} className="glass rounded-xl p-5 animate-pulse">
                 <div className="h-5 bg-charcoal-200 rounded w-2/3 mb-3" />
                 <div className="h-4 bg-charcoal-100 rounded w-1/3" />
               </div>
@@ -339,9 +645,7 @@ export function CraigslistTool() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-charcoal-900">
-            Edit Listing
-          </h1>
+          <h1 className="text-2xl font-bold text-charcoal-900">Edit Listing</h1>
           {selectedUnit && (
             <p className="text-sm text-charcoal-500 mt-0.5">
               {selectedUnit.address}, {selectedUnit.city}
@@ -357,6 +661,26 @@ export function CraigslistTool() {
           >
             <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
             Start Over
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={generating || !body || saving}
+            size="sm"
+            variant="outline"
+            className={cn(
+              saved
+                ? "text-green-600 border-green-300"
+                : "text-charcoal-600"
+            )}
+          >
+            {saving ? (
+              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+            ) : saved ? (
+              <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+            ) : (
+              <Save className="h-3.5 w-3.5 mr-1.5" />
+            )}
+            {saved ? "Saved" : "Save"}
           </Button>
           <Button
             onClick={handleCopy}
@@ -382,15 +706,19 @@ export function CraigslistTool() {
       {error && (
         <div className="p-4 bg-red-50/80 border border-red-200/50 rounded-xl text-red-700 text-sm mb-4">
           {error}
+          <button
+            onClick={() => setError(null)}
+            className="ml-2 text-red-500 hover:text-red-700"
+          >
+            <X className="h-3.5 w-3.5 inline" />
+          </button>
         </div>
       )}
 
       {generating ? (
         <div className="glass rounded-xl p-10 text-center">
           <Loader2 className="h-8 w-8 text-terra-600 mx-auto mb-3 animate-spin" />
-          <p className="text-sm text-charcoal-600">
-            Generating listing copy...
-          </p>
+          <p className="text-sm text-charcoal-600">Generating listing copy...</p>
           <p className="text-xs text-charcoal-400 mt-1">
             This usually takes 5-10 seconds
           </p>
@@ -422,11 +750,112 @@ export function CraigslistTool() {
                 className="bg-white/70 text-sm"
               />
               <p className="text-2xs text-charcoal-400 mt-1.5">
-                Update the URL here, then re-generate or edit the body text
-                manually
+                Update the URL here, then re-generate or edit the body text manually
               </p>
             </div>
           )}
+
+          {/* Photos Section */}
+          <div className="glass rounded-xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowPhotos(!showPhotos)}
+              className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-white/30 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <ImageIcon className="h-4 w-4 text-charcoal-500" />
+                <span className="text-sm font-semibold text-charcoal-700">
+                  Property Photos
+                </span>
+                {photos.length > 0 && (
+                  <span className="text-2xs px-1.5 py-0.5 rounded-full bg-terra-50 text-terra-600 font-medium">
+                    {photos.length}
+                  </span>
+                )}
+                {photosLoading && (
+                  <Loader2 className="h-3.5 w-3.5 text-charcoal-400 animate-spin" />
+                )}
+              </div>
+              {showPhotos ? (
+                <ChevronUp className="h-4 w-4 text-charcoal-400" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-charcoal-400" />
+              )}
+            </button>
+
+            {showPhotos && (
+              <div className="px-5 pb-5 border-t border-white/30 pt-4">
+                {photosLoading ? (
+                  <div className="flex items-center justify-center py-6">
+                    <Loader2 className="h-6 w-6 text-charcoal-400 animate-spin" />
+                  </div>
+                ) : photos.length === 0 ? (
+                  <div className="text-center py-6">
+                    <ImageIcon className="h-8 w-8 text-charcoal-300 mx-auto mb-2" />
+                    <p className="text-xs text-charcoal-500">
+                      No photos available from AppFolio for this unit
+                    </p>
+                    <p className="text-2xs text-charcoal-400 mt-1">
+                      Upload photos directly to Craigslist when posting
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-xs text-charcoal-500">
+                        {selectedPhotos.size > 0
+                          ? `${selectedPhotos.size} selected`
+                          : "Click to select, then download for Craigslist upload"}
+                      </p>
+                      <Button
+                        onClick={handleDownloadPhotos}
+                        size="sm"
+                        variant="outline"
+                        className="text-charcoal-600 h-7 text-xs"
+                      >
+                        <Download className="h-3 w-3 mr-1" />
+                        {selectedPhotos.size > 0
+                          ? `Download ${selectedPhotos.size}`
+                          : "Download All"}
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {photos.map((photo) => (
+                        <button
+                          key={photo.id}
+                          type="button"
+                          onClick={() => togglePhotoSelection(photo.id)}
+                          className={cn(
+                            "relative aspect-[4/3] rounded-lg overflow-hidden border-2 transition-all",
+                            selectedPhotos.has(photo.id)
+                              ? "border-terra-500 ring-2 ring-terra-500/30"
+                              : "border-transparent hover:border-charcoal-200"
+                          )}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={photo.thumbnail_url}
+                            alt={photo.caption || "Property photo"}
+                            className="w-full h-full object-cover"
+                          />
+                          {selectedPhotos.has(photo.id) && (
+                            <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-terra-500 flex items-center justify-center">
+                              <Check className="h-3 w-3 text-white" />
+                            </div>
+                          )}
+                          {photo.is_primary && (
+                            <span className="absolute bottom-1 left-1 text-2xs px-1.5 py-0.5 rounded bg-black/60 text-white">
+                              Primary
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Listing Body */}
           <div className="glass rounded-xl p-5">
