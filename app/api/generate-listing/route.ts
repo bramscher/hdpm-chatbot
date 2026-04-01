@@ -119,10 +119,10 @@ function generateTitle(unit: UnitInput): string {
 }
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.CLAUDE_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
-      { error: 'ANTHROPIC_API_KEY not configured' },
+      { error: 'CLAUDE_API_KEY not configured' },
       { status: 500 }
     );
   }
