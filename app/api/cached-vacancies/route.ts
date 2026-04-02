@@ -1,22 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
-
-export interface CachedVacancy {
-  appfolio_unit_id: string;
-  appfolio_property_id: string;
-  address: string;
-  city: string;
-  state: string;
-  zip: string;
-  bedrooms: number;
-  bathrooms: number;
-  rent: number;
-  sqft: number;
-  available_date: string;
-  unit_type: string;
-  amenities: string[];
-  last_synced_at: string;
-}
+import { fetchVacantUnits, type VacantUnit } from '@/lib/appfolio-vacancies';
 
 // GET — return cached vacancies (instant load)
 export async function GET() {
@@ -47,15 +31,8 @@ export async function GET() {
 // POST — sync: pull fresh from AppFolio, upsert new/updated, remove stale
 export async function POST() {
   try {
-    // 1. Pull fresh vacancies from the existing AppFolio endpoint
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const res = await fetch(`${baseUrl}/api/appfolio-vacancies`, {
-      headers: { 'Content-Type': 'application/json' },
-    });
-    const freshData = await res.json();
-    if (!res.ok) throw new Error(freshData.error || 'AppFolio fetch failed');
-
-    const freshUnits: CachedVacancy[] = freshData.units || [];
+    // 1. Pull fresh vacancies directly from AppFolio API
+    const freshUnits: VacantUnit[] = await fetchVacantUnits();
     const freshIds = new Set(freshUnits.map((u) => u.appfolio_unit_id));
     const now = new Date().toISOString();
 
