@@ -15,6 +15,8 @@ import {
   AlertTriangle,
   CalendarDays,
   Car,
+  Megaphone,
+  Home as HomeIcon,
 } from "lucide-react";
 
 function getGreeting() {
@@ -48,6 +50,7 @@ interface RouteStats {
 export default function Home() {
   const [inspectionStats, setInspectionStats] = useState<InspectionStats | null>(null);
   const [routeStats, setRouteStats] = useState<RouteStats | null>(null);
+  const [vacancyCount, setVacancyCount] = useState<number | null>(null);
 
   useEffect(() => {
     // Fetch inspection stats
@@ -69,6 +72,12 @@ export default function Home() {
           total_stops: routes.reduce((sum: number, r: { total_stops?: number }) => sum + (r.total_stops || 0), 0),
         });
       })
+      .catch(() => {});
+
+    // Fetch cached vacancy count
+    fetch("/api/cached-vacancies")
+      .then((r) => r.json())
+      .then((data) => setVacancyCount(data.units?.length ?? 0))
       .catch(() => {});
   }, []);
 
@@ -240,6 +249,45 @@ export default function Home() {
                 <div className="flex items-center gap-1.5 text-xs text-charcoal-300">
                   <BarChart3 className="w-3 h-3" />
                   <span>PDF reports</span>
+                </div>
+              </div>
+            </div>
+          </Link>
+
+          {/* Craigslist Ad Creator */}
+          <Link
+            href="/craigslist"
+            className="group bg-white rounded-xl border border-sand-200 p-6 shadow-card hover:shadow-card-hover transition-all duration-200 hover:-translate-y-0.5 block relative overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-50 rounded-bl-[80px] -mr-4 -mt-4 opacity-60 group-hover:opacity-100 transition-opacity" />
+            <div className="relative">
+              <div className="flex items-start justify-between mb-5">
+                <div className="w-11 h-11 bg-purple-100 rounded-xl flex items-center justify-center">
+                  <Megaphone className="w-5 h-5 text-purple-600" />
+                </div>
+                <ArrowUpRight className="w-4 h-4 text-charcoal-300 group-hover:text-purple-500 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all duration-200" />
+              </div>
+              <h3 className="text-base font-semibold text-charcoal-900 mb-1.5">
+                Craigslist Ad Creator
+              </h3>
+              <p className="text-sm text-charcoal-400 leading-relaxed">
+                Pull vacant units from AppFolio, generate HTML-formatted listing copy, and post to Craigslist.
+              </p>
+              <div className="mt-4 flex items-center gap-4">
+                {vacancyCount !== null && vacancyCount > 0 ? (
+                  <div className="flex items-center gap-1.5 text-xs text-purple-500 font-medium">
+                    <HomeIcon className="w-3 h-3" />
+                    <span>{vacancyCount} vacant units</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 text-xs text-charcoal-300">
+                    <HomeIcon className="w-3 h-3" />
+                    <span>Sync to pull vacancies</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5 text-xs text-charcoal-300">
+                  <Zap className="w-3 h-3" />
+                  <span>AI-generated copy</span>
                 </div>
               </div>
             </div>
