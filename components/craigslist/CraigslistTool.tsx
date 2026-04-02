@@ -104,11 +104,26 @@ export function CraigslistTool() {
   const [savedListings, setSavedListings] = useState<SavedListing[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
+  // Load cached vacancies on mount (instant)
+  const loadCached = useCallback(async () => {
+    try {
+      const res = await fetch("/api/cached-vacancies");
+      const data = await res.json();
+      if (res.ok && data.units?.length > 0) {
+        setUnits(data.units);
+        setFetched(true);
+      }
+    } catch {
+      // Cache miss is fine — user can pull fresh
+    }
+  }, []);
+
+  // Sync: pull fresh from AppFolio, upsert cache, remove stale
   const fetchVacancies = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/appfolio-vacancies");
+      const res = await fetch("/api/cached-vacancies", { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setUnits(data.units || []);
@@ -119,6 +134,11 @@ export function CraigslistTool() {
       setLoading(false);
     }
   }, []);
+
+  // Auto-load cached data on mount
+  useEffect(() => {
+    loadCached();
+  }, [loadCached]);
 
   const fetchPhotos = useCallback(async (address: string) => {
     setPhotosLoading(true);
@@ -497,7 +517,7 @@ export function CraigslistTool() {
               ) : (
                 <RefreshCw className="h-4 w-4 mr-2" />
               )}
-              {fetched ? "Refresh" : "Pull Vacancies"}
+              {fetched ? "Sync Vacancies" : "Pull Vacancies"}
             </Button>
           </div>
         </div>
