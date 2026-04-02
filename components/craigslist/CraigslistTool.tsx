@@ -11,8 +11,7 @@ import {
   Home,
   Sparkles,
   RotateCcw,
-  Eye,
-  EyeOff,
+  Code,
   ToggleLeft,
   ToggleRight,
   Save,
@@ -20,6 +19,7 @@ import {
   Trash2,
   ImageIcon,
   Download,
+  ExternalLink,
   X,
   CheckCircle2,
 } from "lucide-react";
@@ -89,7 +89,7 @@ export function CraigslistTool() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [editorRentlyUrl, setEditorRentlyUrl] = useState("");
-  const [showPreview, setShowPreview] = useState(false);
+  const [showSource, setShowSource] = useState(false);
   const [copied, setCopied] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -179,7 +179,7 @@ export function CraigslistTool() {
       setGenerating(true);
       setTitle("");
       setBody("");
-      setShowPreview(false);
+      setShowSource(false);
       setCopied(false);
       setSaved(false);
       setShowPhotos(false);
@@ -292,7 +292,7 @@ export function CraigslistTool() {
     setView("editor");
     setSaved(false);
     setCopied(false);
-    setShowPreview(false);
+    setShowSource(false);
   }, []);
 
   const handleCopy = useCallback(async () => {
@@ -334,6 +334,16 @@ export function CraigslistTool() {
     }
   }, [photos, selectedPhotos]);
 
+  const handleOpenPhotosInTabs = useCallback(() => {
+    const photosToOpen = selectedPhotos.size > 0
+      ? photos.filter((p) => selectedPhotos.has(p.id))
+      : photos;
+
+    for (const photo of photosToOpen) {
+      window.open(photo.url, "_blank");
+    }
+  }, [photos, selectedPhotos]);
+
   const togglePhotoSelection = useCallback((photoId: string) => {
     setSelectedPhotos((prev) => {
       const next = new Set(prev);
@@ -351,7 +361,7 @@ export function CraigslistTool() {
     setError(null);
     setCopied(false);
     setSaved(false);
-    setShowPreview(false);
+    setShowSource(false);
     setPhotos([]);
     setShowPhotos(false);
     setSelectedPhotos(new Set());
@@ -663,7 +673,9 @@ export function CraigslistTool() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-charcoal-900">Edit Listing</h1>
+          <h1 className="text-2xl font-bold text-charcoal-900">
+            {generating ? "Generating Listing..." : title || "Edit Listing"}
+          </h1>
           {selectedUnit && (
             <p className="text-sm text-charcoal-500 mt-0.5">
               {selectedUnit.address}, {selectedUnit.city}
@@ -678,7 +690,7 @@ export function CraigslistTool() {
             className="text-charcoal-600"
           >
             <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
-            Start Over
+            Back
           </Button>
           <Button
             onClick={handleSave}
@@ -699,24 +711,6 @@ export function CraigslistTool() {
               <Save className="h-3.5 w-3.5 mr-1.5" />
             )}
             {saved ? "Saved" : "Save"}
-          </Button>
-          <Button
-            onClick={handleCopy}
-            disabled={generating || !body}
-            size="sm"
-            className={cn(
-              "text-white",
-              copied
-                ? "bg-green-600 hover:bg-green-700"
-                : "bg-terra-600 hover:bg-terra-700"
-            )}
-          >
-            {copied ? (
-              <Check className="h-3.5 w-3.5 mr-1.5" />
-            ) : (
-              <Copy className="h-3.5 w-3.5 mr-1.5" />
-            )}
-            {copied ? "Copied!" : "Copy to Clipboard"}
           </Button>
         </div>
       </div>
@@ -743,37 +737,51 @@ export function CraigslistTool() {
         </div>
       ) : (
         <div className="space-y-4">
-          {/* Post Title */}
-          <div className="glass rounded-xl p-5">
-            <label className="block text-[10px] font-semibold text-charcoal-400 uppercase tracking-widest mb-2">
-              Post Title
-            </label>
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="bg-white/70 text-sm font-medium"
-            />
+          {/* ── Listing Preview (default view) ── */}
+          <div className="glass rounded-xl overflow-hidden">
+            <div className="bg-white rounded-xl p-6 border border-charcoal-100">
+              <h2 className="text-lg font-bold text-charcoal-900 mb-4">
+                {title}
+              </h2>
+              <div
+                className="text-sm text-charcoal-700 leading-relaxed [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2 [&_li]:mb-1 [&_table]:w-full [&_table]:my-3 [&_td]:p-2 [&_td]:text-center [&_hr]:my-4 [&_hr]:border-charcoal-200 [&_blockquote]:border-l-4 [&_blockquote]:border-charcoal-200 [&_blockquote]:pl-4 [&_blockquote]:italic [&_a]:text-terra-600 [&_a]:underline"
+                dangerouslySetInnerHTML={{ __html: body }}
+              />
+            </div>
           </div>
 
-          {/* Rently URL (editable in editor) */}
-          {selectedUnit && rentlyToggles[selectedUnit.appfolio_unit_id] && (
-            <div className="glass rounded-xl p-5">
-              <label className="block text-[10px] font-semibold text-charcoal-400 uppercase tracking-widest mb-2">
-                Rently Tour URL
-              </label>
-              <Input
-                value={editorRentlyUrl}
-                onChange={(e) => setEditorRentlyUrl(e.target.value)}
-                placeholder="https://rently.com/..."
-                className="bg-white/70 text-sm"
-              />
-              <p className="text-2xs text-charcoal-400 mt-1.5">
-                Update the URL here, then re-generate or edit the body text manually
-              </p>
+          {/* ── Copy to Craigslist action bar ── */}
+          <div className="glass rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-charcoal-800">
+                  Ready to post
+                </p>
+                <p className="text-xs text-charcoal-400 mt-0.5">
+                  Copy the HTML below and paste into Craigslist&apos;s posting body
+                </p>
+              </div>
+              <Button
+                onClick={handleCopy}
+                disabled={!body}
+                className={cn(
+                  "text-white",
+                  copied
+                    ? "bg-green-600 hover:bg-green-700"
+                    : "bg-terra-600 hover:bg-terra-700"
+                )}
+              >
+                {copied ? (
+                  <Check className="h-4 w-4 mr-2" />
+                ) : (
+                  <Copy className="h-4 w-4 mr-2" />
+                )}
+                {copied ? "Copied!" : "Copy HTML to Clipboard"}
+              </Button>
             </div>
-          )}
+          </div>
 
-          {/* Photos Section */}
+          {/* ── Photos for Craigslist upload ── */}
           <div className="glass rounded-xl overflow-hidden">
             <button
               type="button"
@@ -783,7 +791,7 @@ export function CraigslistTool() {
               <div className="flex items-center gap-2">
                 <ImageIcon className="h-4 w-4 text-charcoal-500" />
                 <span className="text-sm font-semibold text-charcoal-700">
-                  Property Photos
+                  Photos for Craigslist
                 </span>
                 {photos.length > 0 && (
                   <span className="text-2xs px-1.5 py-0.5 rounded-full bg-terra-50 text-terra-600 font-medium">
@@ -819,23 +827,41 @@ export function CraigslistTool() {
                   </div>
                 ) : (
                   <>
+                    <div className="bg-sand-50 rounded-lg p-3 mb-3">
+                      <p className="text-xs text-charcoal-600">
+                        <b>How to add photos to Craigslist:</b> Download the images below, then drag them into Craigslist&apos;s image uploader when creating your post. Or open them in new tabs and drag from your browser.
+                      </p>
+                    </div>
                     <div className="flex items-center justify-between mb-3">
                       <p className="text-xs text-charcoal-500">
                         {selectedPhotos.size > 0
-                          ? `${selectedPhotos.size} selected`
-                          : "Click to select, then download for Craigslist upload"}
+                          ? `${selectedPhotos.size} of ${photos.length} selected`
+                          : `${photos.length} photos — click to select specific ones`}
                       </p>
-                      <Button
-                        onClick={handleDownloadPhotos}
-                        size="sm"
-                        variant="outline"
-                        className="text-charcoal-600 h-7 text-xs"
-                      >
-                        <Download className="h-3 w-3 mr-1" />
-                        {selectedPhotos.size > 0
-                          ? `Download ${selectedPhotos.size}`
-                          : "Download All"}
-                      </Button>
+                      <div className="flex gap-1.5">
+                        <Button
+                          onClick={handleOpenPhotosInTabs}
+                          size="sm"
+                          variant="outline"
+                          className="text-charcoal-600 h-7 text-xs"
+                        >
+                          <ExternalLink className="h-3 w-3 mr-1" />
+                          {selectedPhotos.size > 0
+                            ? `Open ${selectedPhotos.size} in Tabs`
+                            : "Open All in Tabs"}
+                        </Button>
+                        <Button
+                          onClick={handleDownloadPhotos}
+                          size="sm"
+                          variant="outline"
+                          className="text-charcoal-600 h-7 text-xs"
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          {selectedPhotos.size > 0
+                            ? `Download ${selectedPhotos.size}`
+                            : "Download All"}
+                        </Button>
+                      </div>
                     </div>
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                       {photos.map((photo) => (
@@ -875,52 +901,68 @@ export function CraigslistTool() {
             )}
           </div>
 
-          {/* Listing Body */}
-          <div className="glass rounded-xl p-5">
-            <label className="block text-[10px] font-semibold text-charcoal-400 uppercase tracking-widest mb-2">
-              Listing Body (HTML)
-            </label>
-            <textarea
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              rows={24}
-              className="w-full rounded-xl border border-input bg-white/70 backdrop-blur-sm px-4 py-3 text-sm font-mono leading-relaxed ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terra-600/30 focus-visible:ring-offset-2 resize-y"
-            />
-          </div>
-
-          {/* Preview */}
+          {/* ── Edit HTML Source (collapsible) ── */}
           <div className="glass rounded-xl overflow-hidden">
             <button
               type="button"
-              onClick={() => setShowPreview(!showPreview)}
+              onClick={() => setShowSource(!showSource)}
               className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-white/30 transition-colors"
             >
               <div className="flex items-center gap-2">
-                {showPreview ? (
-                  <EyeOff className="h-4 w-4 text-charcoal-500" />
-                ) : (
-                  <Eye className="h-4 w-4 text-charcoal-500" />
-                )}
+                <Code className="h-4 w-4 text-charcoal-500" />
                 <span className="text-sm font-semibold text-charcoal-700">
-                  Preview formatted post
+                  Edit HTML Source
                 </span>
               </div>
-              {showPreview ? (
+              {showSource ? (
                 <ChevronUp className="h-4 w-4 text-charcoal-400" />
               ) : (
                 <ChevronDown className="h-4 w-4 text-charcoal-400" />
               )}
             </button>
 
-            {showPreview && (
-              <div className="px-5 pb-5 border-t border-white/30 pt-4">
-                <div className="bg-white rounded-xl p-6 border border-charcoal-100">
-                  <h2 className="text-base font-bold text-charcoal-900 mb-4">
-                    {title}
-                  </h2>
-                  <div
-                    className="text-sm text-charcoal-700 leading-relaxed [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2 [&_li]:mb-1 [&_table]:w-full [&_table]:my-3 [&_td]:p-2 [&_td]:text-center [&_hr]:my-4 [&_hr]:border-charcoal-200 [&_blockquote]:border-l-4 [&_blockquote]:border-charcoal-200 [&_blockquote]:pl-4 [&_blockquote]:italic [&_a]:text-terra-600 [&_a]:underline"
-                    dangerouslySetInnerHTML={{ __html: body }}
+            {showSource && (
+              <div className="px-5 pb-5 border-t border-white/30 pt-4 space-y-3">
+                {/* Title */}
+                <div>
+                  <label className="block text-[10px] font-semibold text-charcoal-400 uppercase tracking-widest mb-1.5">
+                    Post Title
+                  </label>
+                  <Input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="bg-white/70 text-sm font-medium"
+                  />
+                </div>
+
+                {/* Rently URL */}
+                {selectedUnit && rentlyToggles[selectedUnit.appfolio_unit_id] && (
+                  <div>
+                    <label className="block text-[10px] font-semibold text-charcoal-400 uppercase tracking-widest mb-1.5">
+                      Rently Tour URL
+                    </label>
+                    <Input
+                      value={editorRentlyUrl}
+                      onChange={(e) => setEditorRentlyUrl(e.target.value)}
+                      placeholder="https://rently.com/..."
+                      className="bg-white/70 text-sm"
+                    />
+                    <p className="text-2xs text-charcoal-400 mt-1">
+                      Update the URL here, then re-generate or edit the body text manually
+                    </p>
+                  </div>
+                )}
+
+                {/* HTML Body */}
+                <div>
+                  <label className="block text-[10px] font-semibold text-charcoal-400 uppercase tracking-widest mb-1.5">
+                    Listing Body (HTML)
+                  </label>
+                  <textarea
+                    value={body}
+                    onChange={(e) => setBody(e.target.value)}
+                    rows={24}
+                    className="w-full rounded-xl border border-input bg-white/70 backdrop-blur-sm px-4 py-3 text-sm font-mono leading-relaxed ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terra-600/30 focus-visible:ring-offset-2 resize-y"
                   />
                 </div>
               </div>
