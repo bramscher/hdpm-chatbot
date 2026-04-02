@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 
 const AI_LEASING_PHONE = '(541) 406-6409';
-const AI_LEASING_PHONE_RAW = '+15414066409';
 
 interface UnitInput {
   appfolio_unit_id: string;
@@ -26,8 +25,6 @@ interface GenerateRequest {
 }
 
 function buildSystemPrompt(unit: UnitInput, rentlyEnabled: boolean, rentlyUrl: string): string {
-  const encodedAddress = encodeURIComponent(unit.address);
-
   const rentlyIntroNote = rentlyEnabled
     ? ' If self-guided tours are available (Rently), mention that tours are available evenings and weekends with no office visit required.'
     : '';
@@ -92,8 +89,7 @@ Include that table exactly as shown above. Do not modify it.
 <h2 style="text-align:center; color:#2c4a29;">📞 Questions? We're Available 24/7</h2>
 <p style="text-align:center;">Our AI leasing agent is ready to help any time — no office hours, no waiting.</p>
 <p style="text-align:center;">
-<b>Call or text:</b> <a href="tel:${AI_LEASING_PHONE_RAW}">${AI_LEASING_PHONE}</a><br>
-<b>Text about this home:</b> <a href="sms:${AI_LEASING_PHONE_RAW}?body=I%20am%20interested%20in%20%3C${encodedAddress}%3E">Send a text →</a><br>
+<b>Call or text:</b> ${AI_LEASING_PHONE}<br>
 <b>Chat online:</b> <a href="https://www.highdesertpm.com">www.highdesertpm.com</a>
 </p>
 ${rentlyBlock}
