@@ -878,7 +878,7 @@ export function CraigslistTool() {
           {/* Listing Body */}
           <div className="glass rounded-xl p-5">
             <label className="block text-[10px] font-semibold text-charcoal-400 uppercase tracking-widest mb-2">
-              Listing Body
+              Listing Body (HTML)
             </label>
             <textarea
               value={body}
@@ -918,9 +918,10 @@ export function CraigslistTool() {
                   <h2 className="text-base font-bold text-charcoal-900 mb-4">
                     {title}
                   </h2>
-                  <pre className="text-sm text-charcoal-700 whitespace-pre-wrap font-sans leading-relaxed">
-                    {body}
-                  </pre>
+                  <div
+                    className="text-sm text-charcoal-700 leading-relaxed [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2 [&_li]:mb-1 [&_table]:w-full [&_table]:my-3 [&_td]:p-2 [&_td]:text-center [&_hr]:my-4 [&_hr]:border-charcoal-200 [&_blockquote]:border-l-4 [&_blockquote]:border-charcoal-200 [&_blockquote]:pl-4 [&_blockquote]:italic [&_a]:text-terra-600 [&_a]:underline"
+                    dangerouslySetInnerHTML={{ __html: body }}
+                  />
                 </div>
               </div>
             )}
