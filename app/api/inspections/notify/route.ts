@@ -18,6 +18,10 @@ import {
  *
  * Designed to be called by a Vercel cron job every hour.
  * Also callable manually via POST for testing.
+ *
+ * Query params:
+ *   ?mode=dry_run  — logs what would happen, no PM calls, no DB writes
+ *   ?mode=silent   — creates melds & messages but hidden from tenants (test in PM without notifying)
  */
 export async function POST(request: NextRequest) {
   // Auth: either CRON_SECRET header or valid session
@@ -28,14 +32,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const mode = request.nextUrl.searchParams.get('mode') || 'live';
+  const isDryRun = mode === 'dry_run';
+  const isSilent = mode === 'silent';
+
   const supabase = getSupabaseAdmin();
   const now = new Date();
 
   const results = {
+    mode,
     checked: 0,
     notice_7d_created: 0,
     notice_24h_sent: 0,
     notice_2h_sent: 0,
+    actions: [] as string[],
     errors: [] as string[],
   };
 
@@ -94,8 +104,8 @@ export async function POST(request: NextRequest) {
         year: 'numeric',
       });
 
-      // Lazy-load multitenant ID
-      if (!multitenantId) {
+      // Lazy-load multitenant ID (skip for dry run)
+      if (!multitenantId && !isDryRun) {
         try {
           multitenantId = await getMultitenantId();
         } catch (err) {
@@ -107,48 +117,58 @@ export async function POST(request: NextRequest) {
       try {
         // ── 7-day notice: create meld ──
         if (hoursUntil <= 7 * 24 && hoursUntil > 0 && !inspection.notice_7d_sent_at) {
-          // Look up tenant IDs for the unit
-          let tenantIds: number[] = [];
-          if (pmUnitId) {
-            try {
-              const residents = await getResidentsForUnit(multitenantId, pmUnitId);
-              tenantIds = residents.map((r) => r.id);
-            } catch {
-              // Proceed without tenant IDs — meld still gets created
+          const description = [
+            `This is an advance notice for a scheduled ${inspType} property inspection.`,
+            '',
+            `Property: ${address}${unit}`,
+            inspection.resident_name ? `Resident: ${inspection.resident_name}` : null,
+            `Scheduled Date: ${formattedDate}`,
+            '',
+            'Our inspector will visit the property to conduct a routine inspection.',
+            'Please ensure the property is accessible on the scheduled date.',
+            '',
+            'If you have any questions or need to reschedule, please reply to this message or call us at (541) 406-6409.',
+            isSilent ? '\n[TEST MODE — this notice was not sent to tenants]' : null,
+          ].filter((l) => l !== null).join('\n');
+
+          if (isDryRun) {
+            results.actions.push(`[DRY RUN] Would create 7-day notice meld for ${address}${unit} (inspection ${inspection.id}, ${hoursUntil.toFixed(1)}h until target)`);
+          } else {
+            // Look up tenant IDs for the unit
+            let tenantIds: number[] = [];
+            if (pmUnitId && !isSilent) {
+              try {
+                const residents = await getResidentsForUnit(multitenantId!, pmUnitId);
+                tenantIds = residents.map((r) => r.id);
+              } catch {
+                // Proceed without tenant IDs — meld still gets created
+              }
             }
+
+            const meld = await createMeld(multitenantId!, {
+              ...(pmUnitId ? { unit: pmUnitId } : {}),
+              ...(pmPropertyId && !pmUnitId ? { property: pmPropertyId } : {}),
+              // In silent mode, don't attach tenants so they don't get notified
+              ...(!isSilent && tenantIds.length > 0 ? { tenants: tenantIds } : {}),
+              work_location: 'Interior',
+              work_type: 'PREVENTIVE_MAINTENANCE',
+              work_category: 'GENERAL',
+              brief_description: `${isSilent ? '[TEST] ' : ''}Upcoming ${inspType} Inspection — ${address}${unit}`,
+              description,
+              priority: 'LOW',
+            });
+
+            await supabase
+              .from('inspections')
+              .update({
+                notice_meld_id: String(meld.id),
+                notice_7d_sent_at: now.toISOString(),
+                updated_at: now.toISOString(),
+              })
+              .eq('id', inspection.id);
+
+            results.actions.push(`${isSilent ? '[SILENT] ' : ''}Created 7-day notice meld #${meld.id} for ${address}${unit}`);
           }
-
-          const meld = await createMeld(multitenantId, {
-            ...(pmUnitId ? { unit: pmUnitId } : {}),
-            ...(pmPropertyId && !pmUnitId ? { property: pmPropertyId } : {}),
-            ...(tenantIds.length > 0 ? { tenants: tenantIds } : {}),
-            work_location: 'Interior',
-            work_type: 'PREVENTIVE_MAINTENANCE',
-            work_category: 'GENERAL',
-            brief_description: `Upcoming ${inspType} Inspection — ${address}${unit}`,
-            description: [
-              `This is an advance notice for a scheduled ${inspType} property inspection.`,
-              '',
-              `Property: ${address}${unit}`,
-              inspection.resident_name ? `Resident: ${inspection.resident_name}` : null,
-              `Scheduled Date: ${formattedDate}`,
-              '',
-              'Our inspector will visit the property to conduct a routine inspection.',
-              'Please ensure the property is accessible on the scheduled date.',
-              '',
-              'If you have any questions or need to reschedule, please reply to this message or call us at (541) 406-6409.',
-            ].filter((l) => l !== null).join('\n'),
-            priority: 'LOW',
-          });
-
-          await supabase
-            .from('inspections')
-            .update({
-              notice_meld_id: String(meld.id),
-              notice_7d_sent_at: now.toISOString(),
-              updated_at: now.toISOString(),
-            })
-            .eq('id', inspection.id);
 
           results.notice_7d_created++;
         }
@@ -156,48 +176,66 @@ export async function POST(request: NextRequest) {
         // ── 24-hour reminder ──
         const noticeMeldId = inspection.notice_meld_id;
         if (hoursUntil <= 24 && hoursUntil > 0 && inspection.notice_7d_sent_at && !inspection.notice_24h_sent_at && noticeMeldId) {
-          await addMeldMessage(
-            multitenantId,
-            parseInt(noticeMeldId, 10),
-            [
-              `Reminder: Your ${inspType} property inspection is scheduled for tomorrow, ${formattedDate}.`,
-              '',
-              `Property: ${address}${unit}`,
-              '',
-              'Please ensure the property is accessible. If you need to reschedule, contact us as soon as possible at (541) 406-6409.',
-            ].join('\n')
-          );
+          const messageText = [
+            `Reminder: Your ${inspType} property inspection is scheduled for tomorrow, ${formattedDate}.`,
+            '',
+            `Property: ${address}${unit}`,
+            '',
+            'Please ensure the property is accessible. If you need to reschedule, contact us as soon as possible at (541) 406-6409.',
+          ].join('\n');
 
-          await supabase
-            .from('inspections')
-            .update({
-              notice_24h_sent_at: now.toISOString(),
-              updated_at: now.toISOString(),
-            })
-            .eq('id', inspection.id);
+          if (isDryRun) {
+            results.actions.push(`[DRY RUN] Would send 24h reminder on meld #${noticeMeldId} for ${address}${unit}`);
+          } else {
+            await addMeldMessage(
+              multitenantId!,
+              parseInt(noticeMeldId, 10),
+              messageText,
+              isSilent ? { hidden_from_tenant: true } : undefined
+            );
+
+            await supabase
+              .from('inspections')
+              .update({
+                notice_24h_sent_at: now.toISOString(),
+                updated_at: now.toISOString(),
+              })
+              .eq('id', inspection.id);
+
+            results.actions.push(`${isSilent ? '[SILENT] ' : ''}Sent 24h reminder on meld #${noticeMeldId} for ${address}${unit}`);
+          }
 
           results.notice_24h_sent++;
         }
 
         // ── 2-hour reminder ──
         if (hoursUntil <= 2 && hoursUntil > 0 && inspection.notice_24h_sent_at && !inspection.notice_2h_sent_at && noticeMeldId) {
-          await addMeldMessage(
-            multitenantId,
-            parseInt(noticeMeldId, 10),
-            [
-              `Final reminder: Our inspector will be arriving at ${address}${unit} shortly for your scheduled ${inspType} inspection.`,
-              '',
-              'Please ensure the property is accessible. Thank you!',
-            ].join('\n')
-          );
+          const messageText = [
+            `Final reminder: Our inspector will be arriving at ${address}${unit} shortly for your scheduled ${inspType} inspection.`,
+            '',
+            'Please ensure the property is accessible. Thank you!',
+          ].join('\n');
 
-          await supabase
-            .from('inspections')
-            .update({
-              notice_2h_sent_at: now.toISOString(),
-              updated_at: now.toISOString(),
-            })
-            .eq('id', inspection.id);
+          if (isDryRun) {
+            results.actions.push(`[DRY RUN] Would send 2h reminder on meld #${noticeMeldId} for ${address}${unit}`);
+          } else {
+            await addMeldMessage(
+              multitenantId!,
+              parseInt(noticeMeldId, 10),
+              messageText,
+              isSilent ? { hidden_from_tenant: true } : undefined
+            );
+
+            await supabase
+              .from('inspections')
+              .update({
+                notice_2h_sent_at: now.toISOString(),
+                updated_at: now.toISOString(),
+              })
+              .eq('id', inspection.id);
+
+            results.actions.push(`${isSilent ? '[SILENT] ' : ''}Sent 2h reminder on meld #${noticeMeldId} for ${address}${unit}`);
+          }
 
           results.notice_2h_sent++;
         }
@@ -231,6 +269,10 @@ export async function GET() {
       '24 hours before: Sends reminder message on the meld',
       '2 hours before: Sends final reminder message on the meld',
     ],
-    trigger: 'POST to this endpoint to run manually',
+    test_modes: {
+      dry_run: 'POST ?mode=dry_run — logs what would happen, no API calls, no DB writes',
+      silent: 'POST ?mode=silent — creates melds & messages in PM but hidden from tenants',
+      live: 'POST (default) — full production mode, tenants are notified',
+    },
   });
 }
