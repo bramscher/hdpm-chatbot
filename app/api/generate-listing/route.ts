@@ -41,8 +41,62 @@ function generateTitle(unit: UnitInput): string {
 }
 
 /**
+ * Parse the AppFolio marketing description into structured sections.
+ * Typical format:
+ *   Optional intro paragraph(s)
+ *   APPLY NOW:
+ *   * bullet point features
+ *   *** Rental Agreement Type ***
+ *   Boilerplate disclaimers...
+ */
+function parseDescription(raw: string): { intro: string; bullets: string[]; agreementType: string } {
+  const text = raw.replace(/\r\n/g, '\n').trim();
+  const lines = text.split('\n');
+
+  const intro: string[] = [];
+  const bullets: string[] = [];
+  let agreementType = 'Month-to-Month Rental Agreement';
+  let inBullets = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Skip "APPLY NOW:" / "APPLY ONLINE:" lines and bare apply URLs
+    if (/^APPLY\s+(NOW|ONLINE)\s*:/i.test(trimmed)) {
+      inBullets = true;
+      continue;
+    }
+    if (/^https?:\/\/(www\.)?rentzap\.com/i.test(trimmed)) {
+      continue;
+    }
+
+    // Capture rental agreement type from *** ... *** line
+    const agreementMatch = trimmed.match(/^\*{2,}\s*(.+?)\s*\*{2,}$/);
+    if (agreementMatch) {
+      agreementType = agreementMatch[1].trim();
+      break; // Everything after this is boilerplate disclaimers we handle ourselves
+    }
+
+    // Bullet line (starts with *)
+    if (/^\*\s+/.test(trimmed)) {
+      inBullets = true;
+      bullets.push(trimmed.replace(/^\*\s+/, '').trim());
+      continue;
+    }
+
+    // Before bullets started — part of intro
+    if (!inBullets && trimmed) {
+      intro.push(trimmed);
+    }
+  }
+
+  return { intro: intro.join('\n'), bullets, agreementType };
+}
+
+/**
  * Format the human-written marketing description from AppFolio into
  * Craigslist-compatible HTML with HDPM branding and standard blocks.
+ * All copy is verbatim from AppFolio — only HTML structure is added.
  */
 function formatListing(unit: UnitInput, rentlyEnabled: boolean, rentlyUrl: string): string {
   const rentlyBlock = rentlyEnabled
@@ -54,13 +108,21 @@ function formatListing(unit: UnitInput, rentlyEnabled: boolean, rentlyUrl: strin
 `
     : '';
 
-  // Convert the marketing description paragraphs to HTML <p> tags
-  const descriptionHtml = unit.marketing_description
-    .split(/\n\s*\n/)
-    .map((para) => para.trim())
-    .filter(Boolean)
-    .map((para) => `<p>${para.replace(/\n/g, '<br>')}</p>`)
-    .join('\n');
+  const { intro, bullets, agreementType } = parseDescription(unit.marketing_description);
+
+  // Build the "About This Home" section from intro paragraph(s)
+  const introHtml = intro
+    ? `<h2 style="color:#2c4a29;">About This Home</h2>
+<p>${intro.replace(/\n/g, '<br>')}</p>`
+    : '';
+
+  // Build the "Features & Amenities" bullet list
+  const bulletsHtml = bullets.length > 0
+    ? `<h2 style="color:#2c4a29;">Features &amp; Amenities</h2>
+<ul>
+${bullets.map((b) => `<li>${b}</li>`).join('\n')}
+</ul>`
+    : '';
 
   return `<table style="width:100%; border:1px solid #ddd; border-collapse:collapse;">
 <tr>
@@ -72,23 +134,15 @@ ${unit.sqft ? `<td style="padding:8px; text-align:center; border:1px solid #ddd;
 </tr>
 </table>
 
-<hr>
-<h2 style="color:#2c4a29;">About This Home</h2>
-${descriptionHtml}
-
-${unit.amenities.length > 0 ? `<hr>
-<h2 style="color:#2c4a29;">Features &amp; Amenities</h2>
-<ul>
-${unit.amenities.map((a) => `<li>${a}</li>`).join('\n')}
-</ul>` : ''}
-
+${introHtml ? `<hr>\n${introHtml}\n` : ''}
+${bulletsHtml ? `<hr>\n${bulletsHtml}\n` : ''}
 <hr>
 <h2 style="text-align:center; color:#2c4a29;">Ready to Make This Home Yours?</h2>
-<p style="text-align:center; font-size:18px;"><a href="https://www.rentzap.com/apply/${unit.appfolio_unit_id}"><b>✅ Apply Now →</b></a></p>
+<p style="text-align:center; font-size:18px; padding:12px; border:2px solid #2c4a29; background-color:#f0f7ef;"><a href="https://www.rentzap.com/apply/${unit.appfolio_unit_id}" style="color:#2c4a29;"><b>✅ Apply Online Now →</b></a></p>
 
 <hr>
 <h2 style="text-align:center; color:#2c4a29;">📞 Questions? We're Available 24/7</h2>
-<p style="text-align:center;">Our AI leasing agent is ready to help any time — no office hours, no waiting.</p>
+<p style="text-align:center;">Our AI leasing agent Leesa is ready to help any time — no office hours, no waiting.</p>
 <p style="text-align:center;">
 <b>Call or text:</b> ${AI_LEASING_PHONE}<br>
 <b>Chat online:</b> <a href="https://www.highdesertpm.com">www.highdesertpm.com</a>
@@ -96,11 +150,10 @@ ${unit.amenities.map((a) => `<li>${a}</li>`).join('\n')}
 ${rentlyBlock}
 <hr>
 <p style="text-align:center; font-size:12px; color:#888;">
+${agreementType}<br><br>
+Availability date is approximate, in case of unforeseen circumstances.<br>
 Security deposit listed is the base amount. Deposits are adjusted, if necessary, depending on your application screening.<br><br>
-All information is deemed accurate and reliable but should be independently verified.<br><br>
-Animals Considered (maximum 2); additional monthly animal rent applies.<br>
-Month-to-Month Rental Agreement<br><br>
-Availability date is approximate, in case of unforeseen circumstances.
+All information is deemed accurate and reliable but should be independently verified.
 </p>
 <p style="text-align:center; font-size:12px; color:#888;">
 <b>High Desert Property Management</b><br>
