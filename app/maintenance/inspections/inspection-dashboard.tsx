@@ -20,6 +20,10 @@ import {
   BarChart3,
   List,
   Settings,
+  Bell,
+  BellRing,
+  ShieldCheck,
+  X as XIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -157,6 +161,7 @@ export function InspectionDashboard() {
   const [bulkFilter, setBulkFilter] = useState({ fromStatus: "", beforeDate: "", toStatus: "" });
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [bulkResult, setBulkResult] = useState<string | null>(null);
+  const [noticeDetailInspection, setNoticeDetailInspection] = useState<Inspection | null>(null);
 
   // Filters
   const [filterStatus, setFilterStatus] = useState("");
@@ -497,6 +502,150 @@ export function InspectionDashboard() {
           </button>
         </div>
       </div>
+
+      {/* ── Notice Detail Modal ── */}
+      {noticeDetailInspection && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setNoticeDetailInspection(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-charcoal-900">Tenant Notice Log</h3>
+                <p className="text-xs text-charcoal-500 mt-0.5">
+                  {noticeDetailInspection.address_1 || noticeDetailInspection.property_name}
+                  {noticeDetailInspection.unit_name ? ` — Unit ${noticeDetailInspection.unit_name}` : ""}
+                </p>
+              </div>
+              <button onClick={() => setNoticeDetailInspection(null)} className="p-1 hover:bg-charcoal-100 rounded-lg">
+                <XIcon className="w-4 h-4 text-charcoal-400" />
+              </button>
+            </div>
+
+            {noticeDetailInspection.target_date && (
+              <div className="bg-charcoal-50 rounded-lg px-4 py-2.5">
+                <p className="text-xs text-charcoal-500">Inspection Date</p>
+                <p className="text-sm font-semibold text-charcoal-900">
+                  {new Date(noticeDetailInspection.target_date + "T12:00:00").toLocaleDateString("en-US", {
+                    weekday: "long", month: "long", day: "numeric", year: "numeric",
+                  })}
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              {/* 7-day notice */}
+              <div className={cn(
+                "flex items-start gap-3 p-3 rounded-lg border",
+                noticeDetailInspection.notice_7d_sent_at
+                  ? "border-green-200 bg-green-50/50"
+                  : "border-charcoal-200 bg-charcoal-50/50"
+              )}>
+                <div className={cn(
+                  "mt-0.5 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0",
+                  noticeDetailInspection.notice_7d_sent_at ? "bg-green-100" : "bg-charcoal-200"
+                )}>
+                  {noticeDetailInspection.notice_7d_sent_at
+                    ? <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+                    : <Clock className="w-3.5 h-3.5 text-charcoal-400" />
+                  }
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-charcoal-900">7-Day Advance Notice</p>
+                  <p className="text-xs text-charcoal-500">
+                    {noticeDetailInspection.notice_7d_sent_at
+                      ? <>Sent via Property Meld on <b>{new Date(noticeDetailInspection.notice_7d_sent_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}</b></>
+                      : "Scheduled — will be sent 7 days before inspection"
+                    }
+                  </p>
+                  {noticeDetailInspection.notice_meld_id && noticeDetailInspection.notice_7d_sent_at && (
+                    <p className="text-xs text-charcoal-400 mt-0.5">Meld #{noticeDetailInspection.notice_meld_id}</p>
+                  )}
+                </div>
+                {noticeDetailInspection.notice_7d_sent_at && (
+                  <ShieldCheck className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                )}
+              </div>
+
+              {/* 24-hour reminder */}
+              <div className={cn(
+                "flex items-start gap-3 p-3 rounded-lg border",
+                noticeDetailInspection.notice_24h_sent_at
+                  ? "border-green-200 bg-green-50/50"
+                  : "border-charcoal-200 bg-charcoal-50/50"
+              )}>
+                <div className={cn(
+                  "mt-0.5 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0",
+                  noticeDetailInspection.notice_24h_sent_at ? "bg-green-100" : "bg-charcoal-200"
+                )}>
+                  {noticeDetailInspection.notice_24h_sent_at
+                    ? <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+                    : <Clock className="w-3.5 h-3.5 text-charcoal-400" />
+                  }
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-charcoal-900">24-Hour Reminder</p>
+                  <p className="text-xs text-charcoal-500">
+                    {noticeDetailInspection.notice_24h_sent_at
+                      ? <>Sent via Property Meld on <b>{new Date(noticeDetailInspection.notice_24h_sent_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}</b></>
+                      : "Scheduled — will be sent 24 hours before inspection"
+                    }
+                  </p>
+                </div>
+                {noticeDetailInspection.notice_24h_sent_at && (
+                  <ShieldCheck className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                )}
+              </div>
+
+              {/* 2-hour reminder */}
+              <div className={cn(
+                "flex items-start gap-3 p-3 rounded-lg border",
+                noticeDetailInspection.notice_2h_sent_at
+                  ? "border-green-200 bg-green-50/50"
+                  : "border-charcoal-200 bg-charcoal-50/50"
+              )}>
+                <div className={cn(
+                  "mt-0.5 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0",
+                  noticeDetailInspection.notice_2h_sent_at ? "bg-green-100" : "bg-charcoal-200"
+                )}>
+                  {noticeDetailInspection.notice_2h_sent_at
+                    ? <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+                    : <Clock className="w-3.5 h-3.5 text-charcoal-400" />
+                  }
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-charcoal-900">2-Hour Final Reminder</p>
+                  <p className="text-xs text-charcoal-500">
+                    {noticeDetailInspection.notice_2h_sent_at
+                      ? <>Sent via Property Meld on <b>{new Date(noticeDetailInspection.notice_2h_sent_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}</b></>
+                      : "Scheduled — will be sent 2 hours before inspection"
+                    }
+                  </p>
+                </div>
+                {noticeDetailInspection.notice_2h_sent_at && (
+                  <ShieldCheck className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                )}
+              </div>
+            </div>
+
+            {noticeDetailInspection.notice_7d_sent_at && (
+              <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-2.5 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-green-600 flex-shrink-0" />
+                <p className="text-xs text-green-700">
+                  <b>Legal compliance:</b> All sent notices are logged with timestamps and delivered via Property Meld to tenant&apos;s registered contact.
+                </p>
+              </div>
+            )}
+
+            <div className="flex justify-end">
+              <button
+                onClick={() => setNoticeDetailInspection(null)}
+                className="px-4 py-2 text-sm font-medium text-charcoal-600 bg-charcoal-100 rounded-lg hover:bg-charcoal-200 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Bulk Update Modal ── */}
       {showBulkModal && (
@@ -931,43 +1080,34 @@ export function InspectionDashboard() {
                       </span>
                     </td>
                     <td className="px-3 py-3 hidden lg:table-cell">
-                      {insp.status === 'scheduled' || insp.notice_meld_id ? (
-                        <div className="flex items-center gap-1">
-                          <span
-                            title={insp.notice_7d_sent_at ? `7-day notice sent ${new Date(insp.notice_7d_sent_at).toLocaleDateString()}` : '7-day notice pending'}
+                      {insp.status === 'scheduled' || insp.notice_meld_id ? (() => {
+                        const sent = [insp.notice_7d_sent_at, insp.notice_24h_sent_at, insp.notice_2h_sent_at].filter(Boolean).length;
+                        const allSent = sent === 3;
+                        const anySent = sent > 0;
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => setNoticeDetailInspection(insp)}
                             className={cn(
-                              "inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold",
-                              insp.notice_7d_sent_at
-                                ? "bg-green-100 text-green-700"
-                                : "bg-charcoal-100 text-charcoal-400"
+                              "inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium transition-colors",
+                              allSent
+                                ? "bg-green-50 text-green-700 hover:bg-green-100"
+                                : anySent
+                                  ? "bg-amber-50 text-amber-700 hover:bg-amber-100"
+                                  : "bg-charcoal-50 text-charcoal-500 hover:bg-charcoal-100"
                             )}
                           >
-                            7d
-                          </span>
-                          <span
-                            title={insp.notice_24h_sent_at ? `24hr reminder sent ${new Date(insp.notice_24h_sent_at).toLocaleDateString()}` : '24hr reminder pending'}
-                            className={cn(
-                              "inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold",
-                              insp.notice_24h_sent_at
-                                ? "bg-green-100 text-green-700"
-                                : "bg-charcoal-100 text-charcoal-400"
+                            {allSent ? (
+                              <ShieldCheck className="w-3.5 h-3.5" />
+                            ) : anySent ? (
+                              <BellRing className="w-3.5 h-3.5" />
+                            ) : (
+                              <Bell className="w-3.5 h-3.5" />
                             )}
-                          >
-                            24h
-                          </span>
-                          <span
-                            title={insp.notice_2h_sent_at ? `2hr reminder sent ${new Date(insp.notice_2h_sent_at).toLocaleDateString()}` : '2hr reminder pending'}
-                            className={cn(
-                              "inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold",
-                              insp.notice_2h_sent_at
-                                ? "bg-green-100 text-green-700"
-                                : "bg-charcoal-100 text-charcoal-400"
-                            )}
-                          >
-                            2h
-                          </span>
-                        </div>
-                      ) : (
+                            {allSent ? "All Sent" : anySent ? `${sent}/3 Sent` : "Pending"}
+                          </button>
+                        );
+                      })() : (
                         <span className="text-charcoal-300">{"\u2014"}</span>
                       )}
                     </td>
