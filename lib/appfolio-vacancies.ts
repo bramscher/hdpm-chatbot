@@ -52,6 +52,7 @@ export interface VacantUnit {
   available_date: string;
   unit_type: string;
   amenities: string[];
+  marketing_description: string;
 }
 
 function parseNumber(val: unknown): number {
@@ -199,6 +200,7 @@ export async function fetchVacantUnits(): Promise<VacantUnit[]> {
       available_date: unit.AvailableOn || '',
       unit_type: mapUnitType(property?.PropertyType || ''),
       amenities: unit.AppliancesIncluded || [],
+      marketing_description: unit.MarketingDescription || '',
     });
   }
 

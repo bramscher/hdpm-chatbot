@@ -41,6 +41,7 @@ interface VacantUnit {
   available_date: string;
   unit_type: string;
   amenities: string[];
+  marketing_description: string;
 }
 
 interface SavedListing {
@@ -205,7 +206,7 @@ export function CraigslistTool() {
         setTitle(data.title || "");
         setBody(data.body || "");
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to generate listing");
+        setError(err instanceof Error ? err.message : "Failed to format listing");
         setView("list");
       } finally {
         setGenerating(false);
@@ -288,6 +289,7 @@ export function CraigslistTool() {
       available_date: "",
       unit_type: "",
       amenities: [],
+      marketing_description: "",
     });
     setView("editor");
     setSaved(false);
@@ -411,7 +413,7 @@ export function CraigslistTool() {
               Saved Listings
             </h1>
             <p className="text-sm text-charcoal-500 mt-1">
-              Previously generated Craigslist listing copy
+              Previously formatted Craigslist listings
             </p>
           </div>
           <Button
@@ -500,7 +502,7 @@ export function CraigslistTool() {
               Craigslist Listing Generator
             </h1>
             <p className="text-sm text-charcoal-500 mt-1">
-              Pull vacant units from AppFolio, generate listing copy, and post to
+              Pull vacant units from AppFolio, format marketing descriptions for
               Craigslist
             </p>
           </div>
@@ -587,7 +589,7 @@ export function CraigslistTool() {
                         className="bg-terra-600 hover:bg-terra-700 text-white flex-shrink-0"
                       >
                         <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-                        Generate Listing
+                        Format for HDPM Craigslist
                       </Button>
                     </div>
 
@@ -674,7 +676,7 @@ export function CraigslistTool() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-charcoal-900">
-            {generating ? "Generating Listing..." : title || "Edit Listing"}
+            {generating ? "Formatting Listing..." : title || "Edit Listing"}
           </h1>
           {selectedUnit && (
             <p className="text-sm text-charcoal-500 mt-0.5">
@@ -730,7 +732,7 @@ export function CraigslistTool() {
       {generating ? (
         <div className="glass rounded-xl p-10 text-center">
           <Loader2 className="h-8 w-8 text-terra-600 mx-auto mb-3 animate-spin" />
-          <p className="text-sm text-charcoal-600">Generating listing copy...</p>
+          <p className="text-sm text-charcoal-600">Formatting listing...</p>
           <p className="text-xs text-charcoal-400 mt-1">
             This usually takes 5-10 seconds
           </p>
@@ -948,7 +950,7 @@ export function CraigslistTool() {
                       className="bg-white/70 text-sm"
                     />
                     <p className="text-2xs text-charcoal-400 mt-1">
-                      Update the URL here, then re-generate or edit the body text manually
+                      Update the URL here, then re-format or edit the body text manually
                     </p>
                   </div>
                 )}

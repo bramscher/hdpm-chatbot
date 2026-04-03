@@ -54,6 +54,7 @@ export async function POST() {
         available_date: u.available_date || '',
         unit_type: u.unit_type || 'Rental',
         amenities: u.amenities || [],
+        marketing_description: u.marketing_description || '',
         last_synced_at: now,
       }));
 
