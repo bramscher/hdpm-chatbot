@@ -158,6 +158,7 @@ export interface ProposedStop {
   lat: number;
   lng: number;
   address: string;
+  unit_name: string | null;
   city: string;
 }
 
@@ -178,6 +179,7 @@ export interface GeoInspection {
   inspection_id: string;
   property_id: string;
   address: string;
+  unit_name: string | null;
   city: string;
   lat: number;
   lng: number;

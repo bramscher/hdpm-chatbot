@@ -104,6 +104,7 @@ export async function POST(
         lat: (prop.latitude as number) ?? 0,
         lng: (prop.longitude as number) ?? 0,
         address: prop.address_1 ? `${prop.address_1}, ${prop.city}, ${prop.state} ${prop.zip}` : '',
+        unit_name: (insp?.unit_name as string) ?? null,
         city: (prop.city as string) ?? 'Unknown',
       };
     });

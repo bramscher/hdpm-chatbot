@@ -355,6 +355,7 @@ export function buildRoutePlans(
         lat: insp.lat,
         lng: insp.lng,
         address: insp.address,
+        unit_name: insp.unit_name,
         city: insp.city,
       });
 

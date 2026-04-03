@@ -689,6 +689,11 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
                     <div className="min-w-0">
                       <p className="font-semibold text-charcoal-900 truncate">
                         {stop.property_name || stop.address}
+                        {stop.unit_name && (
+                          <span className="ml-1.5 inline-flex px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 text-xs font-bold">
+                            #{stop.unit_name}
+                          </span>
+                        )}
                       </p>
                       {stop.property_name && (
                         <p className="text-sm text-charcoal-600 truncate">
@@ -697,11 +702,6 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
                       )}
                       {stop.city && (
                         <p className="text-sm text-charcoal-500">{stop.city}</p>
-                      )}
-                      {stop.unit_name && (
-                        <p className="text-xs text-charcoal-400 mt-0.5">
-                          Unit: {stop.unit_name}
-                        </p>
                       )}
                     </div>
                     <div className="flex flex-col items-end gap-1 flex-shrink-0">
