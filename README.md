@@ -1,205 +1,385 @@
-# HDPM Chatbot & Automation Dashboard 
+# HDPM Operations Dashboard
 
-An internal automation platform for High Desert Property Management built with Next.js 16. Combines a RAG-powered knowledge assistant for Oregon landlord-tenant law (ORS Chapter 90), a rent comparison toolkit, and a full maintenance work order + invoicing system integrated with AppFolio.
+Internal operations platform for **High Desert Property Management** (~850 doors, Central Oregon). Automates inspections, work order triage, invoice generation, rent comp analysis, and Craigslist ad creation.
 
-## Modules
+**Stack:** Next.js 16 / TypeScript / Supabase / Tailwind CSS / Vercel
+**Auth:** Microsoft Azure AD (@highdesertpm.com only)
+**Domain:** hdpmchat.highdesertpm.com
 
-### 1. Knowledge Assistant (Chat)
+---
 
-RAG-powered chatbot that helps property managers find accurate information about ORS Chapter 90 and company policies.
+## Table of Contents
 
-- **Hybrid Search**: Combines vector similarity (pgvector) with PostgreSQL full-text search
-- **Intent Detection**: Automatically chooses optimal search strategy based on query type
-- **Streaming Responses**: Real-time Claude responses via Server-Sent Events
-- **Document Analysis**: Upload PDFs/emails for legal analysis against ORS 90
-- **Inline Citations**: [1][2][3] style citations with clickable source sidebar
-- **Team Conversation History**: Shared conversation history across all team members
+- [Getting Started](#getting-started)
+- [Inspections](#inspections)
+  - [Inspection Queue](#inspection-queue)
+  - [Property Meld Sync](#property-meld-sync)
+  - [Geocoding](#geocoding)
+  - [Route Builder](#route-builder)
+  - [Automated Tenant Notices](#automated-tenant-notices)
+- [Craigslist Ad Creator](#craigslist-ad-creator)
+- [Invoice Generator](#invoice-generator)
+- [Work Order Triage](#work-order-triage)
+- [Rent Comps](#rent-comps)
+- [AI Chat (ORS 90)](#ai-chat-ors-90)
+- [Scheduled Jobs (Crons)](#scheduled-jobs-crons)
+- [Environment Variables](#environment-variables)
+- [Database](#database)
+- [Deployment](#deployment)
 
-### 2. Rent Comparison Toolkit (Comps)
+---
 
-Market analysis tool for Central Oregon rental properties.
+## Getting Started
 
-- **Multi-Source Data**: AppFolio properties, Zillow, Rentometer, HUD FMR baselines
-- **Similarity Scoring**: Weighted matching on bedrooms, bathrooms, sqft, distance
-- **Address Lookup**: Google geocoding + RentCast property data
-- **Branded PDF Reports**: Generate rent analysis reports with HDPM branding
-- **Comp Filters**: Date range, data source, property type filtering
+```bash
+npm install
+cp .env.example .env.local   # Fill in all required env vars
+npm run dev                   # http://localhost:3000
+```
 
-### 3. Maintenance & Invoicing (High Desert Maintenance Services)
+Login requires a `@highdesertpm.com` Microsoft account. All pages and API endpoints are protected behind Azure AD authentication.
 
-Full work order management and invoice generation system for HDMS.
+---
 
-- **AppFolio Sync**: Pulls work orders, vendors (513+), and properties via v0 Database API
-- **Vendor Filter**: Default filter to HDMS vendor with toggle for all vendors
-- **Tabbed Dashboard**: Work Orders and Invoices tabs with stats cards (Open/Done/Closed)
-- **Status Filters**: Granular AppFolio status pills (New, Assigned, Scheduled, Estimated, Waiting, Work Completed, Completed, Canceled)
-- **Priority Sorting**: Emergency, Urgent, High, Normal, Low with color-coded badges
-- **Pagination**: 20 work orders per page with sort by property, status, priority, date
-- **Search**: Full-text search across property name, address, WO number
-- **CSV Export**: Download filtered work orders as CSV
+## Inspections
 
-#### Invoice Creator
+**Path:** `/maintenance/inspections`
 
-- **Line Items**: Type (Labor/Materials/Other) with Qty, Price, and Extended (auto-calculated) columns
-- **Labor Rates**: Default $95/hr with after-hours/emergency toggle (1.5x = $142.50/hr)
-- **Flat Fee Lookup**: Dropdown for standard repeat jobs (structure ready for user-provided list)
-- **Auto-Calculate**: Extended amount = Qty x Price, auto-computed on input
-- **AI Rewrite**: One-click professional rewrite of line item descriptions via Claude
-- **Auto-Save**: 2-second debounced auto-save with unsaved changes indicator
-- **PDF Generation**: Branded HDMS invoice PDFs with Qty/Price/Extended columns, subtotals, and total
-- **Work Order Reference**: Internal notes pre-populated with comprehensive WO data (property, status, dates, vendor instructions, technician notes, description, tasks)
-- **PDF/CSV Upload**: Scan work order PDFs or upload CSV batch files
+Manages biannual property inspections across ~850 doors. The system tracks every property, schedules inspections on 6-month cycles, builds optimized driving routes, and sends legally-required tenant notices via Property Meld.
 
-## Tech Stack
+### Inspection Queue
 
-- **Framework**: Next.js 16 (App Router, TypeScript, Turbopack)
-- **Authentication**: NextAuth.js 4 with Azure AD provider
-- **Database**: Supabase (PostgreSQL + pgvector extension)
-- **Embeddings**: OpenAI text-embedding-3-small (1536 dimensions)
-- **Chat AI**: Claude Sonnet 4 via Anthropic API
-- **PDF Generation**: jsPDF for invoice and rent report PDFs
-- **External APIs**: AppFolio v0 Database API, Google Geocoding, Zillow, Rentometer, HUD FMR
-- **Styling**: Tailwind CSS + shadcn/ui + custom glass morphism utilities
+The main inspections page shows all properties with their inspection status, due date, assigned inspector, and notification status.
 
-## Search Architecture (Chat)
+**Statuses:** Imported > Validated > Queued > Scheduled > In Progress > Completed
 
-| Query Intent | Example | Search Strategy |
-|-------------|---------|-----------------|
-| `phrase_lookup` | "where does it say 'reasonable wear and tear'" | Phrase search + vector fallback |
-| `section_lookup` | "what does 90.300 say" | Substring (ILIKE) + vector |
-| `keyword` | "which section mentions late fees" | Full-text + vector (merged) |
-| `semantic` | "can I charge for carpet cleaning" | Vector primary + full-text supplement |
+**How to use:**
+1. Properties are synced from Property Meld (see below)
+2. Each property gets one inspection. When completed, the next one is auto-created 6 months out
+3. Filter by status, city, assignee, or search by address
+4. Bulk update: select multiple inspections to change status, assignee, or priority at once
+5. 12-Month Summary tab shows a calendar view of inspection volume
 
-## Prerequisites
+**Key rules:**
+- Inspections require **7 days minimum lead time** before the scheduled date (Oregon tenant notice law)
+- When an inspection is completed, the system automatically creates the next biannual inspection due 6 months later
+- Unit numbers are tracked and displayed for multi-unit properties
 
-1. Supabase project with pgvector extension enabled
-2. Azure AD app registration (for SSO)
-3. OpenAI API key
-4. Anthropic API key
-5. AppFolio API credentials (for maintenance module)
+### Property Meld Sync
+
+**How to sync:**
+1. Go to Inspections page
+2. Click **Sync from Property Meld** button
+3. The system pulls all properties and units from Property Meld, matches them against AppFolio for last-inspection dates, and creates inspection records
+
+**What the sync does:**
+- Fetches all properties and units from Property Meld API
+- Matches addresses to AppFolio units to find `lastInspectedDate` and `moveInDate`
+- Creates `inspection_properties` records (address, coordinates, PM IDs)
+- Creates one inspection per property/unit with calculated due dates
+- Sets `unit_name` on each inspection from the PM unit data
+- Backfills unit names on any existing inspections missing them
+- Skips excluded properties (HOAs, commercial)
+
+**Due date calculation:** `last_inspection_date + 6 months`, clamped to today if overdue. Falls back to `move_in_date + 6 months` if no inspection history exists.
+
+### Geocoding
+
+Properties must be geocoded before they can be added to routes (the route optimizer needs lat/lng coordinates).
+
+**How to geocode:**
+1. Click **Geocode** button on the inspections page
+2. Only processes properties with status `pending` or `failed` — already-geocoded properties are skipped
+3. Uses Google Maps Geocoding API in batches of 10 with rate limiting
+4. After a sync, just run geocode to process the new ones
+
+### Route Builder
+
+**Path:** `/maintenance/inspections/routes`
+
+Creates optimized driving routes for inspectors. Groups properties geographically and uses nearest-neighbor routing to minimize drive time.
+
+**How to create a route:**
+1. Go to Route Builder
+2. Set the date range (must be 7+ days out for tenant notice compliance)
+3. Assign an inspector
+4. Click **Generate** — the system auto-selects the most urgent inspections and builds an optimized route
+
+**Routing algorithm:**
+- **Address clustering:** All units at the same physical address are always grouped on the same route day. A 16-unit apartment complex at 2796 SW 23rd becomes one day's work, not spread across weeks.
+- **Dedicated days:** If a single address has enough units to fill a route (>= max stops), it gets its own dedicated route day automatically.
+- **City clustering:** Properties are grouped by city (Bend, Redmond, Sisters, Prineville, La Pine, Madras) since Central Oregon cities are 20-40 min apart.
+- **Priority sorting:** Overdue inspections first, then by due date, then by priority level.
+- **Route optimization:** Nearest-neighbor TSP starting from HDPM office (1515 SW Reindeer Ave, Redmond). Can be further optimized with Google Directions API.
+
+**Unit numbers in routes:**
+- Each stop displays the address with a prominent unit number badge (e.g. **#101**, **#A**)
+- Multi-unit buildings show all their units in sequence with 0 min drive time between them
+- Unit numbers come from Property Meld sync data
+
+**Using a route on inspection day:**
+1. Open the route from Route Builder
+2. Each stop shows address, unit number badge, drive time, due date, and service time
+3. Click **Start Inspection** — creates a Property Meld work order and begins the inspection
+4. Click **Complete** when done, or **Skip** to return it to the queue
+5. Use **Flag Issue** to mark problems found during inspection
+6. When all stops are done, the route auto-completes
+
+### Automated Tenant Notices
+
+**Legal requirement:** Oregon law requires advance notice before property inspections. The system automates this entirely through Property Meld.
+
+**Notice schedule:**
+
+| Timing | Action | What tenant receives |
+|--------|--------|---------------------|
+| **7 days before** | Creates a Property Meld meld with tenant(s) attached | Formal inspection notice with date, address, and contact info |
+| **24 hours before** | Adds a reminder message to the meld | "Your inspection is tomorrow" reminder |
+| **2 hours before** | Adds a final message to the meld | "Inspector arriving shortly" notification |
+
+**How it works:**
+- A Vercel cron job runs **every hour** checking for scheduled inspections within the next 8 days
+- For the 7-day notice: looks up the tenant(s) on the unit via Property Meld and creates a meld with them attached (triggers PM's built-in email/text notification)
+- For 24h and 2h reminders: adds a chat message to the existing meld (triggers another PM notification)
+- Tracks which notices have been sent (`notice_7d_sent_at`, `notice_24h_sent_at`, `notice_2h_sent_at`) to prevent duplicates
+- Each notice includes the Property Meld meld ID for audit trail
+
+**Monitoring notice status:**
+- The inspections table shows a **Notices** column with a clickable status badge
+- **Gray "Pending"** — no notices sent yet
+- **Amber "1/3 Sent"** or **"2/3 Sent"** — some notices delivered
+- **Green "All Sent"** with shield icon — all 3 notices confirmed
+- Click any badge to open a detail modal showing:
+  - Exact timestamp of each sent notice (e.g. "Sent via Property Meld on Apr 2, 2026, 9:00 AM")
+  - Property Meld meld ID for audit/legal reference
+  - Legal compliance confirmation banner
+
+**Testing without notifying tenants:**
+
+| Mode | How to trigger | What happens |
+|------|---------------|-------------|
+| **Dry run** | `POST /api/inspections/notify?mode=dry_run` | Logs what would happen — no PM API calls, no DB writes |
+| **Silent** | `POST /api/inspections/notify?mode=silent` | Creates real melds in PM but `hidden_from_tenant=true` — visible in PM dashboard, tenants never see it |
+| **Live** | `POST /api/inspections/notify` (default) | Production mode — tenants are notified |
+
+The response includes an `actions` array showing exactly what was sent or would be sent.
+
+---
+
+## Craigslist Ad Creator
+
+**Path:** `/craigslist`
+
+Generates professional, HTML-formatted Craigslist rental listings from AppFolio vacancy data.
+
+**Workflow:**
+1. Open the Craigslist tool — cached vacancies load instantly from Supabase
+2. Click **Sync Vacancies** to pull fresh data from AppFolio (upserts new units, removes ones no longer vacant)
+3. Optionally toggle **Rently** on for units with self-guided tour access and enter the Rently URL
+4. Click **Generate Listing** — Claude AI creates HTML-formatted copy
+5. Review the preview (shown first by default)
+6. Click **Copy HTML to Clipboard** and paste directly into Craigslist's posting body
+7. Use **Download All** or **Open All in Tabs** for photos, then drag into Craigslist's image uploader
+
+**Listing format:**
+- Quick-glance summary table (rent, beds, baths, sqft, availability)
+- "About This Home" section with neighborhood context
+- "Features & Amenities" bullet list with bold key selling points
+- "Apply Now" link to rentzap.com
+- "Questions? We're Available 24/7" contact block with phone and website
+- Rently self-guided tour block (when enabled)
+- Professional disclaimer footer with HDPM address
+- All HTML uses Craigslist-compatible tags only (`h2`, `table`, `ul`, `b`, `hr`, `a`, `p`)
+- Section headers in HDPM brand green (#2c4a29)
+
+**Editing:**
+- Preview is the default view for quick copy-paste workflow
+- Expand **Edit HTML Source** to modify the title, Rently URL, or body HTML
+- Changes reflect live in the preview above
+- Click **Save** to store listings in Supabase for history/re-use
+
+**Photos:**
+- Automatically scraped from AppFolio's public listings page
+- Craigslist strips `<img>` tags — photos must be uploaded through their image uploader
+- **Download All** saves images as files you can drag into Craigslist
+- **Open All in Tabs** opens each photo in a browser tab for drag-and-drop
+
+**Vacancy caching:**
+- Vacancies are cached in Supabase so the page loads instantly
+- **Sync Vacancies** pulls fresh from AppFolio, upserts new/changed units, and removes stale ones
+- Units that get rented disappear automatically on next sync
+
+---
+
+## Invoice Generator
+
+**Path:** `/maintenance/invoices`
+
+Creates maintenance invoices from three input sources:
+
+1. **AppFolio Work Orders** — pull open work orders and generate invoices with auto-populated line items
+2. **CSV Upload** — import invoice line items from spreadsheets
+3. **PDF Scan** — extract invoice data from scanned/photographed PDFs using Claude AI
+
+**Features:**
+- Line items with Type (Labor/Materials/Other), Qty, Price, Extended (auto-calculated)
+- Default labor rate $95/hr with after-hours/emergency toggle (1.5x = $142.50/hr)
+- Claude AI rewrites work descriptions into professional invoice language
+- Auto-extracts materials and line items from descriptions
+- PDF export with HDMS branding (Qty/Price/Extended columns, subtotals, totals)
+- Auto-save with 2-second debounce
+- Internal notes pre-populated with full work order reference data
+- Status tracking: Draft > Submitted > Paid
+
+---
+
+## Work Order Triage
+
+**Path:** `/maintenance/triage`
+
+AI-powered prioritization of open AppFolio work orders.
+
+**How it works:**
+1. Syncs open work orders from AppFolio (runs daily at 8 AM PT or manually via **Sync Now**)
+2. AI scores each work order by urgency and priority
+3. Detects recurring maintenance issues across properties
+4. Provides recommended actions and priority rankings
+5. Filter by status, priority, vendor, or search across properties
+
+**Status badges:** New, Assigned, Scheduled, Estimated, Waiting, Work Completed, Completed, Canceled
+
+---
+
+## Rent Comps
+
+**Path:** `/comps`
+
+Rental market analysis combining three data sources:
+
+- **AppFolio** — current portfolio rental rates and vacancy data
+- **Rentometer** — market comparison data by address
+- **HUD Fair Market Rent** — government baseline rates by area (synced annually)
+
+**Features:**
+- Search and compare rental rates by address, city, or property type
+- Weighted similarity scoring (bedrooms, bathrooms, sqft, distance)
+- PDF comp analysis reports for owner presentations
+- Market trend tracking
+- Automatic baseline seeding from HUD data
+
+---
+
+## AI Chat (ORS 90)
+
+**Sidebar:** Click **ORS 90 Chat** in the left navigation
+
+An AI assistant trained on Oregon Revised Statutes Chapter 90 (landlord-tenant law), HDPM policy documents, and Loom training videos.
+
+**Capabilities:**
+- Answer questions about Oregon landlord-tenant law with specific ORS section references
+- Hybrid search: vector similarity (pgvector) + full-text search for optimal retrieval
+- Upload PDFs/emails for legal analysis against ORS 90
+- Inline [1][2][3] citations with clickable source sidebar
+- Streaming responses via Server-Sent Events
+- Team conversation history shared across all @highdesertpm.com users
+
+**Search strategies (auto-selected by query intent):**
+
+| Intent | Example | Strategy |
+|--------|---------|----------|
+| Phrase lookup | "where does it say 'reasonable wear and tear'" | Phrase search + vector fallback |
+| Section lookup | "what does 90.300 say" | Substring (ILIKE) + vector |
+| Keyword | "which section mentions late fees" | Full-text + vector (merged) |
+| Semantic | "can I charge for carpet cleaning" | Vector primary + full-text supplement |
+
+---
+
+## Scheduled Jobs (Crons)
+
+Configured in `vercel.json`. All times are UTC.
+
+| Schedule | Endpoint | Purpose |
+|----------|----------|---------|
+| **Every hour** | `/api/inspections/notify` | Send tenant inspection notices (7d, 24h, 2h) via Property Meld |
+| **8 AM daily** | `/api/sync/work-orders` | Sync AppFolio work orders for triage |
+| **9 AM daily** | `/api/sync/appfolio` | Full AppFolio sync: properties, vacancies, comps |
+| **10 AM, Jan 1** | `/api/sync/hud` | Annual HUD Fair Market Rent data refresh |
+
+Cron endpoints are authenticated via `CRON_SECRET` bearer token and exempted from Azure AD middleware.
+
+---
 
 ## Environment Variables
 
-Create `.env.local` with:
+### Required
 
-```bash
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=eyJ...
-SUPABASE_SERVICE_ROLE_KEY=eyJ...
+| Variable | Service | Purpose |
+|----------|---------|---------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase | Database URL |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` | Supabase | Client-side anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase | Server-side admin key |
+| `AZURE_AD_CLIENT_ID` | Microsoft | Azure AD app client ID |
+| `AZURE_AD_CLIENT_SECRET` | Microsoft | Azure AD app secret |
+| `AZURE_AD_TENANT_ID` | Microsoft | Azure AD tenant |
+| `NEXTAUTH_SECRET` | NextAuth | Session encryption key |
+| `NEXTAUTH_URL` | NextAuth | App base URL (e.g. `https://hdpmchat.highdesertpm.com`) |
+| `APPFOLIO_CLIENT_ID` | AppFolio | v0 API client ID |
+| `APPFOLIO_CLIENT_SECRET` | AppFolio | v0 API client secret |
+| `APPFOLIO_DEVELOPER_ID` | AppFolio | Developer ID header value |
+| `PROPERTY_MELD_CLIENT_ID` | Property Meld | OAuth 2.0 client ID |
+| `PROPERTY_MELD_CLIENT_SECRET` | Property Meld | OAuth 2.0 client secret |
+| `CLAUDE_API_KEY` | Anthropic | Claude AI for listings, triage, invoice rewrites, chat |
+| `GOOGLE_PLACES_API_KEY` | Google | Server-side geocoding API key |
+| `NEXT_PUBLIC_GOOGLE_MAPS_KEY` | Google | Client-side Maps JavaScript API key |
 
-# OpenAI (for embeddings)
-OPENAI_API_KEY=sk-...
+### Optional
 
-# Anthropic (for Claude responses)
-ANTHROPIC_API_KEY=sk-ant-...
+| Variable | Service | Purpose |
+|----------|---------|---------|
+| `CRON_SECRET` | Vercel | Authenticates hourly cron job requests |
+| `PROPERTY_MELD_API_URL` | Property Meld | API base URL (default: `https://api.propertymeld.com`) |
+| `RENTOMETER_API_KEY` | Rentometer | Rental comp market data |
+| `RENTCAST_API_KEY` | RentCast | Alternative rental data source |
+| `HUD_API_TOKEN` | HUD.gov | Fair Market Rent annual data |
+| `OPENAI_API_KEY` | OpenAI | Embeddings for knowledge base + fallback AI |
 
-# NextAuth
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=your-random-secret
+---
 
-# Azure AD
-AZURE_AD_CLIENT_ID=your-client-id
-AZURE_AD_CLIENT_SECRET=your-client-secret
-AZURE_AD_TENANT_ID=your-tenant-id
+## Database
 
-# AppFolio (for work orders / maintenance)
-APPFOLIO_CLIENT_ID=your-client-id
-APPFOLIO_CLIENT_SECRET=your-client-secret
-APPFOLIO_DATABASE_ID=your-database-id
-```
+**Platform:** Supabase (PostgreSQL with pgvector extension)
 
-## Installation
+**Key tables:**
 
-```bash
-# Install dependencies
-npm install
+| Table | Purpose |
+|-------|---------|
+| `inspection_properties` | Physical property records with PM/AppFolio IDs, coordinates, and unit counts |
+| `inspections` | Inspection tasks with due dates, status, unit names, notice tracking, and meld IDs |
+| `route_plans` | Inspection routes with dates, assignees, stop counts, and time estimates |
+| `route_stops` | Individual stops within routes with ordering, status, and arrival times |
+| `saved_listings` | Saved Craigslist listing drafts with generated HTML |
+| `cached_vacancies` | Cached AppFolio vacancy data for instant page load |
+| `conversations` | AI chat conversation metadata |
+| `conversation_messages` | Individual chat messages with sources and attachments |
+| `knowledge_chunks` | pgvector knowledge base chunks for ORS 90 semantic search |
+| `import_batches` | CSV/XLSX upload audit trail for inspection imports |
+| `inspection_audit_log` | Immutable change tracking for inspection operations |
 
-# Run development server
-npm run dev
+**Migrations:** Located in `supabase/migrations/`. Run new migrations via the [Supabase SQL Editor](https://supabase.com/dashboard).
 
-# Build for production
-npm run build
-```
-
-Open [http://localhost:3000](http://localhost:3000) and sign in with your @highdesertpm.com Microsoft account.
-
-## Project Structure
-
-```
-hdpm-chatbot/
-├── app/
-│   ├── api/
-│   │   ├── auth/[...nextauth]/     # NextAuth Azure AD config
-│   │   ├── chat/stream/            # Streaming chat endpoint
-│   │   ├── comps/                  # Rent comp CRUD, analysis, reports
-│   │   ├── conversations/          # Conversation CRUD
-│   │   ├── invoices/               # Invoice CRUD, PDF generation, download
-│   │   ├── parse-pdf/              # PDF text extraction
-│   │   ├── sync/                   # AppFolio sync (work orders, comps, HUD)
-│   │   ├── webhooks/               # AppFolio webhooks
-│   │   └── work-orders/            # Work order API endpoints
-│   ├── comps/                      # Rent Comparison Toolkit
-│   │   ├── analysis/               # Comp analysis view
-│   │   └── comps-dashboard.tsx     # Main comps dashboard
-│   ├── maintenance/
-│   │   └── invoices/
-│   │       ├── invoice-dashboard.tsx  # Tabbed WO + invoice dashboard
-│   │       ├── invoice-form.tsx       # Invoice creator with qty/price/extended
-│   │       ├── invoice-list.tsx       # Invoice history list
-│   │       ├── csv-uploader.tsx       # CSV/PDF upload drop zone
-│   │       └── work-order-table.tsx   # CSV work order table view
-│   ├── login/                      # Login page
-│   ├── globals.css                 # Glass morphism styles
-│   ├── layout.tsx                  # Root layout with mesh gradient
-│   └── page.tsx                    # HDPM Automation Dashboard landing
-├── components/
-│   ├── ui/                         # shadcn/ui components
-│   ├── ChatWidget.tsx              # Floating chat FAB
-│   ├── ChatWindow.tsx              # Main chat interface
-│   ├── CitationsSidebar.tsx        # Legal sources panel
-│   ├── ConversationHistory.tsx     # Team history sidebar
-│   └── Message.tsx                 # Message with citations
-├── lib/
-│   ├── appfolio.ts                 # AppFolio v0 API client (WOs, vendors, properties)
-│   ├── comps.ts                    # Rent comp database functions
-│   ├── invoice-pdf-template.ts     # jsPDF invoice template (Qty/Price/Extended)
-│   ├── invoices.ts                 # Invoice types + Supabase CRUD
-│   ├── rag.ts                      # Hybrid search + Claude streaming
-│   ├── rent-analysis.ts            # Rent analysis logic
-│   ├── rent-report-pdf.ts          # Rent report PDF template
-│   ├── supabase.ts                 # Supabase client + database functions
-│   ├── work-orders.ts              # Work order types + Supabase CRUD
-│   ├── address-lookup.ts           # Google geocoding + RentCast
-│   ├── zillow.ts                   # Zillow data client
-│   ├── rentometer.ts               # Rentometer API client
-│   ├── hud.ts                      # HUD FMR data client
-│   └── hdpm-logo.ts                # Base64 logo for PDFs
-└── scripts/
-    ├── add-fulltext-search.sql     # Full-text search migration
-    └── create-conversations-table.sql
-```
-
-## Key Workflows
-
-### Work Order to Invoice
-
-1. Click **Sync Now** to pull latest work orders from AppFolio
-2. Filter by status, priority, vendor, or search
-3. Click **+** on a work order to create an invoice
-4. Line items auto-populate from WO data; internal notes filled with full WO reference
-5. Enter Qty and Price per line — Extended calculates automatically
-6. Toggle **AH** for after-hours labor (1.5x rate)
-7. Click **Generate Invoice PDF** — branded PDF with all line item detail
-8. Invoice auto-saves every 2 seconds as you edit
-
-### AppFolio Data Sync
-
-- **Work Orders**: Syncs all WOs with status, priority, vendor name resolution
-- **Vendors**: Fetches 500+ vendors, builds ID-to-name map for WO display
-- **Properties**: Syncs property names and addresses for invoice pre-population
-- **Webhooks**: Endpoint at `/api/webhooks/appfolio` for real-time updates
+---
 
 ## Deployment
 
-Deployed on Vercel with automatic deploys from the `main` branch. Environment variables are configured in Vercel project settings.
+Deployed on **Vercel** with automatic deploys from the `main` branch.
+
+```bash
+npm run build    # Verify build passes locally
+git push         # Triggers Vercel deploy
+```
+
+**Production URL:** `hdpmchat.highdesertpm.com`
+
+**Branch strategy:**
+- `main` — production, auto-deploys to Vercel
+- `feat/*` — feature branches, merged via PR
