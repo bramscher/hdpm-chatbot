@@ -36,12 +36,17 @@ interface Inspection {
   city: string | null;
   inspection_type: string | null;
   due_date: string | null;
+  target_date: string | null;
   move_in_date: string | null;
   priority: string | null;
   assigned_to: string | null;
   status: string;
   resident_name: string | null;
   created_at: string;
+  notice_meld_id: string | null;
+  notice_7d_sent_at: string | null;
+  notice_24h_sent_at: string | null;
+  notice_2h_sent_at: string | null;
 }
 
 interface InspectionStats {
@@ -842,6 +847,7 @@ export function InspectionDashboard() {
                   <th className="text-left px-3 py-3 font-semibold text-charcoal-600">Priority</th>
                   <th className="text-left px-3 py-3 font-semibold text-charcoal-600 hidden lg:table-cell">Assigned To</th>
                   <th className="text-left px-3 py-3 font-semibold text-charcoal-600">Status</th>
+                  <th className="text-left px-3 py-3 font-semibold text-charcoal-600 hidden lg:table-cell">Notices</th>
                   <th className="text-left px-3 py-3 font-semibold text-charcoal-600 hidden md:table-cell">City</th>
                   <th className="w-10 px-3 py-3"></th>
                 </tr>
@@ -923,6 +929,47 @@ export function InspectionDashboard() {
                       >
                         {formatStatus(insp.status)}
                       </span>
+                    </td>
+                    <td className="px-3 py-3 hidden lg:table-cell">
+                      {insp.status === 'scheduled' || insp.notice_meld_id ? (
+                        <div className="flex items-center gap-1">
+                          <span
+                            title={insp.notice_7d_sent_at ? `7-day notice sent ${new Date(insp.notice_7d_sent_at).toLocaleDateString()}` : '7-day notice pending'}
+                            className={cn(
+                              "inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold",
+                              insp.notice_7d_sent_at
+                                ? "bg-green-100 text-green-700"
+                                : "bg-charcoal-100 text-charcoal-400"
+                            )}
+                          >
+                            7d
+                          </span>
+                          <span
+                            title={insp.notice_24h_sent_at ? `24hr reminder sent ${new Date(insp.notice_24h_sent_at).toLocaleDateString()}` : '24hr reminder pending'}
+                            className={cn(
+                              "inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold",
+                              insp.notice_24h_sent_at
+                                ? "bg-green-100 text-green-700"
+                                : "bg-charcoal-100 text-charcoal-400"
+                            )}
+                          >
+                            24h
+                          </span>
+                          <span
+                            title={insp.notice_2h_sent_at ? `2hr reminder sent ${new Date(insp.notice_2h_sent_at).toLocaleDateString()}` : '2hr reminder pending'}
+                            className={cn(
+                              "inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold",
+                              insp.notice_2h_sent_at
+                                ? "bg-green-100 text-green-700"
+                                : "bg-charcoal-100 text-charcoal-400"
+                            )}
+                          >
+                            2h
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-charcoal-300">{"\u2014"}</span>
+                      )}
                     </td>
                     <td className="px-3 py-3 hidden md:table-cell">
                       <span className="text-charcoal-500">{insp.city || "\u2014"}</span>

@@ -60,6 +60,17 @@ export interface PMMeld {
   assigned_to?: number;
   priority?: string;
   category?: string;
+  tenants?: number[];
+  [key: string]: unknown;
+}
+
+export interface PMMeldMessage {
+  id?: number;
+  text: string;
+  hidden_from_vendor?: boolean;
+  hidden_from_tenant?: boolean;
+  hidden_from_owner?: boolean;
+  created?: string;
   [key: string]: unknown;
 }
 
@@ -338,6 +349,54 @@ export async function getVendors(multitenantId: number): Promise<PMVendor[]> {
  */
 export async function getOwners(multitenantId: number): Promise<PMOwner[]> {
   return pmFetchAll<PMOwner>('/api/v2/owner/', multitenantId);
+}
+
+/**
+ * Add a message to a meld's chat. Notifies tenants by default.
+ */
+export async function addMeldMessage(
+  multitenantId: number,
+  meldId: number,
+  text: string,
+  options?: { hidden_from_tenant?: boolean; hidden_from_vendor?: boolean; hidden_from_owner?: boolean }
+): Promise<PMMeldMessage> {
+  return pmFetch<PMMeldMessage>(`/api/v2/meld/${meldId}/chat/`, {
+    method: 'POST',
+    multitenantId,
+    body: {
+      text,
+      hidden_from_vendor: options?.hidden_from_vendor ?? false,
+      hidden_from_tenant: options?.hidden_from_tenant ?? false,
+      hidden_from_owner: options?.hidden_from_owner ?? true,
+    },
+  });
+}
+
+/**
+ * Get all messages on a meld.
+ */
+export async function getMeldMessages(
+  multitenantId: number,
+  meldId: number
+): Promise<PMMeldMessage[]> {
+  const data = await pmFetch<PMPaginatedResponse<PMMeldMessage>>(`/api/v2/meld/${meldId}/chat/`, {
+    multitenantId,
+  });
+  return data.results;
+}
+
+/**
+ * Get residents for a specific unit.
+ */
+export async function getResidentsForUnit(
+  multitenantId: number,
+  unitId: number
+): Promise<PMResident[]> {
+  const data = await pmFetch<PMPaginatedResponse<PMResident>>('/api/v2/resident/', {
+    multitenantId,
+    params: { unit: unitId },
+  });
+  return data.results;
 }
 
 /**
