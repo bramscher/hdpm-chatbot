@@ -332,6 +332,7 @@ export async function POST(req: Request) {
               inspection_type: 'biannual',
               status: 'imported',
               due_date: dueDate.toISOString().split('T')[0],
+              unit_name: entry.unitName || null,
             });
 
           if (inspError) {
@@ -343,7 +344,28 @@ export async function POST(req: Request) {
       }
     }
 
-    return NextResponse.json({ stats, excluded_count: excludedCount, units_fetched: pmUnits.length });
+    // Step 4: Backfill unit_name on inspections that are missing it
+    // Pull from inspection_properties.address_2 (which stores the PM unit name)
+    const { data: missingUnitNames } = await supabase
+      .from('inspections')
+      .select('id, property_id, inspection_properties(address_2)')
+      .is('unit_name', null);
+
+    let unitNamesBackfilled = 0;
+    for (const insp of missingUnitNames || []) {
+      const rawProp = insp.inspection_properties as unknown;
+      const prop = (Array.isArray(rawProp) ? rawProp[0] : rawProp) as Record<string, unknown> | null;
+      const addr2 = prop?.address_2 as string | null;
+      if (addr2) {
+        await supabase
+          .from('inspections')
+          .update({ unit_name: addr2 })
+          .eq('id', insp.id);
+        unitNamesBackfilled++;
+      }
+    }
+
+    return NextResponse.json({ stats, excluded_count: excludedCount, units_fetched: pmUnits.length, unit_names_backfilled: unitNamesBackfilled });
   } catch (error) {
     console.error('Property Meld sync error:', error);
     return NextResponse.json(
