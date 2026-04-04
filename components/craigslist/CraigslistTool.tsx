@@ -19,7 +19,6 @@ import {
   Trash2,
   ImageIcon,
   Download,
-  ExternalLink,
   X,
   CheckCircle2,
 } from "lucide-react";
@@ -317,34 +316,45 @@ export function CraigslistTool() {
     }
   }, [title, body]);
 
-  const handleDownloadPhotos = useCallback(async () => {
+  const [zipping, setZipping] = useState(false);
+
+  const handleDownloadZip = useCallback(async () => {
     const photosToDownload = selectedPhotos.size > 0
       ? photos.filter((p) => selectedPhotos.has(p.id))
       : photos;
 
-    for (const photo of photosToDownload) {
+    if (photosToDownload.length === 0) return;
+
+    setZipping(true);
+    try {
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+      const folderName = selectedUnit
+        ? selectedUnit.address.replace(/[^a-zA-Z0-9 ]/g, "").trim()
+        : "photos";
+
+      for (let i = 0; i < photosToDownload.length; i++) {
+        const photo = photosToDownload[i];
+        const res = await fetch(photo.url);
+        const blob = await res.blob();
+        const ext = photo.url.match(/\.(jpg|jpeg|png|webp)/i)?.[1] || "jpg";
+        zip.file(`${folderName}/${String(i + 1).padStart(2, "0")}.${ext}`, blob);
+      }
+
+      const content = await zip.generateAsync({ type: "blob" });
       const link = document.createElement("a");
-      link.href = photo.url;
-      link.download = `${photo.caption || photo.id}.jpg`;
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
+      link.href = URL.createObjectURL(content);
+      link.download = `${folderName}-photos.zip`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      // Small delay between downloads
-      await new Promise((r) => setTimeout(r, 300));
+      URL.revokeObjectURL(link.href);
+    } catch (err) {
+      console.error("Failed to create zip:", err);
+    } finally {
+      setZipping(false);
     }
-  }, [photos, selectedPhotos]);
-
-  const handleOpenPhotosInTabs = useCallback(() => {
-    const photosToOpen = selectedPhotos.size > 0
-      ? photos.filter((p) => selectedPhotos.has(p.id))
-      : photos;
-
-    for (const photo of photosToOpen) {
-      window.open(photo.url, "_blank");
-    }
-  }, [photos, selectedPhotos]);
+  }, [photos, selectedPhotos, selectedUnit]);
 
   const togglePhotoSelection = useCallback((photoId: string) => {
     setSelectedPhotos((prev) => {
@@ -831,7 +841,7 @@ export function CraigslistTool() {
                   <>
                     <div className="bg-sand-50 rounded-lg p-3 mb-3">
                       <p className="text-xs text-charcoal-600">
-                        <b>How to add photos to Craigslist:</b> Download the images below, then drag them into Craigslist&apos;s image uploader when creating your post. Or open them in new tabs and drag from your browser.
+                        <b>How to add photos to Craigslist:</b> Download the ZIP, extract the folder, then drag the images into Craigslist&apos;s photo uploader.
                       </p>
                     </div>
                     <div className="flex items-center justify-between mb-3">
@@ -840,30 +850,23 @@ export function CraigslistTool() {
                           ? `${selectedPhotos.size} of ${photos.length} selected`
                           : `${photos.length} photos — click to select specific ones`}
                       </p>
-                      <div className="flex gap-1.5">
-                        <Button
-                          onClick={handleOpenPhotosInTabs}
-                          size="sm"
-                          variant="outline"
-                          className="text-charcoal-600 h-7 text-xs"
-                        >
-                          <ExternalLink className="h-3 w-3 mr-1" />
-                          {selectedPhotos.size > 0
-                            ? `Open ${selectedPhotos.size} in Tabs`
-                            : "Open All in Tabs"}
-                        </Button>
-                        <Button
-                          onClick={handleDownloadPhotos}
-                          size="sm"
-                          variant="outline"
-                          className="text-charcoal-600 h-7 text-xs"
-                        >
+                      <Button
+                        onClick={handleDownloadZip}
+                        size="sm"
+                        disabled={zipping}
+                        className="bg-terra-600 hover:bg-terra-700 text-white h-7 text-xs"
+                      >
+                        {zipping ? (
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        ) : (
                           <Download className="h-3 w-3 mr-1" />
-                          {selectedPhotos.size > 0
-                            ? `Download ${selectedPhotos.size}`
-                            : "Download All"}
-                        </Button>
-                      </div>
+                        )}
+                        {zipping
+                          ? "Zipping..."
+                          : selectedPhotos.size > 0
+                            ? `Download ${selectedPhotos.size} as ZIP`
+                            : "Download All as ZIP"}
+                      </Button>
                     </div>
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                       {photos.map((photo) => (
