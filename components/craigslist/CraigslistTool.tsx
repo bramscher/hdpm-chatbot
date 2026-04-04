@@ -21,6 +21,7 @@ import {
   Download,
   X,
   CheckCircle2,
+  GripVertical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -99,6 +100,7 @@ export function CraigslistTool() {
   const [photosLoading, setPhotosLoading] = useState(false);
   const [showPhotos, setShowPhotos] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
+  const [photoBlobs, setPhotoBlobs] = useState<Record<string, Blob>>({});
 
   // History state
   const [savedListings, setSavedListings] = useState<SavedListing[]>([]);
@@ -143,11 +145,28 @@ export function CraigslistTool() {
   const fetchPhotos = useCallback(async (propertyId: string, unitId: string) => {
     setPhotosLoading(true);
     setPhotos([]);
+    setPhotoBlobs({});
     try {
       const params = new URLSearchParams({ property_id: propertyId, unit_id: unitId });
       const res = await fetch(`/api/appfolio-photos?${params}`);
       const data = await res.json();
-      if (res.ok) setPhotos(data.photos || []);
+      if (res.ok && data.photos?.length > 0) {
+        setPhotos(data.photos);
+        // Pre-fetch blobs via proxy for drag-and-drop
+        const blobs: Record<string, Blob> = {};
+        await Promise.all(
+          data.photos.map(async (photo: UnitPhoto) => {
+            try {
+              const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(photo.url)}`;
+              const imgRes = await fetch(proxyUrl);
+              if (imgRes.ok) blobs[photo.id] = await imgRes.blob();
+            } catch {
+              // Non-critical — photo just won't be draggable
+            }
+          })
+        );
+        setPhotoBlobs(blobs);
+      }
     } catch {
       // Photos are optional — fail silently
     } finally {
@@ -335,8 +354,7 @@ export function CraigslistTool() {
 
       for (let i = 0; i < photosToDownload.length; i++) {
         const photo = photosToDownload[i];
-        const res = await fetch(photo.url);
-        const blob = await res.blob();
+        const blob = photoBlobs[photo.id] || await fetch(`/api/proxy-image?url=${encodeURIComponent(photo.url)}`).then(r => r.blob());
         const ext = photo.url.match(/\.(jpg|jpeg|png|webp)/i)?.[1] || "jpg";
         zip.file(`${folderName}/${String(i + 1).padStart(2, "0")}.${ext}`, blob);
       }
@@ -354,7 +372,38 @@ export function CraigslistTool() {
     } finally {
       setZipping(false);
     }
-  }, [photos, selectedPhotos, selectedUnit]);
+  }, [photos, selectedPhotos, selectedUnit, photoBlobs]);
+
+  const handlePhotoDragStart = useCallback(
+    (e: React.DragEvent, photoId: string, index: number) => {
+      const blob = photoBlobs[photoId];
+      if (!blob) return;
+
+      const fileName = `photo-${String(index + 1).padStart(2, "0")}.jpg`;
+      const file = new File([blob], fileName, { type: blob.type || "image/jpeg" });
+      e.dataTransfer.items.add(file);
+      e.dataTransfer.effectAllowed = "copy";
+    },
+    [photoBlobs]
+  );
+
+  const handleDragAllStart = useCallback(
+    (e: React.DragEvent) => {
+      const photosToUse = selectedPhotos.size > 0
+        ? photos.filter((p) => selectedPhotos.has(p.id))
+        : photos;
+
+      for (let i = 0; i < photosToUse.length; i++) {
+        const blob = photoBlobs[photosToUse[i].id];
+        if (!blob) continue;
+        const fileName = `photo-${String(i + 1).padStart(2, "0")}.jpg`;
+        const file = new File([blob], fileName, { type: blob.type || "image/jpeg" });
+        e.dataTransfer.items.add(file);
+      }
+      e.dataTransfer.effectAllowed = "copy";
+    },
+    [photos, selectedPhotos, photoBlobs]
+  );
 
   const togglePhotoSelection = useCallback((photoId: string) => {
     setSelectedPhotos((prev) => {
@@ -377,6 +426,7 @@ export function CraigslistTool() {
     setPhotos([]);
     setShowPhotos(false);
     setSelectedPhotos(new Set());
+    setPhotoBlobs({});
   }, []);
 
   const toggleRently = useCallback((unitId: string) => {
@@ -841,41 +891,62 @@ export function CraigslistTool() {
                   <>
                     <div className="bg-sand-50 rounded-lg p-3 mb-3">
                       <p className="text-xs text-charcoal-600">
-                        <b>How to add photos to Craigslist:</b> Download the ZIP, extract the folder, then drag the images into Craigslist&apos;s photo uploader.
+                        {Object.keys(photoBlobs).length > 0 ? (
+                          <>
+                            <b>Drag to Craigslist:</b> Drag individual photos or use the &quot;Drag All&quot; handle below directly onto Craigslist&apos;s image uploader. You can also download as ZIP.
+                          </>
+                        ) : (
+                          <>
+                            <b>Loading photos for drag &amp; drop...</b> You can also download as ZIP below.
+                          </>
+                        )}
                       </p>
                     </div>
                     <div className="flex items-center justify-between mb-3">
                       <p className="text-xs text-charcoal-500">
                         {selectedPhotos.size > 0
                           ? `${selectedPhotos.size} of ${photos.length} selected`
-                          : `${photos.length} photos — click to select specific ones`}
+                          : `${photos.length} photos — click to select, drag to Craigslist`}
                       </p>
-                      <Button
-                        onClick={handleDownloadZip}
-                        size="sm"
-                        disabled={zipping}
-                        className="bg-terra-600 hover:bg-terra-700 text-white h-7 text-xs"
-                      >
-                        {zipping ? (
-                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                        ) : (
-                          <Download className="h-3 w-3 mr-1" />
+                      <div className="flex gap-1.5">
+                        {Object.keys(photoBlobs).length > 0 && (
+                          <div
+                            draggable
+                            onDragStart={handleDragAllStart}
+                            className="flex items-center gap-1 px-2.5 h-7 rounded-md bg-terra-600 text-white text-xs font-medium cursor-grab active:cursor-grabbing select-none"
+                          >
+                            <GripVertical className="h-3 w-3" />
+                            {selectedPhotos.size > 0
+                              ? `Drag ${selectedPhotos.size} Photos`
+                              : "Drag All Photos"}
+                          </div>
                         )}
-                        {zipping
-                          ? "Zipping..."
-                          : selectedPhotos.size > 0
-                            ? `Download ${selectedPhotos.size} as ZIP`
-                            : "Download All as ZIP"}
-                      </Button>
+                        <Button
+                          onClick={handleDownloadZip}
+                          size="sm"
+                          disabled={zipping}
+                          variant="outline"
+                          className="text-charcoal-600 h-7 text-xs"
+                        >
+                          {zipping ? (
+                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          ) : (
+                            <Download className="h-3 w-3 mr-1" />
+                          )}
+                          {zipping ? "Zipping..." : "Download ZIP"}
+                        </Button>
+                      </div>
                     </div>
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                      {photos.map((photo) => (
-                        <button
+                      {photos.map((photo, idx) => (
+                        <div
                           key={photo.id}
-                          type="button"
+                          draggable={!!photoBlobs[photo.id]}
+                          onDragStart={(e) => handlePhotoDragStart(e, photo.id, idx)}
                           onClick={() => togglePhotoSelection(photo.id)}
                           className={cn(
                             "relative aspect-[4/3] rounded-lg overflow-hidden border-2 transition-all",
+                            photoBlobs[photo.id] ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
                             selectedPhotos.has(photo.id)
                               ? "border-terra-500 ring-2 ring-terra-500/30"
                               : "border-transparent hover:border-charcoal-200"
@@ -883,9 +954,10 @@ export function CraigslistTool() {
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
-                            src={photo.thumbnail_url}
+                            src={photoBlobs[photo.id] ? URL.createObjectURL(photoBlobs[photo.id]) : photo.thumbnail_url}
                             alt={photo.caption || "Property photo"}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover pointer-events-none"
+                            draggable={false}
                           />
                           {selectedPhotos.has(photo.id) && (
                             <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-terra-500 flex items-center justify-center">
@@ -897,7 +969,7 @@ export function CraigslistTool() {
                               Primary
                             </span>
                           )}
-                        </button>
+                        </div>
                       ))}
                     </div>
                   </>
