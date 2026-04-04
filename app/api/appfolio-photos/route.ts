@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const APPFOLIO_LISTINGS_BASE = 'https://highdesertpm.appfolio.com';
+const APPFOLIO_V0_BASE = 'https://api.appfolio.com/api/v0';
 
 export interface UnitPhoto {
   id: string;
@@ -10,154 +10,140 @@ export interface UnitPhoto {
   is_primary: boolean;
 }
 
+interface V0Photo {
+  Id: string;
+  Url: string;
+  Position?: number;
+  ContentType?: string;
+  PropertyId?: string;
+  UnitId?: string;
+}
+
+interface V0PhotoResponse {
+  data: V0Photo[];
+  next_page_path?: string | null;
+}
+
+function getAuth() {
+  const clientId = process.env.APPFOLIO_CLIENT_ID;
+  const clientSecret = process.env.APPFOLIO_CLIENT_SECRET;
+  const developerId = process.env.APPFOLIO_DEVELOPER_ID;
+
+  if (!clientId || !clientSecret || !developerId) {
+    throw new Error('AppFolio API credentials not configured');
+  }
+
+  return {
+    auth: Buffer.from(`${clientId}:${clientSecret}`).toString('base64'),
+    developerId,
+  };
+}
+
+async function v0PhotoFetch(path: string, params: Record<string, string>): Promise<V0PhotoResponse> {
+  const { auth, developerId } = getAuth();
+  const url = new URL(`${APPFOLIO_V0_BASE}${path}`);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+
+  const response = await fetch(url.toString(), {
+    method: 'GET',
+    headers: {
+      Authorization: `Basic ${auth}`,
+      'X-AppFolio-Developer-ID': developerId,
+      Accept: 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`AppFolio photo API error: ${response.status}`);
+  }
+
+  return response.json() as Promise<V0PhotoResponse>;
+}
+
+function v0PhotosToUnitPhotos(v0Photos: V0Photo[]): UnitPhoto[] {
+  return v0Photos
+    .filter((p) => p.Url)
+    .slice(0, 16)
+    .map((p, i) => ({
+      id: p.Id,
+      url: p.Url,
+      thumbnail_url: p.Url, // S3 URLs — no separate thumbnail
+      caption: '',
+      is_primary: (p.Position ?? i) === 1 || i === 0,
+    }));
+}
+
 /**
- * Fetches photos for an AppFolio listing by scraping the public listings page.
+ * Fetches photos for an AppFolio unit using the v0 Database API.
  *
- * Flow:
- * 1. Fetch the AppFolio public listings index page
- * 2. Match the address to find the listing detail UUID
- * 3. Fetch the detail page and extract all CDN image URLs
- *
- * Images are served from images.cdn.appfolio.com in medium and large sizes.
+ * Decision tree (per AppFolio docs):
+ * 1. Property photos — works for all property types
+ * 2. Marketing photos — multi-family only (404 for single-family)
+ * 3. Unit photos — fallback if property-level returns nothing
+ *    (returns 422 for single-family — catch and skip)
  */
 export async function GET(req: NextRequest) {
-  const address = req.nextUrl.searchParams.get('address');
+  const propertyId = req.nextUrl.searchParams.get('property_id');
+  const unitId = req.nextUrl.searchParams.get('unit_id');
 
-  if (!address) {
+  if (!propertyId && !unitId) {
     return NextResponse.json(
-      { error: 'address query parameter required' },
+      { error: 'property_id or unit_id query parameter required' },
       { status: 400 }
     );
   }
 
   try {
-    // Step 1: Fetch the public listings page
-    const listingsRes = await fetch(`${APPFOLIO_LISTINGS_BASE}/listings`, {
-      headers: { 'User-Agent': 'HDPM-Internal-Tool/1.0' },
-    });
+    const photos: V0Photo[] = [];
 
-    if (!listingsRes.ok) {
-      console.log(`[appfolio-photos] Listings page returned ${listingsRes.status}`);
-      return NextResponse.json({ photos: [] });
-    }
-
-    const html = await listingsRes.text();
-
-    // Step 2: Parse listings to find the matching detail UUID
-    // Pattern: href="/listings/detail/{uuid}" followed by alt="{address}"
-    const listingPattern = /href="\/listings\/detail\/([^"]+)"[^>]*>[\s\S]*?alt="([^"]+)"/g;
-    let detailUuid: string | null = null;
-
-    const normalizedSearch = normalizeAddress(address);
-
-    let match;
-    while ((match = listingPattern.exec(html)) !== null) {
-      const uuid = match[1];
-      const listingAddr = match[2];
-
-      if (addressMatch(normalizedSearch, normalizeAddress(listingAddr))) {
-        detailUuid = uuid;
-        break;
+    // Step 1: Property photos (always works)
+    if (propertyId) {
+      try {
+        const res = await v0PhotoFetch('/properties/photos', {
+          'filters[PropertyId]': propertyId,
+          'page[number]': '1',
+          'page[size]': '1000',
+        });
+        photos.push(...(res.data || []));
+      } catch (err) {
+        console.warn('[appfolio-photos] Property photos error:', err);
       }
     }
 
-    // Fallback: simpler pattern matching listing items
-    if (!detailUuid) {
-      // Each listing item has structure: <div id="listing_XXX"> ... detail/{uuid} ... alt="{address}"
-      const itemPattern = /<div[^>]+class="listing-item[^"]*"[^>]*>[\s\S]*?href="\/listings\/detail\/([a-f0-9-]+)"[\s\S]*?alt="([^"]+)"/g;
-      while ((match = itemPattern.exec(html)) !== null) {
-        const uuid = match[1];
-        const listingAddr = match[2];
-
-        if (addressMatch(normalizedSearch, normalizeAddress(listingAddr))) {
-          detailUuid = uuid;
-          break;
-        }
+    // Step 2: Marketing photos (multi-family only)
+    if (propertyId) {
+      try {
+        const res = await v0PhotoFetch('/properties/marketing-photos', {
+          'filters[PropertyId]': propertyId,
+          'page[number]': '1',
+          'page[size]': '1000',
+        });
+        photos.push(...(res.data || []));
+      } catch {
+        // 404 for single-family — expected, ignore
       }
     }
 
-    if (!detailUuid) {
-      console.log(`[appfolio-photos] No listing found matching address: ${address}`);
-      return NextResponse.json({ photos: [] });
+    // Step 3: Unit photos fallback if nothing found at property level
+    if (photos.length === 0 && unitId) {
+      try {
+        const res = await v0PhotoFetch('/units/photos', {
+          'filters[UnitId]': unitId,
+          'page[number]': '1',
+          'page[size]': '1000',
+        });
+        photos.push(...(res.data || []));
+      } catch {
+        // 422 for single-family — expected, ignore
+      }
     }
 
-    console.log(`[appfolio-photos] Found listing UUID: ${detailUuid} for ${address}`);
+    const result = v0PhotosToUnitPhotos(photos);
+    console.log(`[appfolio-photos] Found ${result.length} photos (property=${propertyId}, unit=${unitId})`);
 
-    // Step 3: Fetch the detail page and extract image URLs
-    const detailRes = await fetch(
-      `${APPFOLIO_LISTINGS_BASE}/listings/detail/${detailUuid}`,
-      { headers: { 'User-Agent': 'HDPM-Internal-Tool/1.0' } }
-    );
-
-    if (!detailRes.ok) {
-      console.log(`[appfolio-photos] Detail page returned ${detailRes.status}`);
-      return NextResponse.json({ photos: [] });
-    }
-
-    const detailHtml = await detailRes.text();
-
-    // Extract unique image UUIDs from CDN URLs
-    // Pattern: https://images.cdn.appfolio.com/highdesertpm/images/{uuid}/large.jpg
-    const imgPattern = /https:\/\/images\.cdn\.appfolio\.com\/highdesertpm\/images\/([a-f0-9-]+)\/(large|medium)\.\w+/g;
-    const seenIds = new Set<string>();
-    const photos: UnitPhoto[] = [];
-
-    let imgMatch;
-    while ((imgMatch = imgPattern.exec(detailHtml)) !== null) {
-      const imageId = imgMatch[1];
-      if (seenIds.has(imageId)) continue;
-      seenIds.add(imageId);
-
-      // Determine file extension from first match
-      const extMatch = detailHtml.match(
-        new RegExp(`images/${imageId}/(large|medium)\\.(\\w+)`)
-      );
-      const ext = extMatch ? extMatch[2] : 'jpg';
-
-      photos.push({
-        id: imageId,
-        url: `https://images.cdn.appfolio.com/highdesertpm/images/${imageId}/large.${ext}`,
-        thumbnail_url: `https://images.cdn.appfolio.com/highdesertpm/images/${imageId}/medium.${ext}`,
-        caption: '',
-        is_primary: photos.length === 0, // First image is primary
-      });
-    }
-
-    console.log(`[appfolio-photos] Found ${photos.length} photos for ${address}`);
-
-    return NextResponse.json({ photos });
+    return NextResponse.json({ photos: result });
   } catch (err) {
     console.error('[appfolio-photos] Error:', err);
     return NextResponse.json({ photos: [] });
   }
-}
-
-/**
- * Normalize an address for comparison:
- * lowercase, strip punctuation, collapse whitespace
- */
-function normalizeAddress(addr: string): string {
-  return addr
-    .toLowerCase()
-    .replace(/[.,#]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-/**
- * Check if two normalized addresses match.
- * Handles partial matches (e.g., "2634 SW 31st St" matching "2634 SW 31st St, Redmond, OR 97756")
- */
-function addressMatch(search: string, candidate: string): boolean {
-  // Exact match
-  if (search === candidate) return true;
-  // Search is contained in candidate (unit address without city/state)
-  if (candidate.includes(search)) return true;
-  // Candidate is contained in search
-  if (search.includes(candidate)) return true;
-
-  // Match on street number + street name (first 2-3 words)
-  const searchWords = search.split(' ').slice(0, 4).join(' ');
-  const candidateWords = candidate.split(' ').slice(0, 4).join(' ');
-  return searchWords === candidateWords && searchWords.length > 5;
 }
