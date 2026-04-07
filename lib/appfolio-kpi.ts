@@ -339,12 +339,18 @@ export async function fetchNoticeKpi(): Promise<NoticeKpi> {
   for (const t of tenants) {
     if (t.HiddenAt || !t.MoveOutOn) continue;
 
-    // Use LastUpdatedAt as a proxy for when notice was filed
-    const noticeDate = t.LastUpdatedAt ? new Date(t.LastUpdatedAt) : new Date(t.MoveOutOn);
+    // Only count tenants currently in "Notice" status (active 30-day notices)
+    // or with a future MoveOutOn date (pending move-out).
+    // Excludes "Past" (already moved out) and "Evict" tenants.
+    const status = (t.Status || '').toLowerCase();
+    if (status !== 'notice') continue;
 
-    if (noticeDate >= thirtyDaysAgo && noticeDate <= now) {
+    const moveOut = new Date(t.MoveOutOn);
+
+    // Count notices with move-out in the last 30 days or upcoming
+    if (moveOut >= thirtyDaysAgo) {
       last30Days++;
-      if (noticeDate >= weekStart && noticeDate < weekEnd) {
+      if (moveOut >= weekStart && moveOut < weekEnd) {
         thisWeek++;
       }
     }
