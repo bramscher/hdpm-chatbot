@@ -15,7 +15,10 @@ export async function GET(request: NextRequest) {
     const supabase = getSupabaseAdmin();
     const historyParam = request.nextUrl.searchParams.get('history');
 
-    const kpiNames = ['delinquency', 'vacancy', 'work_orders', 'notices', 'insurance'];
+    const kpiNames = [
+      'delinquency', 'vacancy', 'work_orders', 'notices', 'insurance',
+      'owner_retention', 'maintenance_cost', 'days_to_lease', 'lease_renewal', 'net_doors',
+    ];
 
     if (historyParam) {
       const limit = Math.min(Math.max(parseInt(historyParam, 10) || 8, 1), 90);

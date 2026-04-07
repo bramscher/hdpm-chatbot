@@ -14,6 +14,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  ReferenceLine,
 } from "recharts";
 import {
   ArrowLeft,
@@ -23,6 +24,11 @@ import {
   FileWarning,
   Shield,
   RefreshCw,
+  Users,
+  PieChart,
+  Timer,
+  Repeat,
+  Building2,
 } from "lucide-react";
 
 // Recharts v3 tooltip formatter types are overly strict — cast like CompsChart.tsx
@@ -400,6 +406,382 @@ function InsuranceChart({ data }: { data: TrendPoint[] }) {
 }
 
 // ============================================
+// Shared: Insight Line
+// ============================================
+
+function InsightLine({ text }: { text: string }) {
+  return (
+    <p className="mt-4 text-xs text-charcoal-400 italic leading-relaxed border-t border-sand-100 pt-3">
+      {text}
+    </p>
+  );
+}
+
+// ============================================
+// KPI 6: Owner Retention Rate
+// ============================================
+
+function OwnerRetentionChart({ data }: { data: TrendPoint[] }) {
+  if (data.length === 0) return <EmptyChart name="Owner Retention Rate" />;
+
+  const chartData = data.map((d) => ({
+    date: formatDate(d.date),
+    rate: d.value.rate ?? 0,
+    cancellations: d.value.cancellationsLast30Days ?? 0,
+  }));
+
+  const rates = chartData.map((d) => d.rate);
+  const stats = computeStats(rates);
+
+  return (
+    <div className="glass glass-shine rounded-2xl p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
+          <Users className="w-4 h-4 text-indigo-600" />
+        </div>
+        <h4 className="text-sm font-semibold text-charcoal-700">Owner Retention Rate</h4>
+      </div>
+      <StatPills
+        stats={[
+          { label: "Current", value: `${stats.current.toFixed(1)}%` },
+          { label: "High", value: `${stats.high.toFixed(1)}%` },
+          { label: "Low", value: `${stats.low.toFixed(1)}%` },
+          { label: "Avg", value: `${stats.avg.toFixed(1)}%` },
+        ]}
+      />
+      <ResponsiveContainer width="100%" height={280}>
+        <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
+          <CartesianGrid {...GRID_PROPS} />
+          <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} />
+          <YAxis yAxisId="rate" tick={Y_TICK} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${v}%`} domain={[80, 100]} />
+          <YAxis yAxisId="cancel" orientation="right" tick={Y_TICK} axisLine={false} tickLine={false} width={40} />
+          <Tooltip
+            contentStyle={TOOLTIP_STYLE}
+            labelStyle={LABEL_STYLE}
+            formatter={((value: number, name: string) => {
+              if (name === "rate") return [`${value.toFixed(1)}%`, "Retention Rate"];
+              return [`${value}`, "Cancellations (30d)"];
+            }) as AnyFormatter}
+          />
+          <Bar yAxisId="cancel" dataKey="cancellations" fill="#c7d2fe" fillOpacity={0.6} radius={[4, 4, 0, 0]} maxBarSize={24} name="cancellations" />
+          <Line yAxisId="rate" type="monotone" dataKey="rate" stroke="#4f46e5" strokeWidth={2} dot={{ r: 3, fill: "#4f46e5" }} name="rate" />
+        </ComposedChart>
+      </ResponsiveContainer>
+      <InsightLine text="A rate above 90% is considered healthy for a PM portfolio at this scale." />
+    </div>
+  );
+}
+
+// ============================================
+// KPI 7: Maintenance Cost as % of Rent Roll
+// ============================================
+
+function MaintenanceCostChart({ data }: { data: TrendPoint[] }) {
+  if (data.length === 0) return <EmptyChart name="Maintenance Cost %" />;
+
+  const chartData = data.map((d) => ({
+    date: formatDate(d.date),
+    rate: d.value.rate ?? 0,
+    maintenanceDollars: d.value.maintenanceDollars ?? 0,
+    grossRentDollars: d.value.grossRentDollars ?? 0,
+  }));
+
+  const rates = chartData.map((d) => d.rate);
+  const stats = computeStats(rates);
+
+  return (
+    <div className="glass glass-shine rounded-2xl p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+          <PieChart className="w-4 h-4 text-orange-600" />
+        </div>
+        <h4 className="text-sm font-semibold text-charcoal-700">Maintenance Cost as % of Rent Roll</h4>
+      </div>
+      <StatPills
+        stats={[
+          { label: "Current", value: `${stats.current.toFixed(1)}%` },
+          { label: "High", value: `${stats.high.toFixed(1)}%` },
+          { label: "Low", value: `${stats.low.toFixed(1)}%` },
+          { label: "Avg", value: `${stats.avg.toFixed(1)}%` },
+        ]}
+      />
+      <ResponsiveContainer width="100%" height={280}>
+        <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
+          <CartesianGrid {...GRID_PROPS} />
+          <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} />
+          <YAxis yAxisId="rate" tick={Y_TICK} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${v}%`} />
+          <YAxis yAxisId="dollars" orientation="right" tick={Y_TICK} axisLine={false} tickLine={false} width={65} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+          <Tooltip
+            contentStyle={TOOLTIP_STYLE}
+            labelStyle={LABEL_STYLE}
+            formatter={((value: number, name: string) => {
+              if (name === "rate") return [`${value.toFixed(1)}%`, "Cost %"];
+              if (name === "maintenanceDollars") return [`$${value.toLocaleString()}`, "Maintenance"];
+              return [`$${value.toLocaleString()}`, "Rent Roll"];
+            }) as AnyFormatter}
+          />
+          <Bar yAxisId="dollars" dataKey="grossRentDollars" fill="#e5e7eb" fillOpacity={0.4} radius={[4, 4, 0, 0]} maxBarSize={28} name="grossRentDollars" />
+          <Bar yAxisId="dollars" dataKey="maintenanceDollars" fill="#fed7aa" fillOpacity={0.7} radius={[4, 4, 0, 0]} maxBarSize={28} name="maintenanceDollars" />
+          <Line yAxisId="rate" type="monotone" dataKey="rate" stroke="#ea580c" strokeWidth={2} dot={{ r: 3, fill: "#ea580c" }} name="rate" />
+        </ComposedChart>
+      </ResponsiveContainer>
+      <div className="flex items-center justify-center gap-6 mt-3 text-xs text-charcoal-500">
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-2 rounded-sm bg-gray-200" />
+          <span>Rent Roll</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-2 rounded-sm bg-orange-200" />
+          <span>Maintenance</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-0.5 bg-orange-600 rounded" />
+          <span>Cost %</span>
+        </div>
+      </div>
+      <InsightLine text="Industry benchmark is 8–15% for a residential PM portfolio. Spikes often indicate deferred maintenance catching up." />
+    </div>
+  );
+}
+
+// ============================================
+// KPI 8: Average Days to Lease
+// ============================================
+
+function DaysToLeaseChart({ data }: { data: TrendPoint[] }) {
+  if (data.length === 0) return <EmptyChart name="Average Days to Lease" />;
+
+  const chartData = data.map((d) => ({
+    date: formatDate(d.date),
+    avgDays: d.value.avgDays ?? 0,
+    fastest: d.value.fastest ?? 0,
+    slowest: d.value.slowest ?? 0,
+    unitsLeased: d.value.unitsLeased ?? 0,
+  }));
+
+  const avgDays = chartData.map((d) => d.avgDays);
+  const stats = computeStats(avgDays);
+  const lastPoint = chartData[chartData.length - 1];
+
+  return (
+    <div className="glass glass-shine rounded-2xl p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-8 h-8 bg-cyan-100 rounded-lg flex items-center justify-center">
+          <Timer className="w-4 h-4 text-cyan-600" />
+        </div>
+        <h4 className="text-sm font-semibold text-charcoal-700">Average Days to Lease</h4>
+      </div>
+      <StatPills
+        stats={[
+          { label: "Current", value: `${stats.current.toFixed(1)} days` },
+          { label: "High", value: `${stats.high.toFixed(1)} days` },
+          { label: "Low", value: `${stats.low.toFixed(1)} days` },
+          { label: "Avg", value: `${stats.avg.toFixed(1)} days` },
+        ]}
+      />
+      <ResponsiveContainer width="100%" height={280}>
+        <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
+          <CartesianGrid {...GRID_PROPS} />
+          <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} />
+          <YAxis tick={Y_TICK} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${v}d`} />
+          <Tooltip
+            contentStyle={TOOLTIP_STYLE}
+            labelStyle={LABEL_STYLE}
+            formatter={((value: number, name: string) => {
+              if (name === "avgDays") return [`${value.toFixed(1)} days`, "Avg Days"];
+              return [`${value}`, name];
+            }) as AnyFormatter}
+          />
+          <Area type="monotone" dataKey="avgDays" stroke="#0891b2" strokeWidth={2} fill="#a5f3fc" fillOpacity={0.3} dot={{ r: 3, fill: "#0891b2" }} />
+        </AreaChart>
+      </ResponsiveContainer>
+      {lastPoint && (
+        <div className="flex flex-wrap gap-2 mt-3">
+          <div className="px-2.5 py-1 rounded-lg bg-cyan-50 border border-cyan-200 text-xs">
+            <span className="text-charcoal-400">Fastest</span>{" "}
+            <span className="font-semibold text-cyan-700">{lastPoint.fastest}d</span>
+          </div>
+          <div className="px-2.5 py-1 rounded-lg bg-cyan-50 border border-cyan-200 text-xs">
+            <span className="text-charcoal-400">Slowest</span>{" "}
+            <span className="font-semibold text-cyan-700">{lastPoint.slowest}d</span>
+          </div>
+          <div className="px-2.5 py-1 rounded-lg bg-cyan-50 border border-cyan-200 text-xs">
+            <span className="text-charcoal-400">Units Leased</span>{" "}
+            <span className="font-semibold text-cyan-700">{lastPoint.unitsLeased}</span>
+          </div>
+        </div>
+      )}
+      <InsightLine text="Central Oregon market average is typically 14–21 days. Anything over 30 days warrants a pricing or advertising review." />
+    </div>
+  );
+}
+
+// ============================================
+// KPI 9: Lease Renewal Rate
+// ============================================
+
+function LeaseRenewalChart({ data }: { data: TrendPoint[] }) {
+  if (data.length === 0) return <EmptyChart name="Lease Renewal Rate" />;
+
+  const chartData = data.map((d) => ({
+    date: formatDate(d.date),
+    rate: d.value.rate ?? 0,
+    renewals: d.value.renewals ?? 0,
+    moveOuts: d.value.moveOuts ?? 0,
+  }));
+
+  const rates = chartData.map((d) => d.rate);
+  const stats = computeStats(rates);
+
+  return (
+    <div className="glass glass-shine rounded-2xl p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center">
+          <Repeat className="w-4 h-4 text-teal-600" />
+        </div>
+        <h4 className="text-sm font-semibold text-charcoal-700">Lease Renewal Rate</h4>
+      </div>
+      <StatPills
+        stats={[
+          { label: "Current", value: `${stats.current.toFixed(1)}%` },
+          { label: "High", value: `${stats.high.toFixed(1)}%` },
+          { label: "Low", value: `${stats.low.toFixed(1)}%` },
+          { label: "Avg", value: `${stats.avg.toFixed(1)}%` },
+        ]}
+      />
+      <ResponsiveContainer width="100%" height={280}>
+        <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
+          <CartesianGrid {...GRID_PROPS} />
+          <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} />
+          <YAxis yAxisId="rate" tick={Y_TICK} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${v}%`} />
+          <YAxis yAxisId="count" orientation="right" tick={Y_TICK} axisLine={false} tickLine={false} width={40} />
+          <Tooltip
+            contentStyle={TOOLTIP_STYLE}
+            labelStyle={LABEL_STYLE}
+            formatter={((value: number, name: string) => {
+              if (name === "rate") return [`${value.toFixed(1)}%`, "Renewal Rate"];
+              if (name === "renewals") return [`${value}`, "Renewals"];
+              return [`${value}`, "Move-Outs"];
+            }) as AnyFormatter}
+          />
+          <Bar yAxisId="count" dataKey="renewals" stackId="leases" fill="#99f6e4" radius={[0, 0, 0, 0]} maxBarSize={28} name="renewals" />
+          <Bar yAxisId="count" dataKey="moveOuts" stackId="leases" fill="#fecaca" radius={[4, 4, 0, 0]} maxBarSize={28} name="moveOuts" />
+          <Line yAxisId="rate" type="monotone" dataKey="rate" stroke="#0d9488" strokeWidth={2} dot={{ r: 3, fill: "#0d9488" }} name="rate" />
+        </ComposedChart>
+      </ResponsiveContainer>
+      <div className="flex items-center justify-center gap-6 mt-3 text-xs text-charcoal-500">
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-2 rounded-sm bg-teal-200" />
+          <span>Renewals</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-2 rounded-sm bg-red-200" />
+          <span>Move-Outs</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-0.5 bg-teal-600 rounded" />
+          <span>Renewal Rate</span>
+        </div>
+      </div>
+      <InsightLine text="A renewal rate above 60% reduces turnover cost significantly. Each avoided turnover saves an estimated $1,500–$3,000 in make-ready and vacancy costs." />
+    </div>
+  );
+}
+
+// ============================================
+// KPI 10: Net Doors Added
+// ============================================
+
+function computeTargetDate(data: TrendPoint[]): string {
+  if (data.length < 3) return "Insufficient data to project target date";
+
+  const lastThree = data.slice(-3);
+  const avgNet =
+    lastThree.reduce((sum, d) => sum + (d.value.netThisMonth ?? 0), 0) / lastThree.length;
+
+  if (avgNet <= 0) return "Growth rate insufficient to project target date";
+
+  const currentDoors = data[data.length - 1].value.currentDoors ?? 0;
+  const remaining = 1500 - currentDoors;
+
+  if (remaining <= 0) return "Goal of 1,500 doors reached!";
+
+  const monthsToGoal = Math.ceil(remaining / avgNet);
+  const targetDate = new Date();
+  targetDate.setMonth(targetDate.getMonth() + monthsToGoal);
+
+  return `On track to reach 1,500 doors by ${targetDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}. Adjust the growth rate assumption if acquisition pace changes.`;
+}
+
+function NetDoorsChart({ data }: { data: TrendPoint[] }) {
+  if (data.length === 0) return <EmptyChart name="Net Doors Added" />;
+
+  const chartData = data.map((d) => ({
+    date: formatDate(d.date),
+    currentDoors: d.value.currentDoors ?? 0,
+    netThisMonth: d.value.netThisMonth ?? 0,
+  }));
+
+  const doors = chartData.map((d) => d.currentDoors);
+  const stats = computeStats(doors);
+  const projectionText = computeTargetDate(data);
+
+  return (
+    <div className="glass glass-shine rounded-2xl p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
+          <Building2 className="w-4 h-4 text-emerald-600" />
+        </div>
+        <h4 className="text-sm font-semibold text-charcoal-700">Net Doors Added</h4>
+      </div>
+      <StatPills
+        stats={[
+          { label: "Current", value: `${stats.current}` },
+          { label: "High", value: `${stats.high}` },
+          { label: "Low", value: `${stats.low}` },
+          { label: "Goal", value: "1,500" },
+        ]}
+      />
+      <ResponsiveContainer width="100%" height={280}>
+        <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
+          <CartesianGrid {...GRID_PROPS} />
+          <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} />
+          <YAxis yAxisId="doors" tick={Y_TICK} axisLine={false} tickLine={false} width={55} />
+          <YAxis yAxisId="net" orientation="right" tick={Y_TICK} axisLine={false} tickLine={false} width={40} />
+          <Tooltip
+            contentStyle={TOOLTIP_STYLE}
+            labelStyle={LABEL_STYLE}
+            formatter={((value: number, name: string) => {
+              if (name === "currentDoors") return [`${value}`, "Total Doors"];
+              const sign = value >= 0 ? "+" : "";
+              return [`${sign}${value}`, "Net This Month"];
+            }) as AnyFormatter}
+          />
+          <ReferenceLine yAxisId="doors" y={1500} stroke="#d97706" strokeDasharray="6 4" strokeWidth={1.5} label={{ value: "Goal: 1,500", position: "right", fontSize: 10, fill: "#d97706" }} />
+          <Bar yAxisId="net" dataKey="netThisMonth" fill="#a7f3d0" fillOpacity={0.6} radius={[4, 4, 0, 0]} maxBarSize={24} name="netThisMonth" />
+          <Line yAxisId="doors" type="monotone" dataKey="currentDoors" stroke="#059669" strokeWidth={2} dot={{ r: 3, fill: "#059669" }} name="currentDoors" />
+        </ComposedChart>
+      </ResponsiveContainer>
+      <div className="flex items-center justify-center gap-6 mt-3 text-xs text-charcoal-500">
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-2 rounded-sm bg-emerald-200" />
+          <span>Monthly Net</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-0.5 bg-emerald-600 rounded" />
+          <span>Total Doors</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-0.5 bg-amber-500 rounded border-dashed" style={{ borderTop: "1px dashed #d97706" }} />
+          <span>Goal</span>
+        </div>
+      </div>
+      <InsightLine text={projectionText} />
+    </div>
+  );
+}
+
+// ============================================
 // Page
 // ============================================
 
@@ -477,7 +859,7 @@ export default function TrendsPage() {
       {/* Charts Grid */}
       {loading ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {[1, 2, 3, 4, 5].map((i) => (
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
             <ChartSkeleton key={i} />
           ))}
         </div>
@@ -488,6 +870,11 @@ export default function TrendsPage() {
           <WorkOrderChart data={trends.work_orders || []} />
           <NoticeChart data={trends.notices || []} />
           <InsuranceChart data={trends.insurance || []} />
+          <OwnerRetentionChart data={trends.owner_retention || []} />
+          <MaintenanceCostChart data={trends.maintenance_cost || []} />
+          <DaysToLeaseChart data={trends.days_to_lease || []} />
+          <LeaseRenewalChart data={trends.lease_renewal || []} />
+          <NetDoorsChart data={trends.net_doors || []} />
         </div>
       )}
     </div>

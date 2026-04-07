@@ -382,3 +382,156 @@ export async function fetchInsuranceKpi(): Promise<InsuranceKpi> {
     totalCount: 143,
   };
 }
+
+// ============================================
+// KPI 6: Owner Retention Rate
+// ============================================
+
+export interface OwnerRetentionKpi {
+  rate: number;
+  cancellationsLast30Days: number;
+  totalOwners: number;
+}
+
+/**
+ * TODO: Requires joining /owners + /owner_groups to determine active vs churned owners.
+ * The /owner_groups endpoint has a Current boolean and ContractExpiration field.
+ * Returning mock data while the real computation is built.
+ */
+export async function fetchOwnerRetentionKpi(): Promise<OwnerRetentionKpi> {
+  const config = getKpiConfig();
+  if (!config) {
+    return { rate: 0, cancellationsLast30Days: 0, totalOwners: 0 };
+  }
+
+  // TODO: Replace with real /owners + /owner_groups computation
+  return {
+    rate: 94.2,
+    cancellationsLast30Days: 1,
+    totalOwners: 87,
+  };
+}
+
+// ============================================
+// KPI 7: Maintenance Cost as % of Rent Roll
+// ============================================
+
+export interface MaintenanceCostKpi {
+  rate: number;
+  maintenanceDollars: number;
+  grossRentDollars: number;
+}
+
+/**
+ * TODO: Requires /bills (maintenance spend) + /recurring_charges (rent roll).
+ * Both endpoints are available in v0 but need multi-page fetching and
+ * GL account filtering to isolate maintenance-specific bills.
+ * Returning mock data while the real computation is built.
+ */
+export async function fetchMaintenanceCostKpi(): Promise<MaintenanceCostKpi> {
+  const config = getKpiConfig();
+  if (!config) {
+    return { rate: 0, maintenanceDollars: 0, grossRentDollars: 0 };
+  }
+
+  // TODO: Replace with real /bills + /recurring_charges computation
+  return {
+    rate: 11.3,
+    maintenanceDollars: 42850,
+    grossRentDollars: 379200,
+  };
+}
+
+// ============================================
+// KPI 8: Average Days to Lease
+// ============================================
+
+export interface DaysToLeaseKpi {
+  avgDays: number;
+  fastest: number;
+  slowest: number;
+  unitsLeased: number;
+}
+
+/**
+ * TODO: Requires tracking unit status transitions (vacant → occupied)
+ * over time. The v0 /units endpoint has Status and AvailableOn fields,
+ * and /leases has SignedOn. Could compute by matching lease sign dates
+ * against unit available dates. Returning mock data for now.
+ */
+export async function fetchDaysToLeaseKpi(): Promise<DaysToLeaseKpi> {
+  const config = getKpiConfig();
+  if (!config) {
+    return { avgDays: 0, fastest: 0, slowest: 0, unitsLeased: 0 };
+  }
+
+  // TODO: Replace with real computation from /units + /leases
+  return {
+    avgDays: 18.4,
+    fastest: 3,
+    slowest: 42,
+    unitsLeased: 12,
+  };
+}
+
+// ============================================
+// KPI 9: Lease Renewal Rate
+// ============================================
+
+export interface LeaseRenewalKpi {
+  rate: number;
+  renewals: number;
+  moveOuts: number;
+}
+
+/**
+ * TODO: The /leases endpoint has RenewedOn and Status fields.
+ * Could count leases with RenewedOn in the last 90 days as renewals,
+ * and tenants with MoveOutOn as move-outs. Returning mock data for now.
+ */
+export async function fetchLeaseRenewalKpi(): Promise<LeaseRenewalKpi> {
+  const config = getKpiConfig();
+  if (!config) {
+    return { rate: 0, renewals: 0, moveOuts: 0 };
+  }
+
+  // TODO: Replace with real /leases + /tenants computation
+  return {
+    rate: 67.8,
+    renewals: 19,
+    moveOuts: 9,
+  };
+}
+
+// ============================================
+// KPI 10: Net Doors Added
+// ============================================
+
+export interface NetDoorsKpi {
+  currentDoors: number;
+  netThisMonth: number;
+}
+
+export async function fetchNetDoorsKpi(): Promise<NetDoorsKpi> {
+  const config = getKpiConfig();
+  if (!config) {
+    return { currentDoors: 0, netThisMonth: 0 };
+  }
+
+  // Get current total unit count from live API
+  const units = await v0FetchAll<V0Unit>(
+    '/units',
+    { 'filters[LastUpdatedAtFrom]': '2000-01-01T00:00:00Z' },
+    config
+  );
+
+  const currentDoors = units.filter((u) => !u.HiddenAt).length;
+
+  // Net this month is computed from snapshot delta — on first run, default to 0.
+  // The cron job captures daily snapshots; month-over-month diff is computed client-side.
+  // TODO: Compare against last month's snapshot for netThisMonth
+  return {
+    currentDoors,
+    netThisMonth: 0,
+  };
+}

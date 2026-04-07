@@ -19,6 +19,11 @@ import {
   Minus,
   AlertCircle,
   ArrowUpRight,
+  Users,
+  PieChart,
+  Timer,
+  Repeat,
+  Building2,
 } from "lucide-react";
 
 // ============================================
@@ -53,7 +58,38 @@ interface InsuranceData {
   totalCount: number;
 }
 
-type KpiData = DelinquencyData | VacancyData | WorkOrderData | NoticeData | InsuranceData;
+interface OwnerRetentionData {
+  rate: number;
+  cancellationsLast30Days: number;
+  totalOwners: number;
+}
+
+interface MaintenanceCostData {
+  rate: number;
+  maintenanceDollars: number;
+  grossRentDollars: number;
+}
+
+interface DaysToLeaseData {
+  avgDays: number;
+  fastest: number;
+  slowest: number;
+  unitsLeased: number;
+}
+
+interface LeaseRenewalData {
+  rate: number;
+  renewals: number;
+  moveOuts: number;
+}
+
+interface NetDoorsData {
+  currentDoors: number;
+  netThisMonth: number;
+}
+
+type KpiData = DelinquencyData | VacancyData | WorkOrderData | NoticeData | InsuranceData
+  | OwnerRetentionData | MaintenanceCostData | DaysToLeaseData | LeaseRenewalData | NetDoorsData;
 
 interface KpiState<T extends KpiData> {
   data: T | null;
@@ -225,6 +261,152 @@ const KPI_CARDS: KpiCardConfig[] = [
         direction: diff > 0 ? "up" : "down",
         sentiment: diff > 0 ? "good" : "bad",
         label: `${Math.abs(diff).toFixed(1)}pp`,
+      };
+    },
+  },
+  {
+    name: "Owner Retention",
+    key: "owner_retention",
+    endpoint: "/api/kpi/owner-retention",
+    icon: Users,
+    color: "text-indigo-600",
+    bgColor: "bg-indigo-100",
+    iconColor: "text-indigo-600",
+    sparkColor: "#4f46e5",
+    sparkFill: "#c7d2fe",
+    formatPrimary: (d) => `${(d as OwnerRetentionData).rate}%`,
+    formatSecondary: (d) => {
+      const data = d as OwnerRetentionData;
+      return `${data.cancellationsLast30Days} cancellations (30d) | ${data.totalOwners} owners`;
+    },
+    getSparklineValue: (s) => (s.rate as number) ?? 0,
+    getDelta: (current, prior) => {
+      const curr = (current as OwnerRetentionData).rate;
+      const prev = (prior as { rate?: number }).rate;
+      if (prev == null) return null;
+      const diff = curr - prev;
+      if (Math.abs(diff) < 0.1) return { direction: "flat", sentiment: "neutral", label: "No change" };
+      return {
+        direction: diff > 0 ? "up" : "down",
+        sentiment: diff > 0 ? "good" : "bad",
+        label: `${Math.abs(diff).toFixed(1)}pp`,
+      };
+    },
+  },
+  {
+    name: "Maintenance Cost %",
+    key: "maintenance_cost",
+    endpoint: "/api/kpi/maintenance-cost",
+    icon: PieChart,
+    color: "text-orange-600",
+    bgColor: "bg-orange-100",
+    iconColor: "text-orange-600",
+    sparkColor: "#ea580c",
+    sparkFill: "#fed7aa",
+    formatPrimary: (d) => `${(d as MaintenanceCostData).rate}%`,
+    formatSecondary: (d) => {
+      const data = d as MaintenanceCostData;
+      return `$${data.maintenanceDollars.toLocaleString()} of $${data.grossRentDollars.toLocaleString()} rent roll`;
+    },
+    getSparklineValue: (s) => (s.rate as number) ?? 0,
+    getDelta: (current, prior) => {
+      const curr = (current as MaintenanceCostData).rate;
+      const prev = (prior as { rate?: number }).rate;
+      if (prev == null) return null;
+      const diff = curr - prev;
+      if (Math.abs(diff) < 0.1) return { direction: "flat", sentiment: "neutral", label: "No change" };
+      return {
+        direction: diff > 0 ? "up" : "down",
+        sentiment: diff > 0 ? "bad" : "good",
+        label: `${Math.abs(diff).toFixed(1)}pp`,
+      };
+    },
+  },
+  {
+    name: "Avg Days to Lease",
+    key: "days_to_lease",
+    endpoint: "/api/kpi/days-to-lease",
+    icon: Timer,
+    color: "text-cyan-600",
+    bgColor: "bg-cyan-100",
+    iconColor: "text-cyan-600",
+    sparkColor: "#0891b2",
+    sparkFill: "#a5f3fc",
+    formatPrimary: (d) => `${(d as DaysToLeaseData).avgDays} days`,
+    formatSecondary: (d) => {
+      const data = d as DaysToLeaseData;
+      return `${data.unitsLeased} leased | fastest ${data.fastest}d, slowest ${data.slowest}d`;
+    },
+    getSparklineValue: (s) => (s.avgDays as number) ?? 0,
+    getDelta: (current, prior) => {
+      const curr = (current as DaysToLeaseData).avgDays;
+      const prev = (prior as { avgDays?: number }).avgDays;
+      if (prev == null) return null;
+      const diff = curr - prev;
+      if (Math.abs(diff) < 0.5) return { direction: "flat", sentiment: "neutral", label: "No change" };
+      return {
+        direction: diff > 0 ? "up" : "down",
+        sentiment: diff > 0 ? "bad" : "good",
+        label: `${Math.abs(diff).toFixed(1)} days`,
+      };
+    },
+  },
+  {
+    name: "Lease Renewal Rate",
+    key: "lease_renewal",
+    endpoint: "/api/kpi/lease-renewal",
+    icon: Repeat,
+    color: "text-teal-600",
+    bgColor: "bg-teal-100",
+    iconColor: "text-teal-600",
+    sparkColor: "#0d9488",
+    sparkFill: "#99f6e4",
+    formatPrimary: (d) => `${(d as LeaseRenewalData).rate}%`,
+    formatSecondary: (d) => {
+      const data = d as LeaseRenewalData;
+      return `${data.renewals} renewals | ${data.moveOuts} move-outs`;
+    },
+    getSparklineValue: (s) => (s.rate as number) ?? 0,
+    getDelta: (current, prior) => {
+      const curr = (current as LeaseRenewalData).rate;
+      const prev = (prior as { rate?: number }).rate;
+      if (prev == null) return null;
+      const diff = curr - prev;
+      if (Math.abs(diff) < 0.1) return { direction: "flat", sentiment: "neutral", label: "No change" };
+      return {
+        direction: diff > 0 ? "up" : "down",
+        sentiment: diff > 0 ? "good" : "bad",
+        label: `${Math.abs(diff).toFixed(1)}pp`,
+      };
+    },
+  },
+  {
+    name: "Net Doors Added",
+    key: "net_doors",
+    endpoint: "/api/kpi/net-doors",
+    icon: Building2,
+    color: "text-emerald-600",
+    bgColor: "bg-emerald-100",
+    iconColor: "text-emerald-600",
+    sparkColor: "#059669",
+    sparkFill: "#a7f3d0",
+    formatPrimary: (d) => `${(d as NetDoorsData).currentDoors}`,
+    formatSecondary: (d) => {
+      const net = (d as NetDoorsData).netThisMonth;
+      const sign = net >= 0 ? "+" : "";
+      return `${sign}${net} this month | Goal: 1,500`;
+    },
+    getSparklineValue: (s) => (s.currentDoors as number) ?? 0,
+    getDelta: (current, prior) => {
+      const curr = (current as NetDoorsData).currentDoors;
+      const prev = (prior as { currentDoors?: number }).currentDoors;
+      if (prev == null) return null;
+      const diff = curr - prev;
+      if (diff === 0) return { direction: "flat", sentiment: "neutral", label: "No change" };
+      return {
+        direction: diff > 0 ? "up" : "down",
+        sentiment: diff > 0 ? "good" : "bad",
+        label: `${Math.abs(diff)} doors`,
       };
     },
   },
@@ -518,8 +700,9 @@ export default function DashboardPage() {
             <AlertCircle className="w-4 h-4 text-charcoal-300 mt-0.5 flex-shrink-0" />
             <div className="text-xs text-charcoal-400 leading-relaxed">
               <strong className="text-charcoal-500">Data sources:</strong>{" "}
-              Delinquency, Vacancy, Work Orders, and Notices pull live from AppFolio v0 API.
-              Insurance Compliance shows placeholder data — the v0 API does not expose insurance status.
+              Delinquency, Vacancy, Work Orders, Notices, and Net Doors pull live from AppFolio v0 API.
+              Insurance, Owner Retention, Maintenance Cost, Days to Lease, and Lease Renewal show
+              placeholder data pending API integration.
               Sparklines and trend charts populate as daily snapshots accumulate.
             </div>
           </div>
