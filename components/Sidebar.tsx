@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { FileText, BarChart3, Home, MessageCircle, LogOut, ChevronRight, ChevronLeft, ClipboardList, ClipboardCheck, Navigation, Megaphone } from "lucide-react";
+import { FileText, BarChart3, Home, MessageCircle, LogOut, ChevronRight, ChevronLeft, ClipboardList, ClipboardCheck, Navigation, Megaphone, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -13,6 +13,12 @@ const NAV_ITEMS = [
     href: "/",
     icon: Home,
     matchExact: true,
+  },
+  {
+    label: "KPI Dashboard",
+    href: "/dashboard",
+    icon: Activity,
+    matchPrefix: "/dashboard",
   },
   {
     label: "Invoices",
