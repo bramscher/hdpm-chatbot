@@ -521,7 +521,10 @@ function KpiCard({
   const delta = priorSnapshot ? config.getDelta(state.data, priorSnapshot) : null;
 
   return (
-    <div className="bg-white rounded-xl border border-sand-200 p-6 shadow-card hover:shadow-card-hover transition-shadow duration-200">
+    <Link
+      href="/dashboard/trends"
+      className="bg-white rounded-xl border border-sand-200 p-6 shadow-card hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-200 block cursor-pointer"
+    >
       <div className="flex items-start justify-between mb-4">
         <div className={`w-11 h-11 ${config.bgColor} rounded-xl flex items-center justify-center`}>
           <Icon className={`w-5 h-5 ${config.iconColor}`} />
@@ -540,7 +543,7 @@ function KpiCard({
       <h3 className="text-sm font-medium text-charcoal-900 mb-1">{config.name}</h3>
       <p className="text-xs text-charcoal-400">{config.formatSecondary(state.data)}</p>
       <Sparkline data={sparklineData} color={config.sparkColor} fill={config.sparkFill} />
-    </div>
+    </Link>
   );
 }
 
