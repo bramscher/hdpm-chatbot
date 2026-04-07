@@ -1,15 +1,65 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
 /**
- * Returns the most recent prior snapshot for each KPI (before today).
+ * GET /api/kpi/snapshots
+ *
+ * Default: returns the most recent prior snapshot for each KPI (before today).
  * Used by the dashboard to compute week-over-week deltas.
+ *
+ * With ?history=N: returns the last N snapshots per KPI (deduplicated by day).
+ * Used by sparklines on dashboard cards.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const supabase = getSupabaseAdmin();
+    const historyParam = request.nextUrl.searchParams.get('history');
 
     const kpiNames = ['delinquency', 'vacancy', 'work_orders', 'notices', 'insurance'];
+
+    if (historyParam) {
+      const limit = Math.min(Math.max(parseInt(historyParam, 10) || 8, 1), 90);
+
+      const history: Record<string, Array<{ date: string; value: Record<string, unknown> }>> = {};
+
+      await Promise.all(
+        kpiNames.map(async (name) => {
+          const { data } = await supabase
+            .from('kpi_snapshots')
+            .select('value, captured_at')
+            .eq('kpi_name', name)
+            .order('captured_at', { ascending: false })
+            .limit(limit * 3); // Over-fetch to handle dedup
+
+          if (!data || data.length === 0) {
+            history[name] = [];
+            return;
+          }
+
+          // Deduplicate to one per day (latest that day)
+          const byDate = new Map<string, { date: string; value: Record<string, unknown> }>();
+          for (const row of data) {
+            const dateKey = row.captured_at.substring(0, 10);
+            if (!byDate.has(dateKey)) {
+              byDate.set(dateKey, {
+                date: dateKey,
+                value: row.value as Record<string, unknown>,
+              });
+            }
+          }
+
+          history[name] = Array.from(byDate.values())
+            .sort((a, b) => a.date.localeCompare(b.date))
+            .slice(-limit);
+        })
+      );
+
+      return NextResponse.json(history, {
+        headers: { 'Cache-Control': 'public, max-age=300' },
+      });
+    }
+
+    // Default: latest prior snapshot per KPI (for delta arrows)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 

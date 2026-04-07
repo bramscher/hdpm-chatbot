@@ -1,6 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
+import {
+  AreaChart,
+  Area,
+  ResponsiveContainer,
+} from "recharts";
 import {
   DollarSign,
   Home,
@@ -12,6 +18,7 @@ import {
   TrendingDown,
   Minus,
   AlertCircle,
+  ArrowUpRight,
 } from "lucide-react";
 
 // ============================================
@@ -57,6 +64,10 @@ interface KpiState<T extends KpiData> {
 type DeltaDirection = "up" | "down" | "flat";
 type DeltaSentiment = "good" | "bad" | "neutral";
 
+interface SparklinePoint {
+  value: number;
+}
+
 interface KpiCardConfig {
   name: string;
   key: string;
@@ -65,8 +76,11 @@ interface KpiCardConfig {
   color: string;
   bgColor: string;
   iconColor: string;
+  sparkColor: string;
+  sparkFill: string;
   formatPrimary: (data: KpiData) => string;
   formatSecondary: (data: KpiData) => string;
+  getSparklineValue: (snapshot: Record<string, unknown>) => number;
   getDelta: (current: KpiData, prior: Record<string, unknown>) => { direction: DeltaDirection; sentiment: DeltaSentiment; label: string } | null;
 }
 
@@ -83,18 +97,20 @@ const KPI_CARDS: KpiCardConfig[] = [
     color: "text-red-600",
     bgColor: "bg-red-100",
     iconColor: "text-red-600",
+    sparkColor: "#dc2626",
+    sparkFill: "#fecaca",
     formatPrimary: (d) => `${(d as DelinquencyData).rate}%`,
     formatSecondary: (d) => {
       const data = d as DelinquencyData;
       return `${data.count} occupancies | $${data.totalDollars.toLocaleString()} outstanding`;
     },
+    getSparklineValue: (s) => (s.rate as number) ?? 0,
     getDelta: (current, prior) => {
       const curr = (current as DelinquencyData).rate;
       const prev = (prior as { rate?: number }).rate;
       if (prev == null) return null;
       const diff = curr - prev;
       if (Math.abs(diff) < 0.1) return { direction: "flat", sentiment: "neutral", label: "No change" };
-      // Lower is better
       return {
         direction: diff > 0 ? "up" : "down",
         sentiment: diff > 0 ? "bad" : "good",
@@ -110,18 +126,20 @@ const KPI_CARDS: KpiCardConfig[] = [
     color: "text-amber-600",
     bgColor: "bg-amber-100",
     iconColor: "text-amber-600",
+    sparkColor: "#d97706",
+    sparkFill: "#fde68a",
     formatPrimary: (d) => `${(d as VacancyData).rate}%`,
     formatSecondary: (d) => {
       const data = d as VacancyData;
       return `${data.vacantCount} vacant of ${data.totalUnits} units`;
     },
+    getSparklineValue: (s) => (s.rate as number) ?? 0,
     getDelta: (current, prior) => {
       const curr = (current as VacancyData).rate;
       const prev = (prior as { rate?: number }).rate;
       if (prev == null) return null;
       const diff = curr - prev;
       if (Math.abs(diff) < 0.1) return { direction: "flat", sentiment: "neutral", label: "No change" };
-      // Lower is better
       return {
         direction: diff > 0 ? "up" : "down",
         sentiment: diff > 0 ? "bad" : "good",
@@ -137,15 +155,17 @@ const KPI_CARDS: KpiCardConfig[] = [
     color: "text-blue-600",
     bgColor: "bg-blue-100",
     iconColor: "text-blue-600",
+    sparkColor: "#2563eb",
+    sparkFill: "#bfdbfe",
     formatPrimary: (d) => `${(d as WorkOrderData).avgDaysToClose} days`,
     formatSecondary: (d) => `${(d as WorkOrderData).openCount} open work orders`,
+    getSparklineValue: (s) => (s.avgDaysToClose as number) ?? 0,
     getDelta: (current, prior) => {
       const curr = (current as WorkOrderData).avgDaysToClose;
       const prev = (prior as { avgDaysToClose?: number }).avgDaysToClose;
       if (prev == null) return null;
       const diff = curr - prev;
       if (Math.abs(diff) < 0.5) return { direction: "flat", sentiment: "neutral", label: "No change" };
-      // Lower is better
       return {
         direction: diff > 0 ? "up" : "down",
         sentiment: diff > 0 ? "bad" : "good",
@@ -161,15 +181,17 @@ const KPI_CARDS: KpiCardConfig[] = [
     color: "text-purple-600",
     bgColor: "bg-purple-100",
     iconColor: "text-purple-600",
+    sparkColor: "#9333ea",
+    sparkFill: "#e9d5ff",
     formatPrimary: (d) => `${(d as NoticeData).thisWeek}`,
     formatSecondary: (d) => `${(d as NoticeData).last30Days} in last 30 days`,
+    getSparklineValue: (s) => (s.last30Days as number) ?? 0,
     getDelta: (current, prior) => {
       const curr = (current as NoticeData).last30Days;
       const prev = (prior as { last30Days?: number }).last30Days;
       if (prev == null) return null;
       const diff = curr - prev;
       if (diff === 0) return { direction: "flat", sentiment: "neutral", label: "No change" };
-      // Neutral — no good/bad direction
       return {
         direction: diff > 0 ? "up" : "down",
         sentiment: "neutral",
@@ -185,18 +207,20 @@ const KPI_CARDS: KpiCardConfig[] = [
     color: "text-green-600",
     bgColor: "bg-green-100",
     iconColor: "text-green-600",
+    sparkColor: "#16a34a",
+    sparkFill: "#bbf7d0",
     formatPrimary: (d) => `${(d as InsuranceData).rate}%`,
     formatSecondary: (d) => {
       const data = d as InsuranceData;
       return `${data.compliantCount} of ${data.totalCount} compliant`;
     },
+    getSparklineValue: (s) => (s.rate as number) ?? 0,
     getDelta: (current, prior) => {
       const curr = (current as InsuranceData).rate;
       const prev = (prior as { rate?: number }).rate;
       if (prev == null) return null;
       const diff = curr - prev;
       if (Math.abs(diff) < 0.1) return { direction: "flat", sentiment: "neutral", label: "No change" };
-      // Higher is better
       return {
         direction: diff > 0 ? "up" : "down",
         sentiment: diff > 0 ? "good" : "bad",
@@ -218,7 +242,8 @@ function SkeletonCard() {
         <div className="w-16 h-4 bg-sand-100 rounded" />
       </div>
       <div className="w-24 h-8 bg-sand-100 rounded mb-2" />
-      <div className="w-40 h-4 bg-sand-100 rounded" />
+      <div className="w-40 h-4 bg-sand-100 rounded mb-4" />
+      <div className="h-10 bg-sand-50 rounded" />
     </div>
   );
 }
@@ -248,14 +273,47 @@ function DeltaArrow({
   );
 }
 
+function Sparkline({
+  data,
+  color,
+  fill,
+}: {
+  data: SparklinePoint[];
+  color: string;
+  fill: string;
+}) {
+  if (data.length < 2) return null;
+
+  return (
+    <div className="mt-3 -mx-1">
+      <ResponsiveContainer width="100%" height={40}>
+        <AreaChart data={data} margin={{ top: 2, right: 0, left: 0, bottom: 2 }}>
+          <Area
+            type="monotone"
+            dataKey="value"
+            stroke={color}
+            strokeWidth={1.5}
+            fill={fill}
+            fillOpacity={0.3}
+            dot={false}
+            isAnimationActive={false}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 function KpiCard({
   config,
   state,
   priorSnapshot,
+  sparklineData,
 }: {
   config: KpiCardConfig;
   state: KpiState<KpiData>;
   priorSnapshot: Record<string, unknown> | undefined;
+  sparklineData: SparklinePoint[];
 }) {
   const Icon = config.icon;
 
@@ -299,6 +357,7 @@ function KpiCard({
       </p>
       <h3 className="text-sm font-medium text-charcoal-900 mb-1">{config.name}</h3>
       <p className="text-xs text-charcoal-400">{config.formatSecondary(state.data)}</p>
+      <Sparkline data={sparklineData} color={config.sparkColor} fill={config.sparkFill} />
     </div>
   );
 }
@@ -316,13 +375,13 @@ export default function DashboardPage() {
     return initial;
   });
   const [priorSnapshots, setPriorSnapshots] = useState<Record<string, Record<string, unknown>>>({});
+  const [sparklines, setSparklines] = useState<Record<string, SparklinePoint[]>>({});
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchAllKpis = useCallback(async () => {
     setRefreshing(true);
 
-    // Set all to loading
     setKpis((prev) => {
       const next = { ...prev };
       for (const card of KPI_CARDS) {
@@ -366,7 +425,25 @@ export default function DashboardPage() {
         setPriorSnapshots(data);
       }
     } catch {
-      // Non-critical — deltas just won't show
+      // Non-critical
+    }
+
+    // Fetch sparkline history
+    try {
+      const res = await fetch("/api/kpi/snapshots?history=14");
+      if (res.ok) {
+        const data: Record<string, Array<{ date: string; value: Record<string, unknown> }>> = await res.json();
+        const sparkData: Record<string, SparklinePoint[]> = {};
+        for (const card of KPI_CARDS) {
+          const history = data[card.key] || [];
+          sparkData[card.key] = history.map((h) => ({
+            value: card.getSparklineValue(h.value),
+          }));
+        }
+        setSparklines(sparkData);
+      }
+    } catch {
+      // Non-critical
     }
 
     setLastUpdated(new Date());
@@ -391,22 +468,33 @@ export default function DashboardPage() {
             </h1>
             {lastUpdated && (
               <p className="text-xs text-charcoal-400 mt-1">
-                Last updated {lastUpdated.toLocaleTimeString("en-US", {
+                Last updated{" "}
+                {lastUpdated.toLocaleTimeString("en-US", {
                   hour: "numeric",
                   minute: "2-digit",
                   timeZone: "America/Los_Angeles",
-                })} PT
+                })}{" "}
+                PT
               </p>
             )}
           </div>
-          <button
-            onClick={fetchAllKpis}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-charcoal-600 bg-white border border-sand-200 rounded-lg hover:bg-sand-50 hover:border-sand-300 transition-all duration-150 disabled:opacity-50 shadow-sm"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
-            Refresh
-          </button>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard/trends"
+              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-terra-600 bg-terra-50 border border-terra-200 rounded-lg hover:bg-terra-100 transition-all duration-150 shadow-sm"
+            >
+              View Trends
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </Link>
+            <button
+              onClick={fetchAllKpis}
+              disabled={refreshing}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-charcoal-600 bg-white border border-sand-200 rounded-lg hover:bg-sand-50 hover:border-sand-300 transition-all duration-150 disabled:opacity-50 shadow-sm"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+              Refresh
+            </button>
+          </div>
         </div>
       </div>
 
@@ -418,11 +506,12 @@ export default function DashboardPage() {
             config={card}
             state={kpis[card.key]}
             priorSnapshot={priorSnapshots[card.key]}
+            sparklineData={sparklines[card.key] || []}
           />
         ))}
       </div>
 
-      {/* Footer note for mock data */}
+      {/* Footer note */}
       <div className="mt-8 animate-slide-up" style={{ animationDelay: "200ms" }}>
         <div className="bg-white rounded-xl border border-sand-200 p-4 shadow-card">
           <div className="flex items-start gap-3">
@@ -431,7 +520,7 @@ export default function DashboardPage() {
               <strong className="text-charcoal-500">Data sources:</strong>{" "}
               Delinquency, Vacancy, Work Orders, and Notices pull live from AppFolio v0 API.
               Insurance Compliance shows placeholder data — the v0 API does not expose insurance status.
-              Week-over-week deltas appear once snapshot history accumulates.
+              Sparklines and trend charts populate as daily snapshots accumulate.
             </div>
           </div>
         </div>
