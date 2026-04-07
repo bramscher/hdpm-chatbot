@@ -24,6 +24,8 @@ import {
   Timer,
   Repeat,
   Building2,
+  UserPlus,
+  Filter,
 } from "lucide-react";
 
 // ============================================
@@ -89,8 +91,45 @@ interface NetDoorsData {
   netThisMonth: number;
 }
 
+interface GuestCardData {
+  today: number;
+  thisWeek: number;
+  thisMonth: number;
+  lastWeek: number;
+  lastMonth: number;
+  weekOverWeekDelta: number;
+  monthOverMonthDelta: number;
+  sourceBreakdownWeek: Array<{ source: string; count: number }>;
+  sourceBreakdownMonth: Array<{ source: string; count: number }>;
+}
+
+interface LeasingFunnelData {
+  period: string;
+  funnel: {
+    guestCards: number;
+    applications: number;
+    approvals: number;
+    moveIns: number;
+  };
+  conversionRates: {
+    guestCardToApplication: number;
+    applicationToApproval: number;
+    approvalToMoveIn: number;
+    overallConversion: number;
+  };
+  avgDaysLeadToLease: number;
+  timeToFirstContact: {
+    avgHoursToFirstContact: number | null;
+    pctContactedUnder1Hour: number | null;
+    pctContactedUnder24Hours: number | null;
+    pctNeverContacted: number | null;
+    dataSource: string;
+  };
+}
+
 type KpiData = DelinquencyData | VacancyData | WorkOrderData | NoticeData | InsuranceData
-  | OwnerRetentionData | MaintenanceCostData | DaysToLeaseData | LeaseRenewalData | NetDoorsData;
+  | OwnerRetentionData | MaintenanceCostData | DaysToLeaseData | LeaseRenewalData | NetDoorsData
+  | GuestCardData | LeasingFunnelData;
 
 interface KpiState<T extends KpiData> {
   data: T | null;
@@ -412,6 +451,76 @@ const KPI_CARDS: KpiCardConfig[] = [
         direction: diff > 0 ? "up" : "down",
         sentiment: diff > 0 ? "good" : "bad",
         label: `${Math.abs(diff)} doors`,
+      };
+    },
+  },
+  {
+    name: "Guest Card Volume",
+    key: "guest_cards",
+    endpoint: "/api/kpi/guest-cards",
+    icon: UserPlus,
+    color: "text-sky-600",
+    bgColor: "bg-sky-100",
+    iconColor: "text-sky-600",
+    sparkColor: "#0284c7",
+    sparkFill: "#bae6fd",
+    formatPrimary: (d) => `${(d as GuestCardData).thisWeek}`,
+    formatSecondary: (d) => {
+      const data = d as GuestCardData;
+      const delta = data.weekOverWeekDelta;
+      const sign = delta >= 0 ? "+" : "";
+      const top3 = data.sourceBreakdownWeek.slice(0, 3).map((s) => `${s.source}: ${s.count}`).join("  |  ");
+      return `Today: ${data.today}  |  Month: ${data.thisMonth}  |  ${sign}${delta} vs last week${top3 ? `\n${top3}` : ""}`;
+    },
+    getSparklineValue: (s) => (s.thisWeek as number) ?? 0,
+    getDelta: (current, prior) => {
+      const curr = (current as GuestCardData).thisWeek;
+      const prev = (prior as { thisWeek?: number }).thisWeek;
+      if (prev == null) return null;
+      const diff = curr - prev;
+      if (diff === 0) return { direction: "flat", sentiment: "neutral", label: "No change" };
+      return {
+        direction: diff > 0 ? "up" : "down",
+        sentiment: diff > 0 ? "good" : "bad",
+        label: `${Math.abs(diff)} leads`,
+      };
+    },
+  },
+  {
+    name: "Leasing Funnel",
+    key: "leasing_funnel",
+    endpoint: "/api/kpi/leasing-funnel",
+    icon: Filter,
+    color: "text-rose-600",
+    bgColor: "bg-rose-100",
+    iconColor: "text-rose-600",
+    sparkColor: "#e11d48",
+    sparkFill: "#fecdd3",
+    formatPrimary: (d) => `${(d as LeasingFunnelData).conversionRates.overallConversion}%`,
+    formatSecondary: (d) => {
+      const data = d as LeasingFunnelData;
+      const f = data.funnel;
+      const contact = data.timeToFirstContact;
+      const responseLine = contact.dataSource !== "unavailable" && contact.avgHoursToFirstContact != null
+        ? `Avg response: ${contact.avgHoursToFirstContact.toFixed(0)}h  |  ${contact.pctContactedUnder1Hour?.toFixed(0)}% <1hr`
+        : "Response time: data pending";
+      return `${f.guestCards} leads → ${f.applications} apps → ${f.approvals} approved → ${f.moveIns} move-ins\n${responseLine}`;
+    },
+    getSparklineValue: (s) => {
+      const rates = s.conversionRates as Record<string, number> | undefined;
+      return rates?.overallConversion ?? 0;
+    },
+    getDelta: (current, prior) => {
+      const curr = (current as LeasingFunnelData).conversionRates.overallConversion;
+      const priorRates = (prior as { conversionRates?: { overallConversion?: number } }).conversionRates;
+      const prev = priorRates?.overallConversion;
+      if (prev == null) return null;
+      const diff = curr - prev;
+      if (Math.abs(diff) < 0.1) return { direction: "flat", sentiment: "neutral", label: "No change" };
+      return {
+        direction: diff > 0 ? "up" : "down",
+        sentiment: diff > 0 ? "good" : "bad",
+        label: `${Math.abs(diff).toFixed(1)}pp`,
       };
     },
   },

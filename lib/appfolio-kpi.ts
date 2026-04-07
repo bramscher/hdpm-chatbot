@@ -14,6 +14,11 @@
  *
  * Not available in v0:
  *   /occupancies (404)  — insurance compliance data not exposed
+ *
+ * Leasing funnel (KPIs 11-12):
+ *   /leads               — guest card volume + source breakdown
+ *   /rental_applications — application/approval funnel stages
+ *   /showings            — 0 results currently, time-to-contact unavailable
  */
 
 const APPFOLIO_V0_BASE = 'https://api.appfolio.com/api/v0';
@@ -557,3 +562,336 @@ export async function fetchNetDoorsKpi(): Promise<NetDoorsKpi> {
     netThisMonth: 0,
   };
 }
+
+// ============================================
+// v0 Types — Leasing Funnel
+// ============================================
+
+interface V0Lead {
+  Id: string;
+  CreatedAt: string;
+  Source: string | null;
+  Status: string;
+  PropertyId: string | null;
+  RentalApplicationId: string | null;
+  RentalApplicationGroupId: string | null;
+  FirstName: string;
+  LastName: string;
+  Email: string | null;
+  LastUpdatedAt: string;
+}
+
+interface V0RentalApplication {
+  Id: string;
+  Status: string;
+  SubmittedAt: string;
+  StatusChangedAt: string | null;
+  PropertyId: string | null;
+  UnitId: string | null;
+  GroupId: string | null;
+}
+
+// ============================================
+// KPI 11: Guest Card Volume + Source Breakdown
+// ============================================
+
+export const SOURCE_BUCKETS: Record<string, string> = {
+  'Apartment List': 'Apartment List',
+  'Apartmentlist.com': 'Apartment List',
+  'Apartments.com': 'Apartments.com',
+  'Zillow Rental Network': 'Zillow / Syndication',
+  'Zillow': 'Zillow / Syndication',
+  'zillow.com': 'Zillow / Syndication',
+  'Zumper': 'Zillow / Syndication',
+  'Trulia': 'Zillow / Syndication',
+  'Realtor.com': 'Zillow / Syndication',
+  'Rent.': 'Rent.',
+  'HDPM Website': 'HDPM Website',
+  'Website': 'HDPM Website',
+  'AppFolio': 'AppFolio Portal',
+  'Craigslist': 'Craigslist',
+  'craigslist': 'Craigslist',
+  'Walk-in': 'Direct / Walk-in',
+  'Phone': 'Direct / Walk-in',
+  'Direct': 'Direct / Walk-in',
+};
+
+function normalizeSource(raw: string | null): string {
+  if (!raw) return 'Other';
+  return SOURCE_BUCKETS[raw] ?? 'Other';
+}
+
+function getSourceBreakdown(leads: V0Lead[]): Array<{ source: string; count: number }> {
+  const counts: Record<string, number> = {};
+  for (const lead of leads) {
+    const source = normalizeSource(lead.Source);
+    counts[source] = (counts[source] || 0) + 1;
+  }
+  return Object.entries(counts)
+    .map(([source, count]) => ({ source, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+export interface GuestCardKpi {
+  today: number;
+  thisWeek: number;
+  thisMonth: number;
+  lastWeek: number;
+  lastMonth: number;
+  weekOverWeekDelta: number;
+  monthOverMonthDelta: number;
+  sourceBreakdownWeek: Array<{ source: string; count: number }>;
+  sourceBreakdownMonth: Array<{ source: string; count: number }>;
+}
+
+export async function fetchGuestCardKpi(): Promise<GuestCardKpi> {
+  const config = getKpiConfig();
+  if (!config) {
+    return {
+      today: 0, thisWeek: 0, thisMonth: 0, lastWeek: 0, lastMonth: 0,
+      weekOverWeekDelta: 0, monthOverMonthDelta: 0,
+      sourceBreakdownWeek: [], sourceBreakdownMonth: [],
+    };
+  }
+
+  // Fetch leads updated in last 90 days (API only supports LastUpdatedAtFrom)
+  const sinceDate = new Date();
+  sinceDate.setDate(sinceDate.getDate() - 90);
+
+  const leads = await v0FetchAll<V0Lead>(
+    '/leads',
+    { 'filters[LastUpdatedAtFrom]': sinceDate.toISOString() },
+    config
+  );
+
+  // Time boundaries (UTC — AppFolio CreatedAt is UTC)
+  const now = new Date();
+
+  // Today: midnight UTC
+  const todayStart = new Date(now);
+  todayStart.setUTCHours(0, 0, 0, 0);
+
+  // This week: Monday 00:00 UTC
+  const dayOfWeek = now.getUTCDay();
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const thisWeekStart = new Date(now);
+  thisWeekStart.setUTCDate(thisWeekStart.getUTCDate() + mondayOffset);
+  thisWeekStart.setUTCHours(0, 0, 0, 0);
+
+  // Last week: prior Monday to prior Sunday
+  const lastWeekStart = new Date(thisWeekStart);
+  lastWeekStart.setUTCDate(lastWeekStart.getUTCDate() - 7);
+  const lastWeekEnd = new Date(thisWeekStart);
+
+  // This month: 1st of current month
+  const thisMonthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+
+  // Last month: 1st of prior month to 1st of current month
+  const lastMonthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+  const lastMonthEnd = thisMonthStart;
+
+  // Slice leads by CreatedAt into time windows
+  const todayLeads: V0Lead[] = [];
+  const thisWeekLeads: V0Lead[] = [];
+  const thisMonthLeads: V0Lead[] = [];
+  const lastWeekLeads: V0Lead[] = [];
+  const lastMonthLeads: V0Lead[] = [];
+
+  for (const lead of leads) {
+    const created = new Date(lead.CreatedAt);
+    if (created >= todayStart && created <= now) todayLeads.push(lead);
+    if (created >= thisWeekStart && created <= now) thisWeekLeads.push(lead);
+    if (created >= thisMonthStart && created <= now) thisMonthLeads.push(lead);
+    if (created >= lastWeekStart && created < lastWeekEnd) lastWeekLeads.push(lead);
+    if (created >= lastMonthStart && created < lastMonthEnd) lastMonthLeads.push(lead);
+  }
+
+  const thisWeek = thisWeekLeads.length;
+  const lastWeek = lastWeekLeads.length;
+  const thisMonth = thisMonthLeads.length;
+  const lastMonth = lastMonthLeads.length;
+
+  return {
+    today: todayLeads.length,
+    thisWeek,
+    thisMonth,
+    lastWeek,
+    lastMonth,
+    weekOverWeekDelta: thisWeek - lastWeek,
+    monthOverMonthDelta: thisMonth - lastMonth,
+    sourceBreakdownWeek: getSourceBreakdown(thisWeekLeads),
+    sourceBreakdownMonth: getSourceBreakdown(thisMonthLeads),
+  };
+}
+
+// ============================================
+// KPI 12: Leasing Funnel + Time to First Contact
+// ============================================
+
+// TODO: Actual AppFolio lead statuses are "active" / "inactive" only.
+// Funnel stages are derived by cross-referencing leads → rental_applications.
+const LEAD_STATUS_MAP = {
+  APPLICATION: ['Applied', 'Application Submitted'],
+  APPROVED: ['Approved', 'Approval Pending'],
+  LEASED: ['Leased', 'Lease Signed', 'Move-In Scheduled'],
+  LOST: ['Cancelled', 'Lost', 'Denied', 'Withdrawn'],
+} as const;
+
+const RENTAL_APP_STATUS_MAP = {
+  APPROVED: ['approved'],
+  PENDING: ['decision_pending'],
+  DENIED: ['denied', 'cancelled'],
+} as const;
+
+const RESPONSE_BUCKETS = {
+  UNDER_1_HOUR: 1,
+  UNDER_24_HOURS: 24,
+  OVER_24_HOURS: Infinity,
+} as const;
+
+export interface LeasingFunnelKpi {
+  period: string;
+  funnel: {
+    guestCards: number;
+    applications: number;
+    approvals: number;
+    moveIns: number;
+  };
+  conversionRates: {
+    guestCardToApplication: number;
+    applicationToApproval: number;
+    approvalToMoveIn: number;
+    overallConversion: number;
+  };
+  avgDaysLeadToLease: number;
+  timeToFirstContact: {
+    avgHoursToFirstContact: number | null;
+    pctContactedUnder1Hour: number | null;
+    pctContactedUnder24Hours: number | null;
+    pctNeverContacted: number | null;
+    dataSource: 'showings' | 'communications' | 'unavailable';
+  };
+}
+
+export async function fetchLeasingFunnelKpi(): Promise<LeasingFunnelKpi> {
+  const config = getKpiConfig();
+  const emptyResult: LeasingFunnelKpi = {
+    period: 'last_90_days',
+    funnel: { guestCards: 0, applications: 0, approvals: 0, moveIns: 0 },
+    conversionRates: {
+      guestCardToApplication: 0, applicationToApproval: 0,
+      approvalToMoveIn: 0, overallConversion: 0,
+    },
+    avgDaysLeadToLease: 0,
+    timeToFirstContact: {
+      avgHoursToFirstContact: null, pctContactedUnder1Hour: null,
+      pctContactedUnder24Hours: null, pctNeverContacted: null,
+      dataSource: 'unavailable',
+    },
+  };
+
+  if (!config) return emptyResult;
+
+  const sinceDate = new Date();
+  sinceDate.setDate(sinceDate.getDate() - 90);
+
+  // Fetch leads and rental applications in parallel
+  const [leads, rentalApps] = await Promise.all([
+    v0FetchAll<V0Lead>(
+      '/leads',
+      { 'filters[LastUpdatedAtFrom]': sinceDate.toISOString() },
+      config
+    ),
+    v0FetchAll<V0RentalApplication>(
+      '/rental_applications',
+      { 'filters[SubmittedAtFrom]': sinceDate.toISOString() },
+      config
+    ),
+  ]);
+
+  // Filter leads created in last 90 days
+  const recentLeads = leads.filter((l) => new Date(l.CreatedAt) >= sinceDate);
+
+  // Stage 1: Guest Cards = all recent leads
+  const guestCards = recentLeads.length;
+
+  // Stage 2: Applications = leads that have a RentalApplicationId
+  const leadsWithApp = recentLeads.filter((l) => l.RentalApplicationId);
+  const applications = leadsWithApp.length;
+
+  // Build a set of approved application IDs
+  const approvedAppIds = new Set(
+    rentalApps
+      .filter((a) => RENTAL_APP_STATUS_MAP.APPROVED.includes(a.Status as 'approved'))
+      .map((a) => a.Id)
+  );
+
+  // Stage 3: Approvals = leads whose application was approved
+  const approvals = leadsWithApp.filter(
+    (l) => l.RentalApplicationId && approvedAppIds.has(l.RentalApplicationId)
+  ).length;
+
+  // Stage 4: Move-ins — check lead status or use LEAD_STATUS_MAP
+  // TODO: AppFolio lead Status is only "active"/"inactive". For now,
+  // estimate move-ins from approved applications with StatusChangedAt > 30 days ago
+  // (assumes approved apps that are old enough have likely moved in).
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const moveIns = rentalApps.filter((a) => {
+    if (!RENTAL_APP_STATUS_MAP.APPROVED.includes(a.Status as 'approved')) return false;
+    if (!a.StatusChangedAt) return false;
+    return new Date(a.StatusChangedAt) < thirtyDaysAgo;
+  }).length;
+
+  // Conversion rates
+  const safeDiv = (num: number, den: number) =>
+    den > 0 ? Math.round((num / den) * 1000) / 10 : 0;
+
+  const conversionRates = {
+    guestCardToApplication: safeDiv(applications, guestCards),
+    applicationToApproval: safeDiv(approvals, applications),
+    approvalToMoveIn: safeDiv(moveIns, approvals),
+    overallConversion: safeDiv(moveIns, guestCards),
+  };
+
+  // Avg days lead to lease: for leads with approved applications
+  // Use time from lead CreatedAt to application StatusChangedAt
+  let totalDays = 0;
+  let countWithDates = 0;
+  for (const lead of leadsWithApp) {
+    if (!lead.RentalApplicationId || !approvedAppIds.has(lead.RentalApplicationId)) continue;
+    const app = rentalApps.find((a) => a.Id === lead.RentalApplicationId);
+    if (!app?.StatusChangedAt) continue;
+    const days = (new Date(app.StatusChangedAt).getTime() - new Date(lead.CreatedAt).getTime()) / (1000 * 60 * 60 * 24);
+    if (days >= 0) {
+      totalDays += days;
+      countWithDates++;
+    }
+  }
+  const avgDaysLeadToLease = countWithDates > 0
+    ? Math.round((totalDays / countWithDates) * 10) / 10
+    : 0;
+
+  // Time to first contact:
+  // Showings endpoint returns 0 results. Communications not available in v0 API.
+  // TODO: If AppFolio adds /showings data or /communications endpoint, use it here.
+  // RESPONSE_BUCKETS defined above for future use.
+  void RESPONSE_BUCKETS;
+
+  return {
+    period: 'last_90_days',
+    funnel: { guestCards, applications, approvals, moveIns },
+    conversionRates,
+    avgDaysLeadToLease,
+    timeToFirstContact: {
+      avgHoursToFirstContact: null,
+      pctContactedUnder1Hour: null,
+      pctContactedUnder24Hours: null,
+      pctNeverContacted: null,
+      dataSource: 'unavailable',
+    },
+  };
+}
+
+// Re-export status maps for use in webhook handler
+export { LEAD_STATUS_MAP, RENTAL_APP_STATUS_MAP, RESPONSE_BUCKETS };

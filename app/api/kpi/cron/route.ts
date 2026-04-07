@@ -11,12 +11,14 @@ import {
   fetchDaysToLeaseKpi,
   fetchLeaseRenewalKpi,
   fetchNetDoorsKpi,
+  fetchGuestCardKpi,
+  fetchLeasingFunnelKpi,
 } from '@/lib/appfolio-kpi';
 
 /**
  * POST /api/kpi/cron
  *
- * Daily cron job (7 AM PT / 14:00 UTC) that snapshots all 10 KPIs
+ * Daily cron job (7 AM PT / 14:00 UTC) that snapshots all 12 KPIs
  * into kpi_snapshots for historical trend tracking.
  *
  * Protected by CRON_SECRET (same pattern as /api/sync/appfolio).
@@ -42,6 +44,8 @@ export async function POST(request: NextRequest) {
     { name: 'days_to_lease', fn: fetchDaysToLeaseKpi },
     { name: 'lease_renewal', fn: fetchLeaseRenewalKpi },
     { name: 'net_doors', fn: fetchNetDoorsKpi },
+    { name: 'guest_cards', fn: fetchGuestCardKpi },
+    { name: 'leasing_funnel', fn: fetchLeasingFunnelKpi },
   ] as const;
 
   await Promise.allSettled(
@@ -64,9 +68,9 @@ export async function POST(request: NextRequest) {
   );
 
   const succeeded = Object.values(results).filter((r) => r.success).length;
-  console.log(`[KPI Cron] Done: ${succeeded}/10 snapshots saved`);
+  console.log(`[KPI Cron] Done: ${succeeded}/12 snapshots saved`);
 
-  return NextResponse.json({ results, succeeded, total: 10 });
+  return NextResponse.json({ results, succeeded, total: 12 });
 }
 
 export const maxDuration = 300;

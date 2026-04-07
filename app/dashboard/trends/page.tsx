@@ -29,6 +29,8 @@ import {
   Timer,
   Repeat,
   Building2,
+  UserPlus,
+  Filter,
 } from "lucide-react";
 
 // Recharts v3 tooltip formatter types are overly strict — cast like CompsChart.tsx
@@ -790,6 +792,278 @@ function NetDoorsChart({ data }: { data: TrendPoint[] }) {
 }
 
 // ============================================
+// KPI 11: Guest Card Volume
+// ============================================
+
+const SOURCE_COLORS: Record<string, string> = {
+  'Zillow / Syndication': '#3b82f6',
+  'Rent.': '#f59e0b',
+  'Apartments.com': '#10b981',
+  'HDPM Website': '#8b5cf6',
+  'Apartment List': '#ec4899',
+  'Craigslist': '#f97316',
+  'AppFolio Portal': '#06b6d4',
+  'Direct / Walk-in': '#6366f1',
+  'Other': '#9ca3af',
+};
+
+function GuestCardChart({ data }: { data: TrendPoint[] }) {
+  if (data.length === 0) return <EmptyChart name="Guest Card Volume" />;
+
+  const chartData = data.map((d) => ({
+    date: formatDate(d.date),
+    thisWeek: d.value.thisWeek ?? 0,
+    thisMonth: d.value.thisMonth ?? 0,
+  }));
+
+  const weekly = chartData.map((d) => d.thisWeek);
+  const stats = computeStats(weekly);
+
+  // Collect all source keys across all snapshots for stacked bar
+  const allSources = new Set<string>();
+  for (const d of data) {
+    const breakdown = d.value.sourceBreakdownWeek;
+    if (Array.isArray(breakdown)) {
+      for (const item of breakdown as Array<{ source: string; count: number }>) {
+        allSources.add(item.source);
+      }
+    }
+  }
+
+  const sourceBarData = data.map((d) => {
+    const row: Record<string, string | number> = { date: formatDate(d.date) };
+    const breakdown = d.value.sourceBreakdownWeek;
+    if (Array.isArray(breakdown)) {
+      for (const item of breakdown as Array<{ source: string; count: number }>) {
+        row[item.source] = item.count;
+      }
+    }
+    return row;
+  });
+
+  const sourceKeys = Array.from(allSources);
+
+  // Find best source
+  const sourceTotals: Record<string, number> = {};
+  for (const d of data) {
+    const breakdown = d.value.sourceBreakdownWeek;
+    if (Array.isArray(breakdown)) {
+      for (const item of breakdown as Array<{ source: string; count: number }>) {
+        sourceTotals[item.source] = (sourceTotals[item.source] || 0) + item.count;
+      }
+    }
+  }
+  const bestSource = Object.entries(sourceTotals).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'N/A';
+
+  return (
+    <div className="glass glass-shine rounded-2xl p-6 lg:col-span-2">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-8 h-8 bg-sky-100 rounded-lg flex items-center justify-center">
+          <UserPlus className="w-4 h-4 text-sky-600" />
+        </div>
+        <h4 className="text-sm font-semibold text-charcoal-700">Guest Card Volume</h4>
+      </div>
+      <StatPills
+        stats={[
+          { label: "Current Week", value: `${stats.current}` },
+          { label: "Best Week", value: `${stats.high}` },
+          { label: "Worst Week", value: `${stats.low}` },
+          { label: "Weekly Avg", value: `${stats.avg.toFixed(0)}` },
+          { label: "Best Source", value: bestSource },
+        ]}
+      />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Weekly volume line */}
+        <div>
+          <p className="text-xs font-medium text-charcoal-500 mb-2">Weekly Volume</p>
+          <ResponsiveContainer width="100%" height={240}>
+            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
+              <CartesianGrid {...GRID_PROPS} />
+              <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} />
+              <YAxis tick={Y_TICK} axisLine={false} tickLine={false} width={40} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={LABEL_STYLE} />
+              <Area type="monotone" dataKey="thisWeek" stroke="#0284c7" strokeWidth={2} fill="#bae6fd" fillOpacity={0.3} dot={{ r: 3, fill: "#0284c7" }} name="This Week" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+        {/* Source breakdown stacked bar */}
+        <div>
+          <p className="text-xs font-medium text-charcoal-500 mb-2">Source Breakdown</p>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={sourceBarData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
+              <CartesianGrid {...GRID_PROPS} />
+              <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} />
+              <YAxis tick={Y_TICK} axisLine={false} tickLine={false} width={40} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={LABEL_STYLE} />
+              {sourceKeys.map((source) => (
+                <Bar
+                  key={source}
+                  dataKey={source}
+                  stackId="sources"
+                  fill={SOURCE_COLORS[source] || '#9ca3af'}
+                  radius={[0, 0, 0, 0]}
+                  maxBarSize={28}
+                  name={source}
+                />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+          <div className="flex flex-wrap gap-2 mt-2 justify-center">
+            {sourceKeys.map((source) => (
+              <div key={source} className="flex items-center gap-1 text-[10px] text-charcoal-500">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: SOURCE_COLORS[source] || '#9ca3af' }} />
+                <span>{source}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <InsightLine text="Track which sources trend up or down week over week to guide advertising spend. A drop in any single source warrants checking whether that listing is still active and correctly priced." />
+    </div>
+  );
+}
+
+// ============================================
+// KPI 12: Leasing Funnel
+// ============================================
+
+interface FunnelStage {
+  name: string;
+  count: number;
+  rate: string;
+  color: string;
+}
+
+function FunnelBars({ stages, maxCount }: { stages: FunnelStage[]; maxCount: number }) {
+  return (
+    <div className="space-y-2">
+      {stages.map((stage) => {
+        const widthPct = maxCount > 0 ? Math.max(4, (stage.count / maxCount) * 100) : 4;
+        return (
+          <div key={stage.name} className="flex items-center gap-3">
+            <div className="w-24 text-xs text-charcoal-500 text-right flex-shrink-0">{stage.name}</div>
+            <div className="flex-1 flex items-center gap-2">
+              <div
+                className="h-7 rounded-md flex items-center px-2 transition-all duration-300"
+                style={{ width: `${widthPct}%`, backgroundColor: stage.color }}
+              >
+                <span className="text-xs font-semibold text-white whitespace-nowrap">{stage.count}</span>
+              </div>
+              <span className="text-xs text-charcoal-400 flex-shrink-0">{stage.rate}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function LeasingFunnelChart({ data }: { data: TrendPoint[] }) {
+  if (data.length === 0) return <EmptyChart name="Leasing Funnel" />;
+
+  const chartData = data.map((d) => ({
+    date: formatDate(d.date),
+    overallConversion: (d.value.conversionRates as unknown as Record<string, number>)?.overallConversion ?? 0,
+  }));
+
+  const rates = chartData.map((d) => d.overallConversion);
+  const stats = computeStats(rates);
+
+  // Current funnel from latest snapshot
+  const latest = data[data.length - 1];
+  const funnel = latest.value.funnel as unknown as Record<string, number> | undefined;
+  const convRates = latest.value.conversionRates as unknown as Record<string, number> | undefined;
+  const contact = latest.value.timeToFirstContact as unknown as Record<string, number | string | null> | undefined;
+
+  const funnelStages: FunnelStage[] = funnel ? [
+    { name: 'Guest Cards', count: funnel.guestCards ?? 0, rate: '—', color: '#0284c7' },
+    { name: 'Applications', count: funnel.applications ?? 0, rate: `${convRates?.guestCardToApplication?.toFixed(0) ?? 0}% of leads`, color: '#6366f1' },
+    { name: 'Approvals', count: funnel.approvals ?? 0, rate: `${convRates?.applicationToApproval?.toFixed(0) ?? 0}% of apps`, color: '#8b5cf6' },
+    { name: 'Move-Ins', count: funnel.moveIns ?? 0, rate: `${convRates?.approvalToMoveIn?.toFixed(0) ?? 0}% of approved`, color: '#059669' },
+  ] : [];
+
+  const avgDays = (latest.value.avgDaysLeadToLease as number) ?? 0;
+  const avgResponseHours = contact?.avgHoursToFirstContact as number | null;
+  const contactDataSource = contact?.dataSource as string;
+
+  return (
+    <div className="glass glass-shine rounded-2xl p-6 lg:col-span-2">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-8 h-8 bg-rose-100 rounded-lg flex items-center justify-center">
+          <Filter className="w-4 h-4 text-rose-600" />
+        </div>
+        <h4 className="text-sm font-semibold text-charcoal-700">Leasing Funnel</h4>
+      </div>
+      <StatPills
+        stats={[
+          { label: "Avg Lead-to-Lease", value: `${avgDays.toFixed(0)} days` },
+          { label: "Best Conversion", value: `${stats.high.toFixed(1)}%` },
+          { label: "Current", value: `${stats.current.toFixed(1)}%` },
+          { label: "Avg Response", value: avgResponseHours != null ? `${avgResponseHours.toFixed(0)}h` : 'N/A' },
+        ]}
+      />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Conversion rate line chart */}
+        <div>
+          <p className="text-xs font-medium text-charcoal-500 mb-2">Overall Conversion Rate</p>
+          <ResponsiveContainer width="100%" height={240}>
+            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
+              <CartesianGrid {...GRID_PROPS} />
+              <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} />
+              <YAxis tick={Y_TICK} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${v}%`} />
+              <Tooltip
+                contentStyle={TOOLTIP_STYLE}
+                labelStyle={LABEL_STYLE}
+                formatter={((value: number) => [`${value.toFixed(1)}%`, "Conversion"]) as AnyFormatter}
+              />
+              <Area type="monotone" dataKey="overallConversion" stroke="#e11d48" strokeWidth={2} fill="#fecdd3" fillOpacity={0.3} dot={{ r: 3, fill: "#e11d48" }} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+        {/* Funnel bars */}
+        <div>
+          <p className="text-xs font-medium text-charcoal-500 mb-2">Current Period Funnel</p>
+          {funnelStages.length > 0 ? (
+            <FunnelBars stages={funnelStages} maxCount={funnelStages[0].count} />
+          ) : (
+            <p className="text-xs text-charcoal-400 py-8 text-center">No funnel data available</p>
+          )}
+          {/* Response time breakdown */}
+          <div className="mt-4 pt-3 border-t border-sand-100">
+            <p className="text-xs font-medium text-charcoal-500 mb-2">Response Time</p>
+            {contactDataSource === 'unavailable' ? (
+              <p className="text-xs text-charcoal-400 italic">
+                Response time data not available. The AppFolio v0 /showings endpoint
+                returns no results, and /communications is not exposed. Enable the Leads
+                webhook topic to begin capturing response metrics via lead_events.
+              </p>
+            ) : (
+              <div className="flex gap-2">
+                <div className="flex-1 rounded-lg bg-green-100 p-2 text-center">
+                  <p className="text-lg font-bold text-green-700">{(contact?.pctContactedUnder1Hour as number)?.toFixed(0) ?? 0}%</p>
+                  <p className="text-[10px] text-green-600">&lt;1 hour</p>
+                </div>
+                <div className="flex-1 rounded-lg bg-amber-100 p-2 text-center">
+                  <p className="text-lg font-bold text-amber-700">{(contact?.pctContactedUnder24Hours as number)?.toFixed(0) ?? 0}%</p>
+                  <p className="text-[10px] text-amber-600">&lt;24 hours</p>
+                </div>
+                <div className="flex-1 rounded-lg bg-red-100 p-2 text-center">
+                  <p className="text-lg font-bold text-red-700">{(contact?.pctNeverContacted as number)?.toFixed(0) ?? 0}%</p>
+                  <p className="text-[10px] text-red-600">Never</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      <InsightLine text="Industry benchmark for guest card to lease conversion is 10–20% for residential property management." />
+      <InsightLine text="The biggest drop-off stage identifies where to focus process improvement: high application drop-off suggests friction in the application process or uncompetitive pricing; high approval drop-off suggests screening criteria may be misaligned with the applicant pool." />
+      <InsightLine text="Research shows leads contacted within 1 hour are 7x more likely to convert than those contacted after 24 hours. Response time is one of the highest-leverage improvements a leasing team can make." />
+    </div>
+  );
+}
+
+// ============================================
 // Page
 // ============================================
 
@@ -867,7 +1141,7 @@ export default function TrendsPage() {
       {/* Charts Grid */}
       {loading ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => (
             <ChartSkeleton key={i} />
           ))}
         </div>
@@ -883,6 +1157,8 @@ export default function TrendsPage() {
           <DaysToLeaseChart data={trends.days_to_lease || []} />
           <LeaseRenewalChart data={trends.lease_renewal || []} />
           <NetDoorsChart data={trends.net_doors || []} />
+          <GuestCardChart data={trends.guest_cards || []} />
+          <LeasingFunnelChart data={trends.leasing_funnel || []} />
         </div>
       )}
     </div>
