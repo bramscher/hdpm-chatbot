@@ -714,16 +714,19 @@ function computeTargetDate(data: TrendPoint[]): string {
 }
 
 function NetDoorsChart({ data }: { data: TrendPoint[] }) {
-  if (data.length === 0) return <EmptyChart name="Net Doors Added" />;
+  if (data.length === 0) return <EmptyChart name="Properties / Doors" />;
 
   const chartData = data.map((d) => ({
     date: formatDate(d.date),
     currentDoors: d.value.currentDoors ?? 0,
+    currentProperties: d.value.currentProperties ?? 0,
     netThisMonth: d.value.netThisMonth ?? 0,
   }));
 
   const doors = chartData.map((d) => d.currentDoors);
-  const stats = computeStats(doors);
+  const props = chartData.map((d) => d.currentProperties);
+  const doorStats = computeStats(doors);
+  const propStats = computeStats(props);
   const projectionText = computeTargetDate(data);
 
   return (
@@ -732,14 +735,13 @@ function NetDoorsChart({ data }: { data: TrendPoint[] }) {
         <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
           <Building2 className="w-4 h-4 text-emerald-600" />
         </div>
-        <h4 className="text-sm font-semibold text-charcoal-700">Net Doors Added</h4>
+        <h4 className="text-sm font-semibold text-charcoal-700">Properties / Doors</h4>
       </div>
       <StatPills
         stats={[
-          { label: "Current", value: `${stats.current}` },
-          { label: "High", value: `${stats.high}` },
-          { label: "Low", value: `${stats.low}` },
-          { label: "Goal", value: "1,500" },
+          { label: "Properties", value: `${propStats.current}` },
+          { label: "Doors", value: `${doorStats.current}` },
+          { label: "Door Goal", value: "1,500" },
         ]}
       />
       <ResponsiveContainer width="100%" height={280}>
@@ -752,7 +754,8 @@ function NetDoorsChart({ data }: { data: TrendPoint[] }) {
             contentStyle={TOOLTIP_STYLE}
             labelStyle={LABEL_STYLE}
             formatter={((value: number, name: string) => {
-              if (name === "currentDoors") return [`${value}`, "Total Doors"];
+              if (name === "currentDoors") return [`${value}`, "Doors"];
+              if (name === "currentProperties") return [`${value}`, "Properties"];
               const sign = value >= 0 ? "+" : "";
               return [`${sign}${value}`, "Net This Month"];
             }) as AnyFormatter}
@@ -760,19 +763,24 @@ function NetDoorsChart({ data }: { data: TrendPoint[] }) {
           <ReferenceLine yAxisId="doors" y={1500} stroke="#d97706" strokeDasharray="6 4" strokeWidth={1.5} label={{ value: "Goal: 1,500", position: "right", fontSize: 10, fill: "#d97706" }} />
           <Bar yAxisId="net" dataKey="netThisMonth" fill="#a7f3d0" fillOpacity={0.6} radius={[4, 4, 0, 0]} maxBarSize={24} name="netThisMonth" />
           <Line yAxisId="doors" type="monotone" dataKey="currentDoors" stroke="#059669" strokeWidth={2} dot={{ r: 3, fill: "#059669" }} name="currentDoors" />
+          <Line yAxisId="doors" type="monotone" dataKey="currentProperties" stroke="#6366f1" strokeWidth={2} strokeDasharray="4 3" dot={{ r: 3, fill: "#6366f1" }} name="currentProperties" />
         </ComposedChart>
       </ResponsiveContainer>
-      <div className="flex items-center justify-center gap-6 mt-3 text-xs text-charcoal-500">
+      <div className="flex items-center justify-center gap-5 mt-3 text-xs text-charcoal-500">
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-2 rounded-sm bg-emerald-200" />
           <span>Monthly Net</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-4 h-0.5 bg-emerald-600 rounded" />
-          <span>Total Doors</span>
+          <span>Doors</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-4 h-0.5 bg-amber-500 rounded border-dashed" style={{ borderTop: "1px dashed #d97706" }} />
+          <div className="w-4 h-0.5 bg-indigo-500 rounded" style={{ borderTop: "2px dashed #6366f1" }} />
+          <span>Properties</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-0.5 bg-amber-500 rounded" style={{ borderTop: "2px dashed #d97706" }} />
           <span>Goal</span>
         </div>
       </div>

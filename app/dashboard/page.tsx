@@ -85,6 +85,7 @@ interface LeaseRenewalData {
 
 interface NetDoorsData {
   currentDoors: number;
+  currentProperties: number;
   netThisMonth: number;
 }
 
@@ -381,7 +382,7 @@ const KPI_CARDS: KpiCardConfig[] = [
     },
   },
   {
-    name: "Net Doors Added",
+    name: "Properties / Doors",
     key: "net_doors",
     endpoint: "/api/kpi/net-doors",
     icon: Building2,
@@ -390,11 +391,15 @@ const KPI_CARDS: KpiCardConfig[] = [
     iconColor: "text-emerald-600",
     sparkColor: "#059669",
     sparkFill: "#a7f3d0",
-    formatPrimary: (d) => `${(d as NetDoorsData).currentDoors}`,
+    formatPrimary: (d) => {
+      const data = d as NetDoorsData;
+      return `${data.currentProperties} / ${data.currentDoors}`;
+    },
     formatSecondary: (d) => {
-      const net = (d as NetDoorsData).netThisMonth;
+      const data = d as NetDoorsData;
+      const net = data.netThisMonth;
       const sign = net >= 0 ? "+" : "";
-      return `${sign}${net} this month | Goal: 1,500`;
+      return `${sign}${net} this month | Goal: 1,500 doors`;
     },
     getSparklineValue: (s) => (s.currentDoors as number) ?? 0,
     getDelta: (current, prior) => {

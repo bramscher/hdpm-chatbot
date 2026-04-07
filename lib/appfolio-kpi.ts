@@ -133,6 +133,11 @@ interface V0Unit {
   HiddenAt?: string | null;
 }
 
+interface V0Property {
+  Id: string;
+  HiddenAt?: string | null;
+}
+
 interface V0WorkOrder {
   Id: string;
   Status?: string;
@@ -515,29 +520,40 @@ export async function fetchLeaseRenewalKpi(): Promise<LeaseRenewalKpi> {
 
 export interface NetDoorsKpi {
   currentDoors: number;
+  currentProperties: number;
   netThisMonth: number;
 }
 
 export async function fetchNetDoorsKpi(): Promise<NetDoorsKpi> {
   const config = getKpiConfig();
   if (!config) {
-    return { currentDoors: 0, netThisMonth: 0 };
+    return { currentDoors: 0, currentProperties: 0, netThisMonth: 0 };
   }
 
-  // Get current total unit count from live API
-  const units = await v0FetchAll<V0Unit>(
-    '/units',
-    { 'filters[LastUpdatedAtFrom]': '2000-01-01T00:00:00Z' },
-    config
-  );
+  const [units, properties] = await Promise.all([
+    v0FetchAll<V0Unit>(
+      '/units',
+      { 'filters[LastUpdatedAtFrom]': '2000-01-01T00:00:00Z' },
+      config
+    ),
+    v0FetchAll<V0Property>(
+      '/properties',
+      { 'filters[LastUpdatedAtFrom]': '1970-01-01T00:00:00Z' },
+      config,
+      1000,
+      10
+    ),
+  ]);
 
   const currentDoors = units.filter((u) => !u.HiddenAt).length;
+  const currentProperties = properties.filter((p) => !p.HiddenAt).length;
 
   // Net this month is computed from snapshot delta — on first run, default to 0.
   // The cron job captures daily snapshots; month-over-month diff is computed client-side.
   // TODO: Compare against last month's snapshot for netThisMonth
   return {
     currentDoors,
+    currentProperties,
     netThisMonth: 0,
   };
 }
