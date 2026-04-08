@@ -22,6 +22,8 @@ import {
   fetchDaysToLeaseKpi,
   fetchLeaseRenewalKpi,
   fetchNetDoorsKpi,
+  fetchGuestCardKpi,
+  fetchLeasingFunnelKpi,
 } from '../lib/appfolio-kpi';
 
 const supabase = createClient(
@@ -118,14 +120,64 @@ function applyVariance(kpiName: string, base: Record<string, number>, weekIndex:
       };
     }
     case 'net_doors': {
-      // Growth curve: doors increase over the year
+      // Growth curve: doors and properties increase over the year
       const startDoors = Math.round(base.currentDoors * 0.92);
       const currentDoors = startDoors + Math.round((base.currentDoors - startDoors) * progress);
+      const startProps = Math.round((base.currentProperties || 467) * 0.92);
+      const currentProperties = startProps + Math.round(((base.currentProperties || 467) - startProps) * progress);
       const netThisMonth = varyInt(Math.max(0, Math.round((base.currentDoors - startDoors) / 12)), 0.50);
       return {
         currentDoors,
+        currentProperties,
         netThisMonth,
       };
+    }
+    case 'guest_cards': {
+      // Seasonal: more leads in spring/summer (weeks 16-35)
+      const seasonal = (weekIndex >= 16 && weekIndex <= 35) ? 1.25 : 0.85;
+      return {
+        today: varyInt(Math.round((base.today || 3) * seasonal), 0.40),
+        thisWeek: varyInt(Math.round((base.thisWeek || 15) * seasonal), 0.25),
+        thisMonth: varyInt(Math.round((base.thisMonth || 50) * seasonal), 0.20),
+        lastWeek: varyInt(Math.round((base.lastWeek || 12) * seasonal), 0.25),
+        lastMonth: varyInt(Math.round((base.lastMonth || 45) * seasonal), 0.20),
+        weekOverWeekDelta: varyInt(2, 1.0),
+        monthOverMonthDelta: varyInt(3, 1.0),
+        sourceBreakdownWeek: [
+          { source: 'Zillow / Syndication', count: varyInt(Math.round(8 * seasonal), 0.25) },
+          { source: 'Rent.', count: varyInt(Math.round(3 * seasonal), 0.30) },
+          { source: 'Apartments.com', count: varyInt(Math.round(2 * seasonal), 0.30) },
+          { source: 'HDPM Website', count: varyInt(Math.round(1 * seasonal), 0.40) },
+          { source: 'Apartment List', count: varyInt(Math.round(1 * seasonal), 0.50) },
+        ],
+        sourceBreakdownMonth: [],
+      };
+    }
+    case 'leasing_funnel': {
+      const baseFunnel = (base as unknown as Record<string, Record<string, number>>).funnel;
+      const gc = varyInt(Math.round(baseFunnel?.guestCards || 100), 0.15);
+      const apps = varyInt(Math.round(gc * 0.65), 0.10);
+      const approvals = varyInt(Math.round(apps * 0.60), 0.10);
+      const moveIns = varyInt(Math.round(approvals * 0.70), 0.15);
+      const overall = gc > 0 ? Math.round((moveIns / gc) * 1000) / 10 : 0;
+      return {
+        period: 'last_90_days',
+        funnel: { guestCards: gc, applications: apps, approvals, moveIns },
+        conversionRates: {
+          guestCardToApplication: gc > 0 ? Math.round((apps / gc) * 1000) / 10 : 0,
+          applicationToApproval: apps > 0 ? Math.round((approvals / apps) * 1000) / 10 : 0,
+          approvalToMoveIn: approvals > 0 ? Math.round((moveIns / approvals) * 1000) / 10 : 0,
+          overallConversion: overall,
+        },
+        avgDaysLeadToLease: vary(base.avgDaysLeadToLease || 18, 0.15),
+        timeToFirstContact: {
+          avgHoursToFirstContact: null,
+          pctContactedUnder1Hour: null,
+          pctContactedUnder24Hours: null,
+          pctNeverContacted: null,
+          dataSource: 'unavailable',
+        },
+      } as unknown as Record<string, number>;
     }
     default:
       return base;
@@ -146,6 +198,8 @@ async function main() {
     { name: 'days_to_lease', fn: fetchDaysToLeaseKpi },
     { name: 'lease_renewal', fn: fetchLeaseRenewalKpi },
     { name: 'net_doors', fn: fetchNetDoorsKpi },
+    { name: 'guest_cards', fn: fetchGuestCardKpi },
+    { name: 'leasing_funnel', fn: fetchLeasingFunnelKpi },
   ];
 
   // Fetch current values
