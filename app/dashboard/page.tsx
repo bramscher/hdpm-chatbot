@@ -618,15 +618,18 @@ function KpiCard({
   state,
   priorSnapshot,
   sparklineData,
+  refreshing,
 }: {
   config: KpiCardConfig;
   state: KpiState<KpiData>;
   priorSnapshot: Record<string, unknown> | undefined;
   sparklineData: SparklinePoint[];
+  refreshing?: boolean;
 }) {
   const Icon = config.icon;
 
-  if (state.loading) return <SkeletonCard />;
+  // Only show skeleton if no data at all (first load before cache arrives)
+  if (state.loading && !state.data) return <SkeletonCard />;
 
   if (state.error) {
     return (
@@ -656,13 +659,18 @@ function KpiCard({
         <div className={`w-11 h-11 ${config.bgColor} rounded-xl flex items-center justify-center`}>
           <Icon className={`w-5 h-5 ${config.iconColor}`} />
         </div>
-        {delta && (
-          <DeltaArrow
-            direction={delta.direction}
-            sentiment={delta.sentiment}
-            label={delta.label}
-          />
-        )}
+        <div className="flex items-center gap-2">
+          {refreshing && (
+            <RefreshCw className="w-3 h-3 text-charcoal-300 animate-spin" />
+          )}
+          {delta && (
+            <DeltaArrow
+              direction={delta.direction}
+              sentiment={delta.sentiment}
+              label={delta.label}
+            />
+          )}
+        </div>
       </div>
       <p className={`text-2xl font-bold ${config.color} mb-1 tracking-tight`}>
         {config.formatPrimary(state.data)}
@@ -701,22 +709,66 @@ export default function DashboardPage() {
   const [sparklines, setSparklines] = useState<Record<string, SparklinePoint[]>>({});
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshingKeys, setRefreshingKeys] = useState<Set<string>>(new Set());
 
-  const fetchAllKpis = useCallback(async () => {
+  // Load cached data from Supabase (instant — no AppFolio API calls)
+  const loadCached = useCallback(async () => {
+    try {
+      const res = await fetch("/api/kpi/cached");
+      if (!res.ok) return;
+      const cached: Record<string, { value: Record<string, unknown>; capturedAt: string }> = await res.json();
+
+      for (const card of KPI_CARDS) {
+        const entry = cached[card.key];
+        if (entry) {
+          setKpis((prev) => ({
+            ...prev,
+            [card.key]: { data: entry.value as unknown as KpiData, loading: false, error: null },
+          }));
+        }
+      }
+
+      // Use the most recent capturedAt as lastUpdated
+      const timestamps = Object.values(cached).map((e) => new Date(e.capturedAt).getTime());
+      if (timestamps.length > 0) {
+        setLastUpdated(new Date(Math.max(...timestamps)));
+      }
+    } catch {
+      // Fall through to live fetch
+    }
+
+    // Also load sparklines and prior snapshots (fast Supabase queries)
+    try {
+      const [snapRes, histRes] = await Promise.all([
+        fetch("/api/kpi/snapshots"),
+        fetch("/api/kpi/snapshots?history=14"),
+      ]);
+      if (snapRes.ok) {
+        setPriorSnapshots(await snapRes.json());
+      }
+      if (histRes.ok) {
+        const data: Record<string, Array<{ date: string; value: Record<string, unknown> }>> = await histRes.json();
+        const sparkData: Record<string, SparklinePoint[]> = {};
+        for (const card of KPI_CARDS) {
+          const history = data[card.key] || [];
+          sparkData[card.key] = history.map((h) => ({
+            value: card.getSparklineValue(h.value),
+          }));
+        }
+        setSparklines(sparkData);
+      }
+    } catch {
+      // Non-critical
+    }
+  }, []);
+
+  // Live refresh from AppFolio (slow — batched to avoid 429)
+  const refreshLive = useCallback(async () => {
     setRefreshing(true);
 
-    setKpis((prev) => {
-      const next = { ...prev };
-      for (const card of KPI_CARDS) {
-        next[card.key] = { ...next[card.key], loading: true, error: null };
-      }
-      return next;
-    });
-
-    // Fetch KPIs in batches of 3 to avoid AppFolio 429 rate limits.
-    // Each KPI route may paginate through hundreds of API calls internally.
     const BATCH_SIZE = 3;
     const fetchCard = async (card: KpiCardConfig) => {
+      setRefreshingKeys((prev) => new Set(prev).add(card.key));
       try {
         const res = await fetch(card.endpoint);
         if (!res.ok) {
@@ -737,6 +789,12 @@ export default function DashboardPage() {
             error: err instanceof Error ? err.message : "Unknown error",
           },
         }));
+      } finally {
+        setRefreshingKeys((prev) => {
+          const next = new Set(prev);
+          next.delete(card.key);
+          return next;
+        });
       }
     };
 
@@ -745,22 +803,18 @@ export default function DashboardPage() {
       await Promise.allSettled(batch.map(fetchCard));
     }
 
-    // Fetch prior snapshots for deltas
-    try {
-      const res = await fetch("/api/kpi/snapshots");
-      if (res.ok) {
-        const data = await res.json();
-        setPriorSnapshots(data);
-      }
-    } catch {
-      // Non-critical
-    }
+    setLastUpdated(new Date());
+    setRefreshing(false);
 
-    // Fetch sparkline history
+    // Refresh sparklines after live data is in
     try {
-      const res = await fetch("/api/kpi/snapshots?history=14");
-      if (res.ok) {
-        const data: Record<string, Array<{ date: string; value: Record<string, unknown> }>> = await res.json();
+      const [snapRes, histRes] = await Promise.all([
+        fetch("/api/kpi/snapshots"),
+        fetch("/api/kpi/snapshots?history=14"),
+      ]);
+      if (snapRes.ok) setPriorSnapshots(await snapRes.json());
+      if (histRes.ok) {
+        const data: Record<string, Array<{ date: string; value: Record<string, unknown> }>> = await histRes.json();
         const sparkData: Record<string, SparklinePoint[]> = {};
         for (const card of KPI_CARDS) {
           const history = data[card.key] || [];
@@ -773,14 +827,12 @@ export default function DashboardPage() {
     } catch {
       // Non-critical
     }
-
-    setLastUpdated(new Date());
-    setRefreshing(false);
   }, []);
 
+  // On mount: load cached instantly, no automatic live refresh
   useEffect(() => {
-    fetchAllKpis();
-  }, [fetchAllKpis]);
+    loadCached();
+  }, [loadCached]);
 
   return (
     <div className="px-8 py-8 max-w-5xl">
@@ -815,12 +867,12 @@ export default function DashboardPage() {
               <ArrowUpRight className="w-3.5 h-3.5" />
             </Link>
             <button
-              onClick={fetchAllKpis}
+              onClick={refreshLive}
               disabled={refreshing}
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-charcoal-600 bg-white border border-sand-200 rounded-lg hover:bg-sand-50 hover:border-sand-300 transition-all duration-150 disabled:opacity-50 shadow-sm"
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
-              Refresh
+              {refreshing ? "Refreshing..." : "Refresh Live"}
             </button>
           </div>
         </div>
@@ -835,6 +887,7 @@ export default function DashboardPage() {
             state={kpis[card.key]}
             priorSnapshot={priorSnapshots[card.key]}
             sparklineData={sparklines[card.key] || []}
+            refreshing={refreshingKeys.has(card.key)}
           />
         ))}
       </div>

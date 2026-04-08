@@ -41,11 +41,17 @@ export async function GET(request: NextRequest) {
     }
 
     const supabase = getSupabaseAdmin();
+
+    // Supabase JS defaults to 1000 rows. For 12 KPIs × 156 weeks = 1872 rows,
+    // we need to explicitly set a higher limit for longer ranges.
+    const rowLimit = range === 'all' ? 5000 : range === '1y' ? 2000 : 1000;
+
     const { data: rows, error } = await supabase
       .from('kpi_snapshots')
       .select('kpi_name, value, captured_at')
       .gte('captured_at', startDate.toISOString())
-      .order('captured_at', { ascending: true });
+      .order('captured_at', { ascending: true })
+      .limit(rowLimit);
 
     if (error) {
       throw new Error(error.message);
