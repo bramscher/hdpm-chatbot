@@ -331,7 +331,7 @@ function NoticeChart({ data }: { data: TrendPoint[] }) {
         ]}
       />
       <ResponsiveContainer width="100%" height={280}>
-        <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
+        <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
           <CartesianGrid {...GRID_PROPS} />
           <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} />
           <YAxis tick={Y_TICK} axisLine={false} tickLine={false} width={40} />
@@ -343,17 +343,17 @@ function NoticeChart({ data }: { data: TrendPoint[] }) {
               return [`${value}`, "This Week"];
             }) as AnyFormatter}
           />
-          <Bar dataKey="last30Days" fill="#e9d5ff" fillOpacity={0.7} radius={[4, 4, 0, 0]} maxBarSize={28} name="last30Days" />
-          <Bar dataKey="thisWeek" fill="#9333ea" radius={[4, 4, 0, 0]} maxBarSize={28} name="thisWeek" />
-        </BarChart>
+          <Area type="monotone" dataKey="last30Days" stroke="#9333ea" strokeWidth={2} fill="#e9d5ff" fillOpacity={0.3} name="last30Days" />
+          <Line type="monotone" dataKey="thisWeek" stroke="#7c3aed" strokeWidth={1} dot={{ r: 2, fill: "#7c3aed" }} name="thisWeek" />
+        </ComposedChart>
       </ResponsiveContainer>
       <div className="flex items-center justify-center gap-6 mt-3 text-xs text-charcoal-500">
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-2 rounded-sm bg-purple-200" />
+          <div className="w-4 h-0.5 bg-purple-600 rounded" />
           <span>30-Day Rolling</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-2 rounded-sm bg-purple-600" />
+          <div className="w-2 h-2 rounded-full bg-purple-700" />
           <span>That Week</span>
         </div>
       </div>
