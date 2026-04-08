@@ -127,6 +127,8 @@ interface V0Lease {
   Status: string;
   StartOn: string;
   EndOn: string | null;
+  RenewedOn: string | null;
+  SignedOn: string | null;
   IsMtm: boolean;
   LastUpdatedAt: string;
 }
@@ -141,6 +143,29 @@ interface V0Unit {
 interface V0Property {
   Id: string;
   HiddenAt?: string | null;
+}
+
+interface V0OwnerGroup {
+  Id: string;
+  Current: boolean;
+  PropertyId: string | null;
+  LastUpdatedAt: string;
+}
+
+interface V0RecurringCharge {
+  Id: string;
+  Amount: string;
+  Frequency: string;
+  EndDate: string | null;
+  OccupancyId: string;
+  LastUpdatedAt: string;
+}
+
+interface V0Bill {
+  Id: string;
+  TotalAmount: string;
+  InvoiceDate: string;
+  LastUpdatedAt: string;
 }
 
 interface V0WorkOrder {
@@ -410,9 +435,9 @@ export interface OwnerRetentionKpi {
 }
 
 /**
- * TODO: Requires joining /owners + /owner_groups to determine active vs churned owners.
- * The /owner_groups endpoint has a Current boolean and ContractExpiration field.
- * Returning mock data while the real computation is built.
+ * Uses /owner_groups endpoint. Each owner_group links an owner to a property.
+ * Current=true means active management agreement; Current=false means departed.
+ * Retention rate = current / total unique property associations.
  */
 export async function fetchOwnerRetentionKpi(): Promise<OwnerRetentionKpi> {
   const config = getKpiConfig();
@@ -420,11 +445,29 @@ export async function fetchOwnerRetentionKpi(): Promise<OwnerRetentionKpi> {
     return { rate: 0, cancellationsLast30Days: 0, totalOwners: 0 };
   }
 
-  // TODO: Replace with real /owners + /owner_groups computation
+  const ownerGroups = await v0FetchAll<V0OwnerGroup>(
+    '/owner_groups',
+    { 'filters[LastUpdatedAtFrom]': '2020-01-01T00:00:00Z' },
+    config
+  );
+
+  const total = ownerGroups.length;
+  const current = ownerGroups.filter((g) => g.Current).length;
+  const inactive = total - current;
+
+  // Estimate recent cancellations: inactive groups updated in last 30 days
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const recentCancellations = ownerGroups.filter(
+    (g) => !g.Current && new Date(g.LastUpdatedAt) >= thirtyDaysAgo
+  ).length;
+
+  const rate = total > 0 ? Math.round((current / total) * 1000) / 10 : 0;
+
   return {
-    rate: 94.2,
-    cancellationsLast30Days: 1,
-    totalOwners: 87,
+    rate,
+    cancellationsLast30Days: recentCancellations,
+    totalOwners: current,
   };
 }
 
@@ -439,10 +482,9 @@ export interface MaintenanceCostKpi {
 }
 
 /**
- * TODO: Requires /bills (maintenance spend) + /recurring_charges (rent roll).
- * Both endpoints are available in v0 but need multi-page fetching and
- * GL account filtering to isolate maintenance-specific bills.
- * Returning mock data while the real computation is built.
+ * Rent roll from /recurring_charges (active monthly charges).
+ * Vendor spend from /bills (last 30 days total — includes all vendor bills,
+ * not just maintenance. GL account filtering not available in v0).
  */
 export async function fetchMaintenanceCostKpi(): Promise<MaintenanceCostKpi> {
   const config = getKpiConfig();
@@ -450,11 +492,47 @@ export async function fetchMaintenanceCostKpi(): Promise<MaintenanceCostKpi> {
     return { rate: 0, maintenanceDollars: 0, grossRentDollars: 0 };
   }
 
-  // TODO: Replace with real /bills + /recurring_charges computation
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const [recurringCharges, bills] = await Promise.all([
+    v0FetchAll<V0RecurringCharge>(
+      '/recurring_charges',
+      { 'filters[LastUpdatedAtFrom]': '2024-01-01T00:00:00Z' },
+      config
+    ),
+    v0FetchAll<V0Bill>(
+      '/bills',
+      { 'filters[LastUpdatedAtFrom]': thirtyDaysAgo.toISOString() },
+      config
+    ),
+  ]);
+
+  // Monthly rent roll: sum of active monthly recurring charges
+  const now = new Date();
+  const activeMonthly = recurringCharges.filter((c) => {
+    if (c.EndDate && new Date(c.EndDate) < now) return false;
+    return c.Frequency === 'Monthly';
+  });
+  const grossRentDollars = activeMonthly.reduce(
+    (sum, c) => sum + parseFloat(c.Amount || '0'), 0
+  );
+
+  // Vendor spend: all bills in last 30 days
+  // Note: includes all vendor bills, not just maintenance-specific.
+  // GL account endpoint returned 0 results so we can't filter by category.
+  const maintenanceDollars = bills.reduce(
+    (sum, b) => sum + parseFloat(b.TotalAmount || '0'), 0
+  );
+
+  const rate = grossRentDollars > 0
+    ? Math.round((maintenanceDollars / grossRentDollars) * 1000) / 10
+    : 0;
+
   return {
-    rate: 11.3,
-    maintenanceDollars: 42850,
-    grossRentDollars: 379200,
+    rate: Math.round(rate * 10) / 10,
+    maintenanceDollars: Math.round(maintenanceDollars * 100) / 100,
+    grossRentDollars: Math.round(grossRentDollars * 100) / 100,
   };
 }
 
@@ -501,9 +579,8 @@ export interface LeaseRenewalKpi {
 }
 
 /**
- * TODO: The /leases endpoint has RenewedOn and Status fields.
- * Could count leases with RenewedOn in the last 90 days as renewals,
- * and tenants with MoveOutOn as move-outs. Returning mock data for now.
+ * Uses /leases (RenewedOn field) for renewals and /tenants (Status=Notice
+ * with MoveOutOn) for move-outs. Renewal rate = renewals / (renewals + moveOuts).
  */
 export async function fetchLeaseRenewalKpi(): Promise<LeaseRenewalKpi> {
   const config = getKpiConfig();
@@ -511,12 +588,37 @@ export async function fetchLeaseRenewalKpi(): Promise<LeaseRenewalKpi> {
     return { rate: 0, renewals: 0, moveOuts: 0 };
   }
 
-  // TODO: Replace with real /leases + /tenants computation
-  return {
-    rate: 67.8,
-    renewals: 19,
-    moveOuts: 9,
-  };
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+  const [leases, tenants] = await Promise.all([
+    v0FetchAll<V0Lease>(
+      '/leases',
+      { 'filters[LastUpdatedAtFrom]': ninetyDaysAgo.toISOString() },
+      config
+    ),
+    v0FetchAll<V0Tenant>(
+      '/tenants',
+      { 'filters[LastUpdatedAtFrom]': ninetyDaysAgo.toISOString() },
+      config
+    ),
+  ]);
+
+  // Renewals: leases with RenewedOn in the last 90 days
+  const renewals = leases.filter(
+    (l) => l.RenewedOn && new Date(l.RenewedOn) >= ninetyDaysAgo
+  ).length;
+
+  // Move-outs: tenants with Status=Notice and a MoveOutOn date
+  const moveOuts = tenants.filter((t) => {
+    if (t.HiddenAt || !t.MoveOutOn) return false;
+    return (t.Status || '').toLowerCase() === 'notice';
+  }).length;
+
+  const total = renewals + moveOuts;
+  const rate = total > 0 ? Math.round((renewals / total) * 1000) / 10 : 0;
+
+  return { rate, renewals, moveOuts };
 }
 
 // ============================================

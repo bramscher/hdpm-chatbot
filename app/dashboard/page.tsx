@@ -154,6 +154,7 @@ interface KpiCardConfig {
   iconColor: string;
   sparkColor: string;
   sparkFill: string;
+  dataTag: "live" | "mock" | "estimated";
   formatPrimary: (data: KpiData) => string;
   formatSecondary: (data: KpiData) => string;
   getSparklineValue: (snapshot: Record<string, unknown>) => number;
@@ -175,6 +176,7 @@ const KPI_CARDS: KpiCardConfig[] = [
     iconColor: "text-red-600",
     sparkColor: "#dc2626",
     sparkFill: "#fecaca",
+    dataTag: "live",
     formatPrimary: (d) => `${(d as DelinquencyData).rate}%`,
     formatSecondary: (d) => {
       const data = d as DelinquencyData;
@@ -204,6 +206,7 @@ const KPI_CARDS: KpiCardConfig[] = [
     iconColor: "text-amber-600",
     sparkColor: "#d97706",
     sparkFill: "#fde68a",
+    dataTag: "live",
     formatPrimary: (d) => `${(d as VacancyData).rate}%`,
     formatSecondary: (d) => {
       const data = d as VacancyData;
@@ -233,6 +236,7 @@ const KPI_CARDS: KpiCardConfig[] = [
     iconColor: "text-blue-600",
     sparkColor: "#2563eb",
     sparkFill: "#bfdbfe",
+    dataTag: "live",
     formatPrimary: (d) => `${(d as WorkOrderData).avgDaysToClose} days`,
     formatSecondary: (d) => `${(d as WorkOrderData).openCount} open work orders`,
     getSparklineValue: (s) => (s.avgDaysToClose as number) ?? 0,
@@ -259,6 +263,7 @@ const KPI_CARDS: KpiCardConfig[] = [
     iconColor: "text-purple-600",
     sparkColor: "#9333ea",
     sparkFill: "#e9d5ff",
+    dataTag: "live",
     formatPrimary: (d) => `${(d as NoticeData).thisWeek}`,
     formatSecondary: (d) => `${(d as NoticeData).last30Days} in last 30 days`,
     getSparklineValue: (s) => (s.last30Days as number) ?? 0,
@@ -285,6 +290,7 @@ const KPI_CARDS: KpiCardConfig[] = [
     iconColor: "text-green-600",
     sparkColor: "#16a34a",
     sparkFill: "#bbf7d0",
+    dataTag: "mock",
     formatPrimary: (d) => `${(d as InsuranceData).rate}%`,
     formatSecondary: (d) => {
       const data = d as InsuranceData;
@@ -314,6 +320,7 @@ const KPI_CARDS: KpiCardConfig[] = [
     iconColor: "text-indigo-600",
     sparkColor: "#4f46e5",
     sparkFill: "#c7d2fe",
+    dataTag: "live",
     formatPrimary: (d) => `${(d as OwnerRetentionData).rate}%`,
     formatSecondary: (d) => {
       const data = d as OwnerRetentionData;
@@ -343,6 +350,7 @@ const KPI_CARDS: KpiCardConfig[] = [
     iconColor: "text-orange-600",
     sparkColor: "#ea580c",
     sparkFill: "#fed7aa",
+    dataTag: "estimated",
     formatPrimary: (d) => `${(d as MaintenanceCostData).rate}%`,
     formatSecondary: (d) => {
       const data = d as MaintenanceCostData;
@@ -372,6 +380,7 @@ const KPI_CARDS: KpiCardConfig[] = [
     iconColor: "text-cyan-600",
     sparkColor: "#0891b2",
     sparkFill: "#a5f3fc",
+    dataTag: "mock",
     formatPrimary: (d) => `${(d as DaysToLeaseData).avgDays} days`,
     formatSecondary: (d) => {
       const data = d as DaysToLeaseData;
@@ -401,6 +410,7 @@ const KPI_CARDS: KpiCardConfig[] = [
     iconColor: "text-teal-600",
     sparkColor: "#0d9488",
     sparkFill: "#99f6e4",
+    dataTag: "live",
     formatPrimary: (d) => `${(d as LeaseRenewalData).rate}%`,
     formatSecondary: (d) => {
       const data = d as LeaseRenewalData;
@@ -430,6 +440,7 @@ const KPI_CARDS: KpiCardConfig[] = [
     iconColor: "text-emerald-600",
     sparkColor: "#059669",
     sparkFill: "#a7f3d0",
+    dataTag: "live",
     formatPrimary: (d) => {
       const data = d as NetDoorsData;
       return `${data.currentProperties} / ${data.currentDoors}`;
@@ -464,6 +475,7 @@ const KPI_CARDS: KpiCardConfig[] = [
     iconColor: "text-sky-600",
     sparkColor: "#0284c7",
     sparkFill: "#bae6fd",
+    dataTag: "live",
     formatPrimary: (d) => `${(d as GuestCardData).thisWeek}`,
     formatSecondary: (d) => {
       const data = d as GuestCardData;
@@ -496,6 +508,7 @@ const KPI_CARDS: KpiCardConfig[] = [
     iconColor: "text-rose-600",
     sparkColor: "#e11d48",
     sparkFill: "#fecdd3",
+    dataTag: "live",
     formatPrimary: (d) => `${(d as LeasingFunnelData).conversionRates.overallConversion}%`,
     formatSecondary: (d) => {
       const data = d as LeasingFunnelData;
@@ -654,7 +667,18 @@ function KpiCard({
       <p className={`text-2xl font-bold ${config.color} mb-1 tracking-tight`}>
         {config.formatPrimary(state.data)}
       </p>
-      <h3 className="text-sm font-medium text-charcoal-900 mb-1">{config.name}</h3>
+      <div className="flex items-center gap-2 mb-1">
+        <h3 className="text-sm font-medium text-charcoal-900">{config.name}</h3>
+        {config.dataTag !== "live" && (
+          <span className={`text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full ${
+            config.dataTag === "mock"
+              ? "bg-charcoal-100 text-charcoal-400"
+              : "bg-amber-100 text-amber-600"
+          }`}>
+            {config.dataTag === "mock" ? "Mock Data" : "Estimated"}
+          </span>
+        )}
+      </div>
       <p className="text-xs text-charcoal-400">{config.formatSecondary(state.data)}</p>
       <Sparkline data={sparklineData} color={config.sparkColor} fill={config.sparkFill} />
     </Link>

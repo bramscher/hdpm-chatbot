@@ -44,7 +44,8 @@ function varyInt(value: number, pct: number): number {
 }
 
 // Apply variance to a snapshot value based on KPI type
-function applyVariance(kpiName: string, base: Record<string, number>, weekIndex: number): Record<string, number> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyVariance(kpiName: string, base: Record<string, number>, weekIndex: number): any {
   // weekIndex 0 = oldest (52 weeks ago), 51 = most recent
   // Add a slight trend direction + noise
   const progress = weekIndex / 51; // 0..1
