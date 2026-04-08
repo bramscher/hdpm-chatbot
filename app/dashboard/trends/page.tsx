@@ -46,7 +46,7 @@ interface TrendPoint {
   value: Record<string, number>;
 }
 
-type DateRange = "4w" | "8w" | "12w" | "6m" | "1y" | "all";
+type DateRange = "4w" | "8w" | "12w" | "6m" | "1y" | "2y" | "all";
 
 const RANGE_OPTIONS: { value: DateRange; label: string }[] = [
   { value: "4w", label: "4 Weeks" },
@@ -54,6 +54,7 @@ const RANGE_OPTIONS: { value: DateRange; label: string }[] = [
   { value: "12w", label: "12 Weeks" },
   { value: "6m", label: "6 Months" },
   { value: "1y", label: "1 Year" },
+  { value: "2y", label: "2 Years" },
   { value: "all", label: "All" },
 ];
 

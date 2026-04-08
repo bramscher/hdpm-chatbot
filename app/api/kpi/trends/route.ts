@@ -35,6 +35,9 @@ export async function GET(request: NextRequest) {
       case '1y':
         startDate.setFullYear(startDate.getFullYear() - 1);
         break;
+      case '2y':
+        startDate.setFullYear(startDate.getFullYear() - 2);
+        break;
       case 'all':
         startDate.setFullYear(2020);
         break;
