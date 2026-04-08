@@ -8,10 +8,13 @@ interface SnapshotRow {
 }
 
 /**
- * GET /api/kpi/trends?range=4w|8w|12w|6m
+ * GET /api/kpi/trends?range=4w|8w|12w|6m|1y|all
  *
  * Returns deduplicated daily snapshots for all KPIs within the date range.
  * One data point per KPI per day (latest snapshot that day).
+ *
+ * Supabase JS caps queries at 1000 rows by default. For longer ranges
+ * (1y = ~624 rows, all = ~1872 rows) we paginate with .range().
  */
 export async function GET(request: NextRequest) {
   try {
@@ -42,30 +45,37 @@ export async function GET(request: NextRequest) {
 
     const supabase = getSupabaseAdmin();
 
-    // Supabase JS defaults to 1000 rows. For 12 KPIs × 156 weeks = 1872 rows,
-    // we need to explicitly set a higher limit for longer ranges.
-    const rowLimit = range === 'all' ? 5000 : range === '1y' ? 2000 : 1000;
+    // Paginate to get all rows — Supabase JS hard-caps at 1000 per query
+    const PAGE_SIZE = 1000;
+    const allRows: SnapshotRow[] = [];
+    let from = 0;
 
-    const { data: rows, error } = await supabase
-      .from('kpi_snapshots')
-      .select('kpi_name, value, captured_at')
-      .gte('captured_at', startDate.toISOString())
-      .order('captured_at', { ascending: true })
-      .limit(rowLimit);
+    while (true) {
+      const { data, error } = await supabase
+        .from('kpi_snapshots')
+        .select('kpi_name, value, captured_at')
+        .gte('captured_at', startDate.toISOString())
+        .order('captured_at', { ascending: true })
+        .range(from, from + PAGE_SIZE - 1);
 
-    if (error) {
-      throw new Error(error.message);
+      if (error) throw new Error(error.message);
+
+      const rows = (data || []) as SnapshotRow[];
+      allRows.push(...rows);
+
+      if (rows.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
+      if (from > 10000) break; // safety cap
     }
 
     // Deduplicate: keep only the latest snapshot per KPI per day
     const byKpi: Record<string, Map<string, SnapshotRow>> = {};
 
-    for (const row of (rows || []) as SnapshotRow[]) {
-      const dateKey = row.captured_at.substring(0, 10); // YYYY-MM-DD
+    for (const row of allRows) {
+      const dateKey = row.captured_at.substring(0, 10);
       if (!byKpi[row.kpi_name]) {
         byKpi[row.kpi_name] = new Map();
       }
-      // Later entries overwrite earlier ones for the same day
       byKpi[row.kpi_name].set(dateKey, row);
     }
 
