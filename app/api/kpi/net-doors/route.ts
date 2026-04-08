@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { fetchNetDoorsKpi } from '@/lib/appfolio-kpi';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
+export const maxDuration = 120;
+
 export async function GET() {
   try {
     const data = await fetchNetDoorsKpi();

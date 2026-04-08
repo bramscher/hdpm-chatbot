@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { fetchDelinquencyKpi } from '@/lib/appfolio-kpi';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
+// Delinquency fetches all leases (3000+) for the denominator — needs extended timeout
+export const maxDuration = 120;
+
 export async function GET() {
   try {
     const data = await fetchDelinquencyKpi();
