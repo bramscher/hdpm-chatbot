@@ -713,32 +713,37 @@ export default function DashboardPage() {
       return next;
     });
 
-    // Fetch each KPI independently
-    await Promise.allSettled(
-      KPI_CARDS.map(async (card) => {
-        try {
-          const res = await fetch(card.endpoint);
-          if (!res.ok) {
-            const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-            throw new Error(body.error || `HTTP ${res.status}`);
-          }
-          const data = await res.json();
-          setKpis((prev) => ({
-            ...prev,
-            [card.key]: { data, loading: false, error: null },
-          }));
-        } catch (err) {
-          setKpis((prev) => ({
-            ...prev,
-            [card.key]: {
-              data: prev[card.key].data,
-              loading: false,
-              error: err instanceof Error ? err.message : "Unknown error",
-            },
-          }));
+    // Fetch KPIs in batches of 3 to avoid AppFolio 429 rate limits.
+    // Each KPI route may paginate through hundreds of API calls internally.
+    const BATCH_SIZE = 3;
+    const fetchCard = async (card: KpiCardConfig) => {
+      try {
+        const res = await fetch(card.endpoint);
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+          throw new Error(body.error || `HTTP ${res.status}`);
         }
-      })
-    );
+        const data = await res.json();
+        setKpis((prev) => ({
+          ...prev,
+          [card.key]: { data, loading: false, error: null },
+        }));
+      } catch (err) {
+        setKpis((prev) => ({
+          ...prev,
+          [card.key]: {
+            data: prev[card.key].data,
+            loading: false,
+            error: err instanceof Error ? err.message : "Unknown error",
+          },
+        }));
+      }
+    };
+
+    for (let i = 0; i < KPI_CARDS.length; i += BATCH_SIZE) {
+      const batch = KPI_CARDS.slice(i, i + BATCH_SIZE);
+      await Promise.allSettled(batch.map(fetchCard));
+    }
 
     // Fetch prior snapshots for deltas
     try {

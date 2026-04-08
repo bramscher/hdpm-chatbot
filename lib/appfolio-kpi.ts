@@ -57,6 +57,9 @@ interface V0ListResponse<T> {
   next_page_path?: string | null;
 }
 
+const MAX_RETRIES = 4;
+const RETRY_BASE_MS = 2000;
+
 async function v0Fetch<T>(
   path: string,
   params: Record<string, string>,
@@ -65,21 +68,33 @@ async function v0Fetch<T>(
   const url = new URL(`${APPFOLIO_V0_BASE}${path}`);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
 
-  const response = await fetch(url.toString(), {
-    method: 'GET',
-    headers: {
-      Authorization: `Basic ${config.auth}`,
-      'X-AppFolio-Developer-ID': config.developerId,
-      Accept: 'application/json',
-    },
-  });
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        Authorization: `Basic ${config.auth}`,
+        'X-AppFolio-Developer-ID': config.developerId,
+        Accept: 'application/json',
+      },
+    });
 
-  const text = await response.text();
-  if (!response.ok) {
-    throw new Error(`AppFolio v0 error (${response.status}): ${text.substring(0, 300)}`);
+    // Retry on 429 (rate limit) and 533 (data unavailable) with exponential backoff
+    if ((response.status === 429 || response.status === 533) && attempt < MAX_RETRIES) {
+      const delay = RETRY_BASE_MS * Math.pow(2, attempt - 1);
+      console.warn(`[AppFolio] ${response.status} on ${path}, retry ${attempt}/${MAX_RETRIES} in ${delay}ms`);
+      await new Promise((r) => setTimeout(r, delay));
+      continue;
+    }
+
+    const text = await response.text();
+    if (!response.ok) {
+      throw new Error(`AppFolio v0 error (${response.status}): ${text.substring(0, 300)}`);
+    }
+
+    return JSON.parse(text) as V0ListResponse<T>;
   }
 
-  return JSON.parse(text) as V0ListResponse<T>;
+  throw new Error(`AppFolio v0 error: max retries exceeded for ${path}`);
 }
 
 async function v0FetchAll<T>(
@@ -103,6 +118,8 @@ async function v0FetchAll<T>(
     if ((res.data || []).length < pageSize || !res.next_page_path) break;
     pageNumber++;
     if (pageNumber > maxPages) break;
+    // Small delay between pages to avoid 429 rate limits
+    await new Promise((r) => setTimeout(r, 200));
   }
 
   return all;
