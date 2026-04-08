@@ -29,6 +29,12 @@ export async function GET(request: NextRequest) {
       case '6m':
         startDate.setMonth(startDate.getMonth() - 6);
         break;
+      case '1y':
+        startDate.setFullYear(startDate.getFullYear() - 1);
+        break;
+      case 'all':
+        startDate.setFullYear(2020);
+        break;
       default: // 8w
         startDate.setDate(startDate.getDate() - 56);
         break;
