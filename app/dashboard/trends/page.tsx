@@ -31,6 +31,7 @@ import {
   Building2,
   UserPlus,
   Filter,
+  Receipt,
 } from "lucide-react";
 
 // Recharts v3 tooltip formatter types are overly strict — cast like CompsChart.tsx
@@ -85,6 +86,53 @@ const LABEL_STYLE = { fontWeight: 600, color: "#111827" };
 function formatDate(dateStr: string) {
   const d = new Date(dateStr + "T12:00:00");
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+/** Detect whether data spans multiple calendar years */
+function isMultiYear(data: TrendPoint[]): boolean {
+  if (data.length < 2) return false;
+  const firstYear = new Date(data[0].date + "T12:00:00").getFullYear();
+  const lastYear = new Date(data[data.length - 1].date + "T12:00:00").getFullYear();
+  return firstYear !== lastYear;
+}
+
+/** Format tick: include 'YY when data spans multiple years */
+function tickFormat(dateStr: string, multiYear: boolean) {
+  const d = new Date(dateStr + "T12:00:00");
+  const base = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  if (multiYear) return `${base} '${String(d.getFullYear()).slice(2)}`;
+  return base;
+}
+
+/** Return raw date strings where a new calendar year begins (first data point of each new year) */
+function yearBoundaries(data: TrendPoint[]): Array<{ rawDate: string; year: number }> {
+  const boundaries: Array<{ rawDate: string; year: number }> = [];
+  let prevYear: number | null = null;
+  for (const d of data) {
+    const yr = new Date(d.date + "T12:00:00").getFullYear();
+    if (prevYear !== null && yr !== prevYear) {
+      boundaries.push({ rawDate: d.date, year: yr });
+    }
+    prevYear = yr;
+  }
+  return boundaries;
+}
+
+const YEAR_LINE_STYLE = {
+  stroke: "#9ca3af",
+  strokeDasharray: "4 4",
+  strokeWidth: 1,
+};
+const YEAR_LABEL_STYLE = {
+  fill: "#6b7280",
+  fontSize: 11,
+  fontWeight: 600 as const,
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function tooltipLabel(label: any) {
+  const d = new Date(String(label) + "T12:00:00");
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 // ============================================
@@ -148,8 +196,9 @@ function EmptyChart({ name }: { name: string }) {
 function DelinquencyChart({ data }: { data: TrendPoint[] }) {
   if (data.length === 0) return <EmptyChart name="Delinquency Rate" />;
 
+  const multi = isMultiYear(data);
   const chartData = data.map((d) => ({
-    date: formatDate(d.date),
+    date: d.date,
     rate: d.value.rate ?? 0,
     dollars: d.value.totalDollars ?? 0,
   }));
@@ -176,17 +225,21 @@ function DelinquencyChart({ data }: { data: TrendPoint[] }) {
       <ResponsiveContainer width="100%" height={280}>
         <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
           <CartesianGrid {...GRID_PROPS} />
-          <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} />
+          <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} tickFormatter={(v) => tickFormat(v, multi)} />
           <YAxis yAxisId="rate" tick={Y_TICK} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${v}%`} />
           <YAxis yAxisId="dollars" orientation="right" tick={Y_TICK} axisLine={false} tickLine={false} width={65} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
           <Tooltip
             contentStyle={TOOLTIP_STYLE}
             labelStyle={LABEL_STYLE}
+            labelFormatter={tooltipLabel}
             formatter={((value: number, name: string) => {
               if (name === "rate") return [`${value.toFixed(1)}%`, "Rate"];
               return [`$${value.toLocaleString()}`, "Outstanding"];
             }) as AnyFormatter}
           />
+          {yearBoundaries(data).map((b) => (
+            <ReferenceLine key={b.rawDate} x={b.rawDate} {...YEAR_LINE_STYLE} label={{ value: String(b.year), position: "insideTopLeft", ...YEAR_LABEL_STYLE }} />
+          ))}
           <Area yAxisId="dollars" type="monotone" dataKey="dollars" stroke="none" fill="#fecaca" fillOpacity={0.4} />
           <Line yAxisId="rate" type="monotone" dataKey="rate" stroke="#dc2626" strokeWidth={2} dot={{ r: 3, fill: "#dc2626" }} />
         </ComposedChart>
@@ -198,8 +251,9 @@ function DelinquencyChart({ data }: { data: TrendPoint[] }) {
 function VacancyChart({ data }: { data: TrendPoint[] }) {
   if (data.length === 0) return <EmptyChart name="Vacancy Rate" />;
 
+  const multi = isMultiYear(data);
   const chartData = data.map((d) => ({
-    date: formatDate(d.date),
+    date: d.date,
     rate: d.value.rate ?? 0,
     vacantCount: d.value.vacantCount ?? 0,
   }));
@@ -226,16 +280,20 @@ function VacancyChart({ data }: { data: TrendPoint[] }) {
       <ResponsiveContainer width="100%" height={280}>
         <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
           <CartesianGrid {...GRID_PROPS} />
-          <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} />
+          <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} tickFormatter={(v) => tickFormat(v, multi)} />
           <YAxis tick={Y_TICK} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${v}%`} />
           <Tooltip
             contentStyle={TOOLTIP_STYLE}
             labelStyle={LABEL_STYLE}
+            labelFormatter={tooltipLabel}
             formatter={((value: number, name: string) => {
               if (name === "rate") return [`${value.toFixed(1)}%`, "Rate"];
               return [`${value}`, "Vacant Units"];
             }) as AnyFormatter}
           />
+          {yearBoundaries(data).map((b) => (
+            <ReferenceLine key={b.rawDate} x={b.rawDate} {...YEAR_LINE_STYLE} label={{ value: String(b.year), position: "insideTopLeft", ...YEAR_LABEL_STYLE }} />
+          ))}
           <Area type="monotone" dataKey="rate" stroke="#d97706" strokeWidth={2} fill="#fde68a" fillOpacity={0.3} dot={{ r: 3, fill: "#d97706" }} />
         </AreaChart>
       </ResponsiveContainer>
@@ -246,8 +304,9 @@ function VacancyChart({ data }: { data: TrendPoint[] }) {
 function WorkOrderChart({ data }: { data: TrendPoint[] }) {
   if (data.length === 0) return <EmptyChart name="Work Order Cycle Time" />;
 
+  const multi = isMultiYear(data);
   const chartData = data.map((d) => ({
-    date: formatDate(d.date),
+    date: d.date,
     avgDays: d.value.avgDaysToClose ?? 0,
     openCount: d.value.openCount ?? 0,
   }));
@@ -274,17 +333,21 @@ function WorkOrderChart({ data }: { data: TrendPoint[] }) {
       <ResponsiveContainer width="100%" height={280}>
         <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
           <CartesianGrid {...GRID_PROPS} />
-          <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} />
+          <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} tickFormatter={(v) => tickFormat(v, multi)} />
           <YAxis yAxisId="days" tick={Y_TICK} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${v}d`} />
           <YAxis yAxisId="count" orientation="right" tick={Y_TICK} axisLine={false} tickLine={false} width={45} />
           <Tooltip
             contentStyle={TOOLTIP_STYLE}
             labelStyle={LABEL_STYLE}
+            labelFormatter={tooltipLabel}
             formatter={((value: number, name: string) => {
               if (name === "avgDays") return [`${value.toFixed(1)} days`, "Avg Cycle Time"];
               return [`${value}`, "Open WOs"];
             }) as AnyFormatter}
           />
+          {yearBoundaries(data).map((b) => (
+            <ReferenceLine key={b.rawDate} x={b.rawDate} {...YEAR_LINE_STYLE} label={{ value: String(b.year), position: "insideTopLeft", ...YEAR_LABEL_STYLE }} />
+          ))}
           <Bar yAxisId="count" dataKey="openCount" fill="#bfdbfe" fillOpacity={0.6} radius={[4, 4, 0, 0]} maxBarSize={24} name="openCount" />
           <Line yAxisId="days" type="monotone" dataKey="avgDays" stroke="#2563eb" strokeWidth={2} dot={{ r: 3, fill: "#2563eb" }} name="avgDays" />
         </ComposedChart>
@@ -306,8 +369,9 @@ function WorkOrderChart({ data }: { data: TrendPoint[] }) {
 function NoticeChart({ data }: { data: TrendPoint[] }) {
   if (data.length === 0) return <EmptyChart name="30-Day Notice Volume" />;
 
+  const multi = isMultiYear(data);
   const chartData = data.map((d) => ({
-    date: formatDate(d.date),
+    date: d.date,
     thisWeek: d.value.thisWeek ?? 0,
     last30Days: d.value.last30Days ?? 0,
   }));
@@ -334,16 +398,20 @@ function NoticeChart({ data }: { data: TrendPoint[] }) {
       <ResponsiveContainer width="100%" height={280}>
         <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
           <CartesianGrid {...GRID_PROPS} />
-          <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} />
+          <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} tickFormatter={(v) => tickFormat(v, multi)} />
           <YAxis tick={Y_TICK} axisLine={false} tickLine={false} width={40} />
           <Tooltip
             contentStyle={TOOLTIP_STYLE}
             labelStyle={LABEL_STYLE}
+            labelFormatter={tooltipLabel}
             formatter={((value: number, name: string) => {
               if (name === "last30Days") return [`${value}`, "30-Day Rolling"];
               return [`${value}`, "This Week"];
             }) as AnyFormatter}
           />
+          {yearBoundaries(data).map((b) => (
+            <ReferenceLine key={b.rawDate} x={b.rawDate} {...YEAR_LINE_STYLE} label={{ value: String(b.year), position: "insideTopLeft", ...YEAR_LABEL_STYLE }} />
+          ))}
           <Area type="monotone" dataKey="last30Days" stroke="#9333ea" strokeWidth={2} fill="#e9d5ff" fillOpacity={0.3} name="last30Days" />
           <Line type="monotone" dataKey="thisWeek" stroke="#7c3aed" strokeWidth={1} dot={{ r: 2, fill: "#7c3aed" }} name="thisWeek" />
         </ComposedChart>
@@ -365,8 +433,9 @@ function NoticeChart({ data }: { data: TrendPoint[] }) {
 function InsuranceChart({ data }: { data: TrendPoint[] }) {
   if (data.length === 0) return <EmptyChart name="Insurance Compliance" />;
 
+  const multi = isMultiYear(data);
   const chartData = data.map((d) => ({
-    date: formatDate(d.date),
+    date: d.date,
     rate: d.value.rate ?? 0,
     compliantCount: d.value.compliantCount ?? 0,
   }));
@@ -393,16 +462,20 @@ function InsuranceChart({ data }: { data: TrendPoint[] }) {
       <ResponsiveContainer width="100%" height={280}>
         <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
           <CartesianGrid {...GRID_PROPS} />
-          <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} />
+          <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} tickFormatter={(v) => tickFormat(v, multi)} />
           <YAxis tick={Y_TICK} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${v}%`} domain={[0, 100]} />
           <Tooltip
             contentStyle={TOOLTIP_STYLE}
             labelStyle={LABEL_STYLE}
+            labelFormatter={tooltipLabel}
             formatter={((value: number, name: string) => {
               if (name === "rate") return [`${value.toFixed(1)}%`, "Compliance Rate"];
               return [`${value}`, "Compliant"];
             }) as AnyFormatter}
           />
+          {yearBoundaries(data).map((b) => (
+            <ReferenceLine key={b.rawDate} x={b.rawDate} {...YEAR_LINE_STYLE} label={{ value: String(b.year), position: "insideTopLeft", ...YEAR_LABEL_STYLE }} />
+          ))}
           <Area type="monotone" dataKey="rate" stroke="#16a34a" strokeWidth={2} fill="#bbf7d0" fillOpacity={0.3} dot={{ r: 3, fill: "#16a34a" }} />
         </AreaChart>
       </ResponsiveContainer>
@@ -429,8 +502,9 @@ function InsightLine({ text }: { text: string }) {
 function OwnerRetentionChart({ data }: { data: TrendPoint[] }) {
   if (data.length === 0) return <EmptyChart name="Owner Retention Rate" />;
 
+  const multi = isMultiYear(data);
   const chartData = data.map((d) => ({
-    date: formatDate(d.date),
+    date: d.date,
     rate: d.value.rate ?? 0,
     cancellations: d.value.cancellationsLast30Days ?? 0,
   }));
@@ -457,17 +531,21 @@ function OwnerRetentionChart({ data }: { data: TrendPoint[] }) {
       <ResponsiveContainer width="100%" height={280}>
         <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
           <CartesianGrid {...GRID_PROPS} />
-          <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} />
+          <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} tickFormatter={(v) => tickFormat(v, multi)} />
           <YAxis yAxisId="rate" tick={Y_TICK} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${v}%`} domain={[80, 100]} />
           <YAxis yAxisId="cancel" orientation="right" tick={Y_TICK} axisLine={false} tickLine={false} width={40} />
           <Tooltip
             contentStyle={TOOLTIP_STYLE}
             labelStyle={LABEL_STYLE}
+            labelFormatter={tooltipLabel}
             formatter={((value: number, name: string) => {
               if (name === "rate") return [`${value.toFixed(1)}%`, "Retention Rate"];
               return [`${value}`, "Cancellations (30d)"];
             }) as AnyFormatter}
           />
+          {yearBoundaries(data).map((b) => (
+            <ReferenceLine key={b.rawDate} x={b.rawDate} {...YEAR_LINE_STYLE} label={{ value: String(b.year), position: "insideTopLeft", ...YEAR_LABEL_STYLE }} />
+          ))}
           <Bar yAxisId="cancel" dataKey="cancellations" fill="#c7d2fe" fillOpacity={0.6} radius={[4, 4, 0, 0]} maxBarSize={24} name="cancellations" />
           <Line yAxisId="rate" type="monotone" dataKey="rate" stroke="#4f46e5" strokeWidth={2} dot={{ r: 3, fill: "#4f46e5" }} name="rate" />
         </ComposedChart>
@@ -484,8 +562,9 @@ function OwnerRetentionChart({ data }: { data: TrendPoint[] }) {
 function MaintenanceCostChart({ data }: { data: TrendPoint[] }) {
   if (data.length === 0) return <EmptyChart name="Maintenance Cost %" />;
 
+  const multi = isMultiYear(data);
   const chartData = data.map((d) => ({
-    date: formatDate(d.date),
+    date: d.date,
     rate: d.value.rate ?? 0,
     maintenanceDollars: d.value.maintenanceDollars ?? 0,
     grossRentDollars: d.value.grossRentDollars ?? 0,
@@ -513,18 +592,22 @@ function MaintenanceCostChart({ data }: { data: TrendPoint[] }) {
       <ResponsiveContainer width="100%" height={280}>
         <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
           <CartesianGrid {...GRID_PROPS} />
-          <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} />
+          <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} tickFormatter={(v) => tickFormat(v, multi)} />
           <YAxis yAxisId="rate" tick={Y_TICK} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${v}%`} />
           <YAxis yAxisId="dollars" orientation="right" tick={Y_TICK} axisLine={false} tickLine={false} width={65} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
           <Tooltip
             contentStyle={TOOLTIP_STYLE}
             labelStyle={LABEL_STYLE}
+            labelFormatter={tooltipLabel}
             formatter={((value: number, name: string) => {
               if (name === "rate") return [`${value.toFixed(1)}%`, "Cost %"];
               if (name === "maintenanceDollars") return [`$${value.toLocaleString()}`, "Maintenance"];
               return [`$${value.toLocaleString()}`, "Rent Roll"];
             }) as AnyFormatter}
           />
+          {yearBoundaries(data).map((b) => (
+            <ReferenceLine key={b.rawDate} x={b.rawDate} {...YEAR_LINE_STYLE} label={{ value: String(b.year), position: "insideTopLeft", ...YEAR_LABEL_STYLE }} />
+          ))}
           <Bar yAxisId="dollars" dataKey="grossRentDollars" fill="#e5e7eb" fillOpacity={0.4} radius={[4, 4, 0, 0]} maxBarSize={28} name="grossRentDollars" />
           <Bar yAxisId="dollars" dataKey="maintenanceDollars" fill="#fed7aa" fillOpacity={0.7} radius={[4, 4, 0, 0]} maxBarSize={28} name="maintenanceDollars" />
           <Line yAxisId="rate" type="monotone" dataKey="rate" stroke="#ea580c" strokeWidth={2} dot={{ r: 3, fill: "#ea580c" }} name="rate" />
@@ -556,8 +639,9 @@ function MaintenanceCostChart({ data }: { data: TrendPoint[] }) {
 function DaysToLeaseChart({ data }: { data: TrendPoint[] }) {
   if (data.length === 0) return <EmptyChart name="Average Days to Lease" />;
 
+  const multi = isMultiYear(data);
   const chartData = data.map((d) => ({
-    date: formatDate(d.date),
+    date: d.date,
     avgDays: d.value.avgDays ?? 0,
     fastest: d.value.fastest ?? 0,
     slowest: d.value.slowest ?? 0,
@@ -587,16 +671,20 @@ function DaysToLeaseChart({ data }: { data: TrendPoint[] }) {
       <ResponsiveContainer width="100%" height={280}>
         <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
           <CartesianGrid {...GRID_PROPS} />
-          <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} />
+          <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} tickFormatter={(v) => tickFormat(v, multi)} />
           <YAxis tick={Y_TICK} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${v}d`} />
           <Tooltip
             contentStyle={TOOLTIP_STYLE}
             labelStyle={LABEL_STYLE}
+            labelFormatter={tooltipLabel}
             formatter={((value: number, name: string) => {
               if (name === "avgDays") return [`${value.toFixed(1)} days`, "Avg Days"];
               return [`${value}`, name];
             }) as AnyFormatter}
           />
+          {yearBoundaries(data).map((b) => (
+            <ReferenceLine key={b.rawDate} x={b.rawDate} {...YEAR_LINE_STYLE} label={{ value: String(b.year), position: "insideTopLeft", ...YEAR_LABEL_STYLE }} />
+          ))}
           <Area type="monotone" dataKey="avgDays" stroke="#0891b2" strokeWidth={2} fill="#a5f3fc" fillOpacity={0.3} dot={{ r: 3, fill: "#0891b2" }} />
         </AreaChart>
       </ResponsiveContainer>
@@ -628,8 +716,9 @@ function DaysToLeaseChart({ data }: { data: TrendPoint[] }) {
 function LeaseRenewalChart({ data }: { data: TrendPoint[] }) {
   if (data.length === 0) return <EmptyChart name="Lease Renewal Rate" />;
 
+  const multi = isMultiYear(data);
   const chartData = data.map((d) => ({
-    date: formatDate(d.date),
+    date: d.date,
     rate: d.value.rate ?? 0,
     renewals: d.value.renewals ?? 0,
     moveOuts: d.value.moveOuts ?? 0,
@@ -657,18 +746,22 @@ function LeaseRenewalChart({ data }: { data: TrendPoint[] }) {
       <ResponsiveContainer width="100%" height={280}>
         <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
           <CartesianGrid {...GRID_PROPS} />
-          <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} />
+          <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} tickFormatter={(v) => tickFormat(v, multi)} />
           <YAxis yAxisId="rate" tick={Y_TICK} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${v}%`} />
           <YAxis yAxisId="count" orientation="right" tick={Y_TICK} axisLine={false} tickLine={false} width={40} />
           <Tooltip
             contentStyle={TOOLTIP_STYLE}
             labelStyle={LABEL_STYLE}
+            labelFormatter={tooltipLabel}
             formatter={((value: number, name: string) => {
               if (name === "rate") return [`${value.toFixed(1)}%`, "Renewal Rate"];
               if (name === "renewals") return [`${value}`, "Renewals"];
               return [`${value}`, "Move-Outs"];
             }) as AnyFormatter}
           />
+          {yearBoundaries(data).map((b) => (
+            <ReferenceLine key={b.rawDate} x={b.rawDate} {...YEAR_LINE_STYLE} label={{ value: String(b.year), position: "insideTopLeft", ...YEAR_LABEL_STYLE }} />
+          ))}
           <Bar yAxisId="count" dataKey="renewals" stackId="leases" fill="#99f6e4" radius={[0, 0, 0, 0]} maxBarSize={28} name="renewals" />
           <Bar yAxisId="count" dataKey="moveOuts" stackId="leases" fill="#fecaca" radius={[4, 4, 0, 0]} maxBarSize={28} name="moveOuts" />
           <Line yAxisId="rate" type="monotone" dataKey="rate" stroke="#0d9488" strokeWidth={2} dot={{ r: 3, fill: "#0d9488" }} name="rate" />
@@ -721,8 +814,9 @@ function computeTargetDate(data: TrendPoint[]): string {
 function NetDoorsChart({ data }: { data: TrendPoint[] }) {
   if (data.length === 0) return <EmptyChart name="Properties / Doors" />;
 
+  const multi = isMultiYear(data);
   const chartData = data.map((d) => ({
-    date: formatDate(d.date),
+    date: d.date,
     currentDoors: d.value.currentDoors ?? 0,
     currentProperties: d.value.currentProperties ?? 0,
     netThisMonth: d.value.netThisMonth ?? 0,
@@ -752,12 +846,13 @@ function NetDoorsChart({ data }: { data: TrendPoint[] }) {
       <ResponsiveContainer width="100%" height={280}>
         <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
           <CartesianGrid {...GRID_PROPS} />
-          <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} />
+          <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} tickFormatter={(v) => tickFormat(v, multi)} />
           <YAxis yAxisId="doors" tick={Y_TICK} axisLine={false} tickLine={false} width={55} />
           <YAxis yAxisId="net" orientation="right" tick={Y_TICK} axisLine={false} tickLine={false} width={40} />
           <Tooltip
             contentStyle={TOOLTIP_STYLE}
             labelStyle={LABEL_STYLE}
+            labelFormatter={tooltipLabel}
             formatter={((value: number, name: string) => {
               if (name === "currentDoors") return [`${value}`, "Doors"];
               if (name === "currentProperties") return [`${value}`, "Properties"];
@@ -765,6 +860,9 @@ function NetDoorsChart({ data }: { data: TrendPoint[] }) {
               return [`${sign}${value}`, "Net This Month"];
             }) as AnyFormatter}
           />
+          {yearBoundaries(data).map((b) => (
+            <ReferenceLine key={b.rawDate} x={b.rawDate} {...YEAR_LINE_STYLE} label={{ value: String(b.year), position: "insideTopLeft", ...YEAR_LABEL_STYLE }} />
+          ))}
           <ReferenceLine yAxisId="doors" y={1500} stroke="#d97706" strokeDasharray="6 4" strokeWidth={1.5} label={{ value: "Goal: 1,500", position: "right", fontSize: 10, fill: "#d97706" }} />
           <Bar yAxisId="net" dataKey="netThisMonth" fill="#a7f3d0" fillOpacity={0.6} radius={[4, 4, 0, 0]} maxBarSize={24} name="netThisMonth" />
           <Line yAxisId="doors" type="monotone" dataKey="currentDoors" stroke="#059669" strokeWidth={2} dot={{ r: 3, fill: "#059669" }} name="currentDoors" />
@@ -813,8 +911,9 @@ const SOURCE_COLORS: Record<string, string> = {
 function GuestCardChart({ data }: { data: TrendPoint[] }) {
   if (data.length === 0) return <EmptyChart name="Guest Card Volume" />;
 
+  const multi = isMultiYear(data);
   const chartData = data.map((d) => ({
-    date: formatDate(d.date),
+    date: d.date,
     thisWeek: d.value.thisWeek ?? 0,
     thisMonth: d.value.thisMonth ?? 0,
   }));
@@ -834,7 +933,7 @@ function GuestCardChart({ data }: { data: TrendPoint[] }) {
   }
 
   const sourceBarData = data.map((d) => {
-    const row: Record<string, string | number> = { date: formatDate(d.date) };
+    const row: Record<string, string | number> = { date: d.date };
     const breakdown = d.value.sourceBreakdownWeek;
     if (Array.isArray(breakdown)) {
       for (const item of breakdown as Array<{ source: string; count: number }>) {
@@ -882,9 +981,12 @@ function GuestCardChart({ data }: { data: TrendPoint[] }) {
           <ResponsiveContainer width="100%" height={240}>
             <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
               <CartesianGrid {...GRID_PROPS} />
-              <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} />
+              <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} tickFormatter={(v) => tickFormat(v, multi)} />
               <YAxis tick={Y_TICK} axisLine={false} tickLine={false} width={40} />
               <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={LABEL_STYLE} />
+              {yearBoundaries(data).map((b) => (
+                <ReferenceLine key={b.rawDate} x={b.rawDate} {...YEAR_LINE_STYLE} label={{ value: String(b.year), position: "insideTopLeft", ...YEAR_LABEL_STYLE }} />
+              ))}
               <Area type="monotone" dataKey="thisWeek" stroke="#0284c7" strokeWidth={2} fill="#bae6fd" fillOpacity={0.3} dot={{ r: 3, fill: "#0284c7" }} name="This Week" />
             </AreaChart>
           </ResponsiveContainer>
@@ -895,9 +997,12 @@ function GuestCardChart({ data }: { data: TrendPoint[] }) {
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={sourceBarData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
               <CartesianGrid {...GRID_PROPS} />
-              <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} />
+              <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} tickFormatter={(v) => tickFormat(v, multi)} />
               <YAxis tick={Y_TICK} axisLine={false} tickLine={false} width={40} />
-              <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={LABEL_STYLE} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={LABEL_STYLE} labelFormatter={tooltipLabel} />
+              {yearBoundaries(data).map((b) => (
+                <ReferenceLine key={b.rawDate} x={b.rawDate} {...YEAR_LINE_STYLE} label={{ value: String(b.year), position: "insideTopLeft", ...YEAR_LABEL_STYLE }} />
+              ))}
               {sourceKeys.map((source) => (
                 <Bar
                   key={source}
@@ -964,8 +1069,9 @@ function FunnelBars({ stages, maxCount }: { stages: FunnelStage[]; maxCount: num
 function LeasingFunnelChart({ data }: { data: TrendPoint[] }) {
   if (data.length === 0) return <EmptyChart name="Leasing Funnel" />;
 
+  const multi = isMultiYear(data);
   const chartData = data.map((d) => ({
-    date: formatDate(d.date),
+    date: d.date,
     overallConversion: (d.value.conversionRates as unknown as Record<string, number>)?.overallConversion ?? 0,
   }));
 
@@ -1012,13 +1118,16 @@ function LeasingFunnelChart({ data }: { data: TrendPoint[] }) {
           <ResponsiveContainer width="100%" height={240}>
             <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
               <CartesianGrid {...GRID_PROPS} />
-              <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} />
+              <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} tickFormatter={(v) => tickFormat(v, multi)} />
               <YAxis tick={Y_TICK} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${v}%`} />
               <Tooltip
                 contentStyle={TOOLTIP_STYLE}
                 labelStyle={LABEL_STYLE}
                 formatter={((value: number) => [`${value.toFixed(1)}%`, "Conversion"]) as AnyFormatter}
               />
+              {yearBoundaries(data).map((b) => (
+                <ReferenceLine key={b.rawDate} x={b.rawDate} {...YEAR_LINE_STYLE} label={{ value: String(b.year), position: "insideTopLeft", ...YEAR_LABEL_STYLE }} />
+              ))}
               <Area type="monotone" dataKey="overallConversion" stroke="#e11d48" strokeWidth={2} fill="#fecdd3" fillOpacity={0.3} dot={{ r: 3, fill: "#e11d48" }} />
             </AreaChart>
           </ResponsiveContainer>
@@ -1062,6 +1171,60 @@ function LeasingFunnelChart({ data }: { data: TrendPoint[] }) {
       <InsightLine text="Industry benchmark for guest card to lease conversion is 10–20% for residential property management." />
       <InsightLine text="The biggest drop-off stage identifies where to focus process improvement: high application drop-off suggests friction in the application process or uncompetitive pricing; high approval drop-off suggests screening criteria may be misaligned with the applicant pool." />
       <InsightLine text="Research shows leads contacted within 1 hour are 7x more likely to convert than those contacted after 24 hours. Response time is one of the highest-leverage improvements a leasing team can make." />
+    </div>
+  );
+}
+
+function ManagementFeesChart({ data }: { data: TrendPoint[] }) {
+  if (data.length === 0) return <EmptyChart name="Annual Management Fees" />;
+
+  const multi = isMultiYear(data);
+  const chartData = data.map((d) => ({
+    date: d.date,
+    feeCount: d.value.feeCount ?? 0,
+    totalProperties: d.value.totalProperties ?? 0,
+  }));
+
+  const counts = chartData.map((d) => d.feeCount);
+  const stats = computeStats(counts);
+  const latest = chartData[chartData.length - 1];
+
+  return (
+    <div className="glass glass-shine rounded-2xl p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-8 h-8 bg-violet-100 rounded-lg flex items-center justify-center">
+          <Receipt className="w-4 h-4 text-violet-600" />
+        </div>
+        <h4 className="text-sm font-semibold text-charcoal-700">Annual Management Fees</h4>
+      </div>
+      <StatPills
+        stats={[
+          { label: "Current", value: `${stats.current}` },
+          { label: "Total Props", value: `${latest.totalProperties}` },
+          { label: "High", value: `${stats.high}` },
+          { label: "Low", value: `${stats.low}` },
+        ]}
+      />
+      <ResponsiveContainer width="100%" height={280}>
+        <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
+          <CartesianGrid {...GRID_PROPS} />
+          <XAxis dataKey="date" tick={X_TICK} axisLine={{ stroke: "rgba(0,0,0,0.08)" }} tickLine={false} tickFormatter={(v) => tickFormat(v, multi)} />
+          <YAxis tick={Y_TICK} axisLine={false} tickLine={false} width={50} />
+          <Tooltip
+            contentStyle={TOOLTIP_STYLE}
+            labelStyle={LABEL_STYLE}
+            labelFormatter={tooltipLabel}
+            formatter={((value: number, name: string) => {
+              if (name === "feeCount") return [`${value}`, "With Mgmt Fee"];
+              return [`${value}`, "Total Properties"];
+            }) as AnyFormatter}
+          />
+          {yearBoundaries(data).map((b) => (
+            <ReferenceLine key={b.rawDate} x={b.rawDate} {...YEAR_LINE_STYLE} label={{ value: String(b.year), position: "insideTopLeft", ...YEAR_LABEL_STYLE }} />
+          ))}
+          <Area type="monotone" dataKey="feeCount" stroke="#7c3aed" strokeWidth={2} fill="#ddd6fe" fillOpacity={0.3} dot={{ r: 3, fill: "#7c3aed" }} />
+        </AreaChart>
+      </ResponsiveContainer>
     </div>
   );
 }
@@ -1144,7 +1307,7 @@ export default function TrendsPage() {
       {/* Charts Grid */}
       {loading ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => (
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map((i) => (
             <ChartSkeleton key={i} />
           ))}
         </div>
@@ -1162,6 +1325,7 @@ export default function TrendsPage() {
           <NetDoorsChart data={trends.net_doors || []} />
           <GuestCardChart data={trends.guest_cards || []} />
           <LeasingFunnelChart data={trends.leasing_funnel || []} />
+          <ManagementFeesChart data={trends.management_fees || []} />
         </div>
       )}
     </div>

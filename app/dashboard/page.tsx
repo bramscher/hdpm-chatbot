@@ -26,6 +26,7 @@ import {
   Building2,
   UserPlus,
   Filter,
+  Receipt,
 } from "lucide-react";
 
 // ============================================
@@ -103,6 +104,11 @@ interface GuestCardData {
   sourceBreakdownMonth: Array<{ source: string; count: number }>;
 }
 
+interface ManagementFeesData {
+  feeCount: number;
+  totalProperties: number;
+}
+
 interface LeasingFunnelData {
   period: string;
   funnel: {
@@ -129,7 +135,7 @@ interface LeasingFunnelData {
 
 type KpiData = DelinquencyData | VacancyData | WorkOrderData | NoticeData | InsuranceData
   | OwnerRetentionData | MaintenanceCostData | DaysToLeaseData | LeaseRenewalData | NetDoorsData
-  | GuestCardData | LeasingFunnelData;
+  | GuestCardData | LeasingFunnelData | ManagementFeesData;
 
 interface KpiState<T extends KpiData> {
   data: T | null;
@@ -534,6 +540,36 @@ const KPI_CARDS: KpiCardConfig[] = [
         direction: diff > 0 ? "up" : "down",
         sentiment: diff > 0 ? "good" : "bad",
         label: `${Math.abs(diff).toFixed(1)}pp`,
+      };
+    },
+  },
+  {
+    name: "Annual Mgmt Fees",
+    key: "management_fees",
+    endpoint: "/api/kpi/management-fees",
+    icon: Receipt,
+    color: "text-violet-600",
+    bgColor: "bg-violet-100",
+    iconColor: "text-violet-600",
+    sparkColor: "#7c3aed",
+    sparkFill: "#ddd6fe",
+    dataTag: "live",
+    formatPrimary: (d) => `${(d as ManagementFeesData).feeCount}`,
+    formatSecondary: (d) => {
+      const data = d as ManagementFeesData;
+      return `${data.feeCount} of ${data.totalProperties} properties with mgmt fee`;
+    },
+    getSparklineValue: (s) => (s.feeCount as number) ?? 0,
+    getDelta: (current, prior) => {
+      const curr = (current as ManagementFeesData).feeCount;
+      const prev = (prior as { feeCount?: number }).feeCount;
+      if (prev == null) return null;
+      const diff = curr - prev;
+      if (diff === 0) return { direction: "flat", sentiment: "neutral", label: "No change" };
+      return {
+        direction: diff > 0 ? "up" : "down",
+        sentiment: diff > 0 ? "good" : "bad",
+        label: `${Math.abs(diff)} properties`,
       };
     },
   },

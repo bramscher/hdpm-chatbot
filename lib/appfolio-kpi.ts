@@ -1012,5 +1012,44 @@ export async function fetchLeasingFunnelKpi(): Promise<LeasingFunnelKpi> {
   };
 }
 
+// ============================================
+// KPI 13: Annual Management Fees
+// ============================================
+
+interface ManagementFeesKpi {
+  feeCount: number;
+  totalProperties: number;
+}
+
+interface V0PropertyWithCustom {
+  Id: string;
+  HiddenAt?: string | null;
+  CustomValues?: Array<{ Name: string; Value: string }>;
+}
+
+export async function fetchManagementFeesKpi(): Promise<ManagementFeesKpi> {
+  const config = getKpiConfig();
+  if (!config) {
+    return { feeCount: 0, totalProperties: 0 };
+  }
+
+  const properties = await v0FetchAll<V0PropertyWithCustom>(
+    '/properties',
+    { 'filters[LastUpdatedAtFrom]': '1970-01-01T00:00:00Z' },
+    config,
+    1000,
+    10
+  );
+
+  const active = properties.filter((p) => !p.HiddenAt);
+  const feeCount = active.filter((p) =>
+    (p.CustomValues || []).some(
+      (cv) => cv.Name === 'Accounting Management Fee' && cv.Value === 'Yes'
+    )
+  ).length;
+
+  return { feeCount, totalProperties: active.length };
+}
+
 // Re-export status maps for use in webhook handler
 export { LEAD_STATUS_MAP, RENTAL_APP_STATUS_MAP, RESPONSE_BUCKETS };

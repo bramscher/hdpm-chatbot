@@ -13,6 +13,7 @@ import {
   fetchNetDoorsKpi,
   fetchGuestCardKpi,
   fetchLeasingFunnelKpi,
+  fetchManagementFeesKpi,
 } from '@/lib/appfolio-kpi';
 
 /**
@@ -46,6 +47,7 @@ export async function POST(request: NextRequest) {
     { name: 'net_doors', fn: fetchNetDoorsKpi },
     { name: 'guest_cards', fn: fetchGuestCardKpi },
     { name: 'leasing_funnel', fn: fetchLeasingFunnelKpi },
+    { name: 'management_fees', fn: fetchManagementFeesKpi },
   ] as const;
 
   await Promise.allSettled(
@@ -67,10 +69,11 @@ export async function POST(request: NextRequest) {
     })
   );
 
+  const total = kpiFetchers.length;
   const succeeded = Object.values(results).filter((r) => r.success).length;
-  console.log(`[KPI Cron] Done: ${succeeded}/12 snapshots saved`);
+  console.log(`[KPI Cron] Done: ${succeeded}/${total} snapshots saved`);
 
-  return NextResponse.json({ results, succeeded, total: 12 });
+  return NextResponse.json({ results, succeeded, total });
 }
 
 export const maxDuration = 300;
