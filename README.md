@@ -1,8 +1,8 @@
 # HDPM Operations Dashboard
 
-Internal operations platform for **High Desert Property Management** (~850 doors, Central Oregon). Automates inspections, work order triage, invoice generation, rent comp analysis, and Craigslist ad creation.
+Internal operations platform for **High Desert Property Management** (~835 doors across 467 properties, Central Oregon). Automates inspections, work order triage, invoice generation, rent comp analysis, Craigslist ad creation, and surfaces a live KPI dashboard covering portfolio health.
 
-**Stack:** Next.js 16 / TypeScript / Supabase / Tailwind CSS / Vercel
+**Stack:** Next.js 16 / React 18 / TypeScript 5.7 / Supabase (PostgreSQL + pgvector) / Tailwind CSS 3.4 / Recharts 3 / Anthropic SDK / Vercel
 **Auth:** Microsoft Azure AD (@highdesertpm.com only)
 **Domain:** hdpmchat.highdesertpm.com
 
@@ -11,9 +11,15 @@ Internal operations platform for **High Desert Property Management** (~850 doors
 ## Table of Contents
 
 - [Getting Started](#getting-started)
+- [Home (Quick Actions)](#home-quick-actions)
+- [KPI Dashboard](#kpi-dashboard)
+  - [KPI Cards](#kpi-cards)
+  - [KPI Trends](#kpi-trends)
+  - [Daily KPI Snapshots](#daily-kpi-snapshots)
 - [Inspections](#inspections)
   - [Inspection Queue](#inspection-queue)
   - [Property Meld Sync](#property-meld-sync)
+  - [CSV / XLSX Import](#csv--xlsx-import)
   - [Geocoding](#geocoding)
   - [Route Builder](#route-builder)
   - [Automated Tenant Notices](#automated-tenant-notices)
@@ -21,6 +27,9 @@ Internal operations platform for **High Desert Property Management** (~850 doors
 - [Invoice Generator](#invoice-generator)
 - [Work Order Triage](#work-order-triage)
 - [Rent Comps](#rent-comps)
+  - [Comps Dashboard](#comps-dashboard)
+  - [Comps Analysis Wizard](#comps-analysis-wizard)
+- [Owner Reports](#owner-reports)
 - [AI Chat (ORS 90)](#ai-chat-ors-90)
 - [Scheduled Jobs (Crons)](#scheduled-jobs-crons)
 - [Environment Variables](#environment-variables)
@@ -38,6 +47,60 @@ npm run dev                   # http://localhost:3000
 ```
 
 Login requires a `@highdesertpm.com` Microsoft account. All pages and API endpoints are protected behind Azure AD authentication.
+
+---
+
+## Home (Quick Actions)
+
+**Path:** `/`
+
+Landing page with a time-aware greeting, live portfolio stats, and one-click entries into every tool.
+
+- **Live stats strip:** total inspections, overdue count, inspections this week, active routes, dispatched stops, vacant units
+- **Quick-action cards:** Inspections, Route Builder, Invoice Generator, Rent Comps, Craigslist Ad Creator, KPI Dashboard
+- **System status bar:** connection indicators for AppFolio, Property Meld, and Rentometer
+
+---
+
+## KPI Dashboard
+
+**Path:** `/dashboard`
+
+Executive operations dashboard surfacing thirteen KPI cards that track the health of the portfolio. Every card shows a primary metric, a secondary context metric, a 40px sparkline of recent history, a delta arrow (direction + sentiment), and a data-source tag (`live`, `mock`, `estimated`). Cards are clickable for drill-down detail.
+
+### KPI Cards
+
+| Card | Primary metric | Secondary / context |
+|------|----------------|---------------------|
+| **Delinquency Rate** | % of tenants past due | Count and dollar amount outstanding |
+| **Vacancy Rate** | % vacant | Vacant / total units |
+| **Work Order Cycle Time** | Avg days to close | Open work order count |
+| **30-Day Notice Volume** | Notices given | Rolling 30-day window |
+| **Insurance Compliance** | % compliant | Compliant / total owners |
+| **Owner Retention** | Retention % | Cancellations + active owner count |
+| **Maintenance Cost %** | % of gross rent | Dollars spent vs rent roll |
+| **Avg Days to Lease** | Avg days vacant-to-leased | Fastest / slowest in range |
+| **Lease Renewal Rate** | Renewal % | Renewals vs move-outs |
+| **Properties / Doors** | Doors under management | Monthly net change + 1,500-door goal |
+| **Guest Card Volume** | Weekly guest cards | Source breakdown + WoW / MoM delta |
+| **Leasing Funnel** | Guest-card → lease conversion % | 4-stage funnel + avg first-response time |
+| **Annual Management Fees** | Properties billed | Annualized fee total |
+
+### KPI Trends
+
+**Path:** `/dashboard/trends`
+
+Historical charts for every KPI above with multi-metric overlays.
+
+- **Date ranges:** 4 weeks, 8 weeks, 12 weeks, 6 months, 1 year, 2 years, all-time
+- **Chart types:** area, line, bar, and composed charts from Recharts (e.g. delinquency line-over-area, work orders line-over-bar, maintenance cost stacked bars, net doors with goal reference line)
+- **Per-chart stat pills:** current, high, low, average for the selected range
+- **Year boundary markers** so long date ranges remain readable
+- **Custom tooltips** with properly formatted percentages, currency, and durations
+
+### Daily KPI Snapshots
+
+A Vercel cron job runs **daily at 2:00 PM UTC** hitting `/api/kpi/cron` to capture the current value of every KPI into `kpi_snapshots`. The trends page reads from this snapshot table (paginated past Supabase's 1000-row cap), and the dashboard uses a cached endpoint (`/api/kpi/cached`) for fast page load.
 
 ---
 
@@ -82,6 +145,18 @@ The main inspections page shows all properties with their inspection status, due
 - Skips excluded properties (HOAs, commercial)
 
 **Due date calculation:** `last_inspection_date + 6 months`, clamped to today if overdue. Falls back to `move_in_date + 6 months` if no inspection history exists.
+
+### CSV / XLSX Import
+
+**Path:** `/maintenance/inspections/import`
+
+Three-step wizard for bulk-loading inspection records from spreadsheets (used for the initial backfill from AppFolio exports and for one-off batches).
+
+1. **Upload** — drag-and-drop a CSV or XLSX file; headers are auto-detected.
+2. **Column mapping** — headers are auto-matched to the 10 supported fields (`address_1`, `city`, `zip`, `unit_name`, `resident_name`, `last_inspection_date`, `inspection_type`, `due_date`, `owner_name`, `priority`, `notes`). Required columns are marked with `*` and a live preview table shows the first rows.
+3. **Review & commit** — shows counts for valid / warning / error / duplicate rows with per-row issue detail. Valid and warning rows are pre-selected; errors must be resolved or deselected before committing.
+
+Each import is recorded in `import_batches` for audit, and the commit step writes through the same validation pipeline used by the Property Meld sync so unit matching stays consistent.
 
 ### Geocoding
 
@@ -240,11 +315,11 @@ Creates maintenance invoices from three input sources:
 AI-powered prioritization of open AppFolio work orders.
 
 **How it works:**
-1. Syncs open work orders from AppFolio (runs daily at 8 AM PT or manually via **Sync Now**)
-2. AI scores each work order by urgency and priority
-3. Detects recurring maintenance issues across properties
-4. Provides recommended actions and priority rankings
-5. Filter by status, priority, vendor, or search across properties
+1. Syncs open work orders from AppFolio (runs daily at 8 AM UTC or manually via **Sync Now**)
+2. Claude scores each work order on urgency, safety risk, and business impact
+3. Recurring-issue detector (`/api/triage/recurring`) flags patterns across properties — e.g. the same unit opening three HVAC tickets in 90 days
+4. Each card surfaces recommended actions, a priority ranking, and a one-click action log so follow-ups get tracked
+5. Filter by status, priority, vendor, assignee, or free-text search across properties
 
 **Status badges:** New, Assigned, Scheduled, Estimated, Waiting, Work Completed, Completed, Canceled
 
@@ -259,13 +334,36 @@ Rental market analysis combining three data sources:
 - **AppFolio** — current portfolio rental rates and vacancy data
 - **Rentometer** — market comparison data by address
 - **HUD Fair Market Rent** — government baseline rates by area (synced annually)
+- **Zillow** (via `/api/comps/zillow`) — supplemental public-listing data when available
 
-**Features:**
-- Search and compare rental rates by address, city, or property type
-- Weighted similarity scoring (bedrooms, bathrooms, sqft, distance)
-- PDF comp analysis reports for owner presentations
-- Market trend tracking
-- Automatic baseline seeding from HUD data
+### Comps Dashboard
+
+The main `/comps` page is a data-exploration interface: filter comps by date, town, bedroom count, or data source; toggle between table and chart views; and review stats cards comparing portfolio averages against HUD and market baselines. Manual comps can be added via **Add Comp**, and the embedded Rentometer widget runs ad-hoc lookups. HUD baselines are seeded automatically via `/api/comps/seed-baselines` and refreshed each January.
+
+### Comps Analysis Wizard
+
+**Path:** `/comps/analysis`
+
+A three-step wizard that produces a shareable comp report for owner presentations:
+
+1. **Enter subject property** (address, beds/baths, sqft, current rent)
+2. **Pull comparables** from AppFolio, Rentometer, Zillow, and HUD; the system applies weighted similarity scoring on bedrooms, bathrooms, sqft, and distance
+3. **Generate report** — produces a branded PDF with summary stats, comp table, and recommended rent range; saved analyses are accessible from the "Saved reports" list for re-use
+
+---
+
+## Owner Reports
+
+**Path:** `/reports/owner`
+
+Per-owner portfolio report builder used for owner statements, quarterly reviews, and retention conversations.
+
+**Workflow:**
+1. Search owners by name (debounced, 2-character minimum)
+2. Select an owner to load their full portfolio with unit detail, tenant history, lease dates, and current rents
+3. Review the summary header: total properties and units, occupied vs vacant, monthly rent roll, average rent per unit, and longest current tenancy
+4. Expand any property to see bedrooms, bathrooms, square footage, current rent, and full tenant history (move-in / move-out dates, lease start / end, monthly rent)
+5. Export the report as **PDF** or **Excel** — filenames are date-stamped for easy filing
 
 ---
 
@@ -301,11 +399,12 @@ Configured in `vercel.json`. All times are UTC.
 | Schedule | Endpoint | Purpose |
 |----------|----------|---------|
 | **Every hour** | `/api/inspections/notify` | Send tenant inspection notices (7d, 24h, 2h) via Property Meld |
-| **8 AM daily** | `/api/sync/work-orders` | Sync AppFolio work orders for triage |
-| **9 AM daily** | `/api/sync/appfolio` | Full AppFolio sync: properties, vacancies, comps |
-| **10 AM, Jan 1** | `/api/sync/hud` | Annual HUD Fair Market Rent data refresh |
+| **8 AM daily (UTC)** | `/api/sync/work-orders` | Sync AppFolio work orders for triage |
+| **9 AM daily (UTC)** | `/api/sync/appfolio` | Full AppFolio sync: properties, vacancies, comps |
+| **2 PM daily (UTC)** | `/api/kpi/cron` | Capture daily KPI snapshots for the trends page |
+| **Jan 1 annually** | `/api/sync/hud` | HUD Fair Market Rent data refresh |
 
-Cron endpoints are authenticated via `CRON_SECRET` bearer token and exempted from Azure AD middleware.
+Cron endpoints are authenticated via `CRON_SECRET` bearer token and exempted from Azure AD middleware. AppFolio also pushes updates in real time through `/api/webhooks/appfolio` and `/api/webhooks/appfolio-leads`.
 
 ---
 
@@ -357,13 +456,16 @@ Cron endpoints are authenticated via `CRON_SECRET` bearer token and exempted fro
 | `inspections` | Inspection tasks with due dates, status, unit names, notice tracking, and meld IDs |
 | `route_plans` | Inspection routes with dates, assignees, stop counts, and time estimates |
 | `route_stops` | Individual stops within routes with ordering, status, and arrival times |
-| `saved_listings` | Saved Craigslist listing drafts with generated HTML |
-| `cached_vacancies` | Cached AppFolio vacancy data for instant page load |
-| `conversations` | AI chat conversation metadata |
-| `conversation_messages` | Individual chat messages with sources and attachments |
-| `knowledge_chunks` | pgvector knowledge base chunks for ORS 90 semantic search |
 | `import_batches` | CSV/XLSX upload audit trail for inspection imports |
 | `inspection_audit_log` | Immutable change tracking for inspection operations |
+| `kpi_snapshots` | Daily-captured KPI values backing the dashboard sparklines and trends charts |
+| `saved_listings` | Saved Craigslist listing drafts with generated HTML |
+| `cached_vacancies` | Cached AppFolio vacancy data for instant page load |
+| `invoices` / `invoice_line_items` | Maintenance invoices and their line items with totals and status |
+| `work_orders` | Synced AppFolio work orders with triage scores, priorities, and action history |
+| `comps` / `comp_analyses` | Rental comps, baselines, and saved comp-analysis reports |
+| `conversations` / `conversation_messages` | AI chat history and individual messages (with sources and attachments) |
+| `knowledge_chunks` | pgvector knowledge base chunks for ORS 90 semantic search |
 
 **Migrations:** Located in `supabase/migrations/`. Run new migrations via the [Supabase SQL Editor](https://supabase.com/dashboard).
 
