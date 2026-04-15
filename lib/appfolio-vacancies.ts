@@ -235,19 +235,22 @@ export async function fetchVacantUnits(): Promise<VacantUnit[]> {
     const isVacant = status.includes('vacant') || status.includes('available');
     const isOnNotice = noticeUnitMoveOut.has(unit.Id);
 
-    // Classify readiness. Criteria mirror AppFolio's own syndication rules:
-    // unit must be vacant or on-notice, rent-ready, and have a rent set.
+    // Classify readiness by AppFolio's own marketing signal: if a unit is
+    // RentReady and has a rent set, AppFolio is pushing it to the syndication
+    // feed (Zillow/Zumper/Trulia) — that's what "marketed elsewhere" means.
+    // The unit.Status field is unreliable for occupancy (often stays "Occupied"
+    // through the notice period), so we don't require it.
     let readyForPosting = false;
     let statusReason = '';
-    if (!isVacant && !isOnNotice) {
-      statusReason = 'Occupied';
-    } else if (unit.RentReady === false) {
+    if (unit.RentReady === false) {
       statusReason = 'Not rent-ready';
     } else if (!rent || rent <= 0) {
       statusReason = 'No rent set';
     } else {
       readyForPosting = true;
-      statusReason = isOnNotice ? 'On notice' : 'Vacant';
+      if (isOnNotice) statusReason = 'On notice';
+      else if (isVacant) statusReason = 'Vacant';
+      else statusReason = 'Rent-ready';
     }
 
     units.push({
