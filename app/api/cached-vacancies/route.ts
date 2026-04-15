@@ -9,6 +9,7 @@ export async function GET() {
     const { data, error } = await supabase
       .from('cached_vacancies')
       .select('*')
+      .order('ready_for_posting', { ascending: false })
       .order('city', { ascending: true })
       .order('address', { ascending: true });
 
@@ -55,6 +56,8 @@ export async function POST() {
         unit_type: u.unit_type || 'Rental',
         amenities: u.amenities || [],
         marketing_description: u.marketing_description || '',
+        ready_for_posting: u.ready_for_posting,
+        status_reason: u.status_reason || '',
         last_synced_at: now,
       }));
 

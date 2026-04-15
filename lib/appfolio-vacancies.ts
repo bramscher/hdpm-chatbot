@@ -61,6 +61,8 @@ export interface VacantUnit {
   unit_type: string;
   amenities: string[];
   marketing_description: string;
+  ready_for_posting: boolean;
+  status_reason: string;
 }
 
 function parseNumber(val: unknown): number {
@@ -207,23 +209,19 @@ export async function fetchVacantUnits(): Promise<VacantUnit[]> {
     }
   }
 
-  // Filter to vacant/available units
-  const vacantUnits: VacantUnit[] = [];
+  // Return ALL units with a readiness flag. The UI's default view filters to
+  // ready_for_posting=true; the search box queries across everything.
+  const units: VacantUnit[] = [];
 
   for (const unit of allUnits) {
-    const status = (unit.Status || '').toLowerCase();
-    const isVacant = status.includes('vacant') || status.includes('available');
-    const isOnNotice = noticeUnitMoveOut.has(unit.Id);
-    if (!isVacant && !isOnNotice) continue;
-
-    // Only include units AppFolio is actively marketing. RentReady=false means
-    // the unit isn't pushed to the syndication feed, so no point in Craigslist.
-    if (unit.RentReady === false) continue;
-
     const property = unit.PropertyId ? propertyMap.get(unit.PropertyId) : null;
+    // Skip units whose parent property is hidden/inactive in AppFolio
+    if (unit.PropertyId && !property) continue;
 
     const address = unit.Address1
       || (property ? [property.Address1, property.Address2].filter(Boolean).join(', ') : '');
+    if (!address) continue;
+
     const city = unit.City || property?.City || '';
     const state = unit.State || property?.State || 'OR';
     const zip = unit.Zip || property?.Zip || '';
@@ -232,9 +230,27 @@ export async function fetchVacantUnits(): Promise<VacantUnit[]> {
     const fullAddress = `${address}${unitSuffix}`.trim();
 
     const rent = parseNumber(unit.ListedRent) || parseNumber(unit.MarketRent);
-    if (!rent || rent <= 0) continue;
 
-    vacantUnits.push({
+    const status = (unit.Status || '').toLowerCase();
+    const isVacant = status.includes('vacant') || status.includes('available');
+    const isOnNotice = noticeUnitMoveOut.has(unit.Id);
+
+    // Classify readiness. Criteria mirror AppFolio's own syndication rules:
+    // unit must be vacant or on-notice, rent-ready, and have a rent set.
+    let readyForPosting = false;
+    let statusReason = '';
+    if (!isVacant && !isOnNotice) {
+      statusReason = 'Occupied';
+    } else if (unit.RentReady === false) {
+      statusReason = 'Not rent-ready';
+    } else if (!rent || rent <= 0) {
+      statusReason = 'No rent set';
+    } else {
+      readyForPosting = true;
+      statusReason = isOnNotice ? 'On notice' : 'Vacant';
+    }
+
+    units.push({
       appfolio_unit_id: unit.Id,
       appfolio_property_id: unit.PropertyId || '',
       address: fullAddress,
@@ -249,10 +265,18 @@ export async function fetchVacantUnits(): Promise<VacantUnit[]> {
       unit_type: mapUnitType(property?.PropertyType || ''),
       amenities: unit.AppliancesIncluded || [],
       marketing_description: unit.MarketingDescription || '',
+      ready_for_posting: readyForPosting,
+      status_reason: statusReason,
     });
   }
 
-  vacantUnits.sort((a, b) => a.city.localeCompare(b.city) || a.address.localeCompare(b.address));
+  units.sort((a, b) => {
+    // Ready-to-post units first, then by city/address
+    if (a.ready_for_posting !== b.ready_for_posting) {
+      return a.ready_for_posting ? -1 : 1;
+    }
+    return a.city.localeCompare(b.city) || a.address.localeCompare(b.address);
+  });
 
-  return vacantUnits;
+  return units;
 }

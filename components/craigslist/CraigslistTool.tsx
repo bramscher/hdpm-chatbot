@@ -22,6 +22,8 @@ import {
   X,
   CheckCircle2,
   GripVertical,
+  Search,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +44,8 @@ interface VacantUnit {
   unit_type: string;
   amenities: string[];
   marketing_description: string;
+  ready_for_posting: boolean;
+  status_reason: string;
 }
 
 interface SavedListing {
@@ -79,6 +83,7 @@ export function CraigslistTool() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fetched, setFetched] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Per-unit rently state
   const [rentlyToggles, setRentlyToggles] = useState<Record<string, boolean>>({});
@@ -308,6 +313,8 @@ export function CraigslistTool() {
       unit_type: "",
       amenities: [],
       marketing_description: "",
+      ready_for_posting: true,
+      status_reason: "",
     });
     setView("editor");
     setSaved(false);
@@ -553,6 +560,17 @@ export function CraigslistTool() {
 
   // ── List View ──
   if (view === "list") {
+    const trimmedQuery = searchQuery.trim().toLowerCase();
+    const isSearching = trimmedQuery.length > 0;
+    const readyUnits = units.filter((u) => u.ready_for_posting);
+    const displayedUnits = isSearching
+      ? units.filter((u) => {
+          const haystack = `${u.address} ${u.city} ${u.zip}`.toLowerCase();
+          return haystack.includes(trimmedQuery);
+        })
+      : readyUnits;
+    const showSyncFallback = isSearching && displayedUnits.length === 0;
+
     return (
       <div className="max-w-5xl mx-auto">
         {/* Header */}
@@ -562,8 +580,7 @@ export function CraigslistTool() {
               Craigslist Listing Generator
             </h1>
             <p className="text-sm text-charcoal-500 mt-1">
-              Pull vacant units from AppFolio, format marketing descriptions for
-              Craigslist
+              Search any property in AppFolio, format marketing descriptions for Craigslist
             </p>
           </div>
           <div className="flex gap-2">
@@ -579,19 +596,41 @@ export function CraigslistTool() {
               <History className="h-4 w-4 mr-1.5" />
               Saved
             </Button>
-            <Button
-              onClick={fetchVacancies}
-              disabled={loading}
-              className="bg-terra-600 hover:bg-terra-700 text-white"
-            >
-              {loading ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4 mr-2" />
-              )}
-              {fetched ? "Sync Vacancies" : "Pull Vacancies"}
-            </Button>
           </div>
+        </div>
+
+        {/* Search box */}
+        <div className="glass rounded-xl p-3 mb-4">
+          <div className="relative flex items-center">
+            <Search className="h-4 w-4 text-charcoal-400 absolute left-3 pointer-events-none" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search any property by address or city…"
+              className="pl-9 pr-9 bg-white/70 border-0 h-10 text-sm"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 text-charcoal-400 hover:text-charcoal-600"
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          {isSearching && (
+            <p className="text-2xs text-charcoal-400 mt-2 px-1">
+              Showing {displayedUnits.length} of {units.length} total units
+            </p>
+          )}
+          {!isSearching && fetched && (
+            <p className="text-2xs text-charcoal-400 mt-2 px-1">
+              Showing {readyUnits.length} unit{readyUnits.length === 1 ? "" : "s"} ready to post.
+              Search to find any property in AppFolio.
+            </p>
+          )}
         </div>
 
         {error && (
@@ -612,41 +651,103 @@ export function CraigslistTool() {
           </div>
         )}
 
-        {/* Empty state */}
-        {fetched && !loading && units.length === 0 && (
+        {/* Initial empty state — no sync ever done */}
+        {!fetched && !loading && (
+          <div className="glass rounded-xl p-10 text-center">
+            <Home className="h-10 w-10 text-charcoal-300 mx-auto mb-3" />
+            <p className="text-charcoal-500 text-sm mb-4">
+              No units loaded yet — pull the full property list from AppFolio
+            </p>
+            <Button
+              onClick={fetchVacancies}
+              disabled={loading}
+              className="bg-terra-600 hover:bg-terra-700 text-white"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Pull from AppFolio
+            </Button>
+          </div>
+        )}
+
+        {/* No ready units and no search — show friendly empty state */}
+        {fetched && !loading && !isSearching && readyUnits.length === 0 && (
           <div className="glass rounded-xl p-10 text-center">
             <Home className="h-10 w-10 text-charcoal-300 mx-auto mb-3" />
             <p className="text-charcoal-500 text-sm">
-              No vacant units found in AppFolio
+              No units are currently ready to post. Search above to find any property.
             </p>
           </div>
         )}
 
+        {/* Search returned no matches → offer sync */}
+        {showSyncFallback && (
+          <div className="glass rounded-xl p-10 text-center">
+            <AlertCircle className="h-10 w-10 text-charcoal-300 mx-auto mb-3" />
+            <p className="text-charcoal-600 text-sm mb-1">
+              No properties match &quot;{searchQuery}&quot;
+            </p>
+            <p className="text-xs text-charcoal-400 mb-4">
+              If it was recently added in AppFolio, re-sync to refresh the cache.
+            </p>
+            <Button
+              onClick={fetchVacancies}
+              disabled={loading}
+              className="bg-terra-600 hover:bg-terra-700 text-white"
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
+              Sync from AppFolio
+            </Button>
+          </div>
+        )}
+
         {/* Unit cards */}
-        {!loading && units.length > 0 && (
+        {!loading && displayedUnits.length > 0 && (
           <div className="space-y-3">
-            {units.map((unit) => {
+            {displayedUnits.map((unit) => {
               const rentlyOn = rentlyToggles[unit.appfolio_unit_id] || false;
+              const isReady = unit.ready_for_posting;
               return (
                 <div
                   key={unit.appfolio_unit_id}
-                  className="glass glass-shine rounded-xl overflow-hidden"
+                  className={cn(
+                    "glass glass-shine rounded-xl overflow-hidden",
+                    !isReady && "opacity-80"
+                  )}
                 >
                   <div className="p-5">
                     {/* Top row: address + generate button */}
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-bold text-charcoal-900 truncate">
-                          {unit.address}
-                        </h3>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-sm font-bold text-charcoal-900 truncate">
+                            {unit.address}
+                          </h3>
+                          {isReady ? (
+                            <span className="inline-flex items-center gap-1 text-2xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Ready to post
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-2xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-semibold">
+                              <AlertCircle className="h-3 w-3" />
+                              {unit.status_reason || "Not ready"}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-charcoal-500 mt-0.5">
                           {unit.city}, {unit.state} {unit.zip}
                         </p>
                       </div>
                       <Button
                         onClick={() => handleGenerate(unit)}
+                        disabled={!isReady}
                         size="sm"
-                        className="bg-terra-600 hover:bg-terra-700 text-white flex-shrink-0"
+                        className="bg-terra-600 hover:bg-terra-700 text-white flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={isReady ? undefined : "Unit is not marked ready in AppFolio"}
                       >
                         <Sparkles className="h-3.5 w-3.5 mr-1.5" />
                         Format for HDPM Craigslist
@@ -655,9 +756,11 @@ export function CraigslistTool() {
 
                     {/* Stats row */}
                     <div className="flex flex-wrap items-center gap-3 mt-3">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-terra-50 text-terra-700 text-xs font-semibold">
-                        ${unit.rent.toLocaleString()}/mo
-                      </span>
+                      {unit.rent > 0 && (
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-terra-50 text-terra-700 text-xs font-semibold">
+                          ${unit.rent.toLocaleString()}/mo
+                        </span>
+                      )}
                       <span className="text-xs text-charcoal-600">
                         {unit.bedrooms}BR / {unit.bathrooms}BA
                       </span>
@@ -669,9 +772,11 @@ export function CraigslistTool() {
                       <span className="text-xs text-charcoal-500">
                         {unit.unit_type}
                       </span>
-                      <span className="text-xs text-charcoal-400">
-                        Avail: {formatDate(unit.available_date)}
-                      </span>
+                      {unit.available_date && (
+                        <span className="text-xs text-charcoal-400">
+                          Avail: {formatDate(unit.available_date)}
+                        </span>
+                      )}
                     </div>
 
                     {/* Amenities preview */}
@@ -693,36 +798,52 @@ export function CraigslistTool() {
                       </div>
                     )}
 
-                    {/* Rently controls */}
-                    <div className="flex items-center gap-3 mt-3 pt-3 border-t border-charcoal-100">
-                      <button
-                        type="button"
-                        onClick={() => toggleRently(unit.appfolio_unit_id)}
-                        className="flex items-center gap-1.5 text-xs text-charcoal-600 hover:text-charcoal-800 transition-colors"
-                      >
-                        {rentlyOn ? (
-                          <ToggleRight className="h-5 w-5 text-terra-600" />
-                        ) : (
-                          <ToggleLeft className="h-5 w-5 text-charcoal-400" />
-                        )}
-                        Rently tours available
-                      </button>
+                    {/* Rently controls — only for units you can actually post */}
+                    {isReady && (
+                      <div className="flex items-center gap-3 mt-3 pt-3 border-t border-charcoal-100">
+                        <button
+                          type="button"
+                          onClick={() => toggleRently(unit.appfolio_unit_id)}
+                          className="flex items-center gap-1.5 text-xs text-charcoal-600 hover:text-charcoal-800 transition-colors"
+                        >
+                          {rentlyOn ? (
+                            <ToggleRight className="h-5 w-5 text-terra-600" />
+                          ) : (
+                            <ToggleLeft className="h-5 w-5 text-charcoal-400" />
+                          )}
+                          Rently tours available
+                        </button>
 
-                      {rentlyOn && (
-                        <Input
-                          value={rentlyUrls[unit.appfolio_unit_id] || ""}
-                          onChange={(e) =>
-                            setRentlyUrl(unit.appfolio_unit_id, e.target.value)
-                          }
-                          placeholder="https://rently.com/..."
-                          className="flex-1 h-8 text-xs bg-white/70"
-                        />
-                      )}
-                    </div>
+                        {rentlyOn && (
+                          <Input
+                            value={rentlyUrls[unit.appfolio_unit_id] || ""}
+                            onChange={(e) =>
+                              setRentlyUrl(unit.appfolio_unit_id, e.target.value)
+                            }
+                            placeholder="https://rently.com/..."
+                            className="flex-1 h-8 text-xs bg-white/70"
+                          />
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Subtle sync button — always available when data is loaded */}
+        {fetched && !loading && !showSyncFallback && (
+          <div className="mt-4 flex justify-center">
+            <button
+              type="button"
+              onClick={fetchVacancies}
+              className="text-2xs text-charcoal-400 hover:text-charcoal-600 transition-colors flex items-center gap-1"
+            >
+              <RefreshCw className="h-3 w-3" />
+              Re-sync from AppFolio
+            </button>
           </div>
         )}
       </div>
