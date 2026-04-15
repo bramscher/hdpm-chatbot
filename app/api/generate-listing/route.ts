@@ -96,66 +96,70 @@ function parseDescription(raw: string): { intro: string; bullets: string[]; agre
 /**
  * Format the human-written marketing description from AppFolio into
  * Craigslist-compatible HTML with HDPM branding and standard blocks.
- *
- * Craigslist's description sanitizer strips <table>, <div>, <span>, <hr>,
- * <h1>-<h6>, class=, and style= attributes entirely — anything with those
- * ends up as literal text in the post. We only use tags on the allowlist:
- *   <p> <br> <b> <i> <em> <strong> <u> <ul> <ol> <li> <a> <small> <blockquote>
+ * All copy is verbatim from AppFolio — only HTML structure is added.
  */
 function formatListing(unit: UnitInput, rentlyEnabled: boolean, rentlyUrl: string): string {
   const rentlyBlock = rentlyEnabled
     ? `
-<p><b>Tour On Your Schedule</b><br>
-No office visit or key pickup required. Self-guided tours available <b>7 days a week</b> including evenings and weekends.<br>
-<a href="${rentlyUrl}">Schedule Your Rently Tour</a></p>
+<hr>
+<h2 style="text-align:center; color:#2c4a29;">🔑 Tour On Your Schedule</h2>
+<p style="text-align:center;">No office visit or key pickup required.<br>Self-guided tours available <b>7 days a week</b> including evenings and weekends.</p>
+<p style="text-align:center;"><a href="${rentlyUrl}">Schedule Your Rently Tour →</a></p>
 `
     : '';
 
   const { intro, bullets, agreementType } = parseDescription(unit.marketing_description);
 
+  // Build the "About This Home" section from intro paragraph(s)
   const introHtml = intro
-    ? `<p><b>About This Home</b></p>
+    ? `<h2 style="color:#2c4a29;">About This Home</h2>
 <p>${intro.replace(/\n/g, '<br>')}</p>`
     : '';
 
+  // Build the "Features & Amenities" bullet list
   const bulletsHtml = bullets.length > 0
-    ? `<p><b>Features &amp; Amenities</b></p>
+    ? `<h2 style="color:#2c4a29;">Features &amp; Amenities</h2>
 <ul>
 ${bullets.map((b) => `<li>${b}</li>`).join('\n')}
 </ul>`
     : '';
 
-  // Stats line — inline pipe-separated format since tables aren't allowed.
-  const statsParts = [
-    `<b>Rent:</b> $${unit.rent.toLocaleString()}/mo`,
-    `<b>Beds:</b> ${unit.bedrooms}`,
-    `<b>Baths:</b> ${unit.bathrooms}`,
-    unit.sqft ? `<b>Sq Ft:</b> ${unit.sqft.toLocaleString()}` : null,
-    `<b>Available:</b> ${unit.available_date || 'Contact us'}`,
-  ].filter(Boolean);
+  return `<table style="width:100%; border:1px solid #ddd; border-collapse:collapse;">
+<tr>
+<td style="padding:8px; text-align:center; border:1px solid #ddd;"><b>Rent</b><br>$${unit.rent.toLocaleString()}/mo</td>
+<td style="padding:8px; text-align:center; border:1px solid #ddd;"><b>Beds</b><br>${unit.bedrooms}</td>
+<td style="padding:8px; text-align:center; border:1px solid #ddd;"><b>Baths</b><br>${unit.bathrooms}</td>
+${unit.sqft ? `<td style="padding:8px; text-align:center; border:1px solid #ddd;"><b>Sq Ft</b><br>${unit.sqft.toLocaleString()}</td>` : ''}
+<td style="padding:8px; text-align:center; border:1px solid #ddd;"><b>Available</b><br>${unit.available_date || 'Contact us'}</td>
+</tr>
+</table>
 
-  return `<p>${statsParts.join(' &nbsp;|&nbsp; ')}</p>
+${introHtml ? `<hr>\n${introHtml}\n` : ''}
+${bulletsHtml ? `<hr>\n${bulletsHtml}\n` : ''}
+<hr>
+<h2 style="text-align:center; color:#2c4a29;">Ready to Make This Home Yours?</h2>
+<p style="text-align:center; font-size:18px; padding:12px; border:2px solid #2c4a29; background-color:#f0f7ef;"><a href="https://www.rentzap.com/apply/${unit.appfolio_unit_id}" style="color:#2c4a29;"><b>✅ Apply Online Now →</b></a></p>
 
-${introHtml}
-
-${bulletsHtml}
-
-<p><b>Ready to Make This Home Yours?</b><br>
-<a href="https://www.rentzap.com/apply/${unit.appfolio_unit_id}"><b>Apply Online Now</b></a></p>
-
-<p><b>Questions? We're Available 24/7</b><br>
-Our AI leasing agent Leesa is ready to help any time — no office hours, no waiting.<br>
+<hr>
+<h2 style="text-align:center; color:#2c4a29;">📞 Questions? We're Available 24/7</h2>
+<p style="text-align:center;">Our AI leasing agent Leesa is ready to help any time — no office hours, no waiting.</p>
+<p style="text-align:center;">
 <b>Call or text:</b> ${AI_LEASING_PHONE}<br>
-<b>Chat online:</b> <a href="https://www.highdesertpm.com">www.highdesertpm.com</a></p>
+<b>Chat online:</b> <a href="https://www.highdesertpm.com">www.highdesertpm.com</a>
+</p>
 ${rentlyBlock}
-<p><small>${agreementType}<br>
+<hr>
+<p style="text-align:center; font-size:12px; color:#888;">
+${agreementType}<br><br>
 Availability date is approximate, in case of unforeseen circumstances.<br>
-Security deposit listed is the base amount. Deposits are adjusted, if necessary, depending on your application screening.<br>
-All information is deemed accurate and reliable but should be independently verified.</small></p>
-
-<p><small><b>High Desert Property Management</b><br>
-1515 SW Reindeer Ave &middot; Redmond, Oregon 97756<br>
-<a href="https://www.highdesertpm.com">www.highdesertpm.com</a></small></p>`;
+Security deposit listed is the base amount. Deposits are adjusted, if necessary, depending on your application screening.<br><br>
+All information is deemed accurate and reliable but should be independently verified.
+</p>
+<p style="text-align:center; font-size:12px; color:#888;">
+<b>High Desert Property Management</b><br>
+1515 SW Reindeer Ave · Redmond, Oregon 97756<br>
+<a href="https://www.highdesertpm.com">www.highdesertpm.com</a>
+</p>`;
 }
 
 export async function POST(req: NextRequest) {

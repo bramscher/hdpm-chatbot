@@ -383,23 +383,27 @@ export function CraigslistTool() {
 
   const handlePhotoDragStart = useCallback(
     (e: React.DragEvent, photoId: string, index: number) => {
+      const photo = photos.find((p) => p.id === photoId);
       const blob = photoBlobs[photoId];
-      if (!blob) return;
+      if (!photo || !blob) return;
 
       const fileName = `photo-${String(index + 1).padStart(2, "0")}.jpg`;
       const mimeType = blob.type || "image/jpeg";
       const file = new File([blob], fileName, { type: mimeType });
       e.dataTransfer.items.add(file);
-      // Chrome/Edge: DownloadURL lets us drag the file OUT to another browser
-      // window or native app as if it were a file download. Safari ignores it.
-      const blobUrl = URL.createObjectURL(blob);
+
+      // Chrome/Edge DownloadURL lets us drag files OUT of the browser to the
+      // desktop (or Finder, or any native app). Using the proxy-image endpoint
+      // — a real HTTPS URL — is more reliable than blob: URLs, which Chrome
+      // sometimes fails to fetch mid-drag. Safari ignores DownloadURL entirely.
+      const proxyUrl = `${window.location.origin}/api/proxy-image?url=${encodeURIComponent(photo.url)}`;
       e.dataTransfer.setData(
         "DownloadURL",
-        `${mimeType}:${fileName}:${blobUrl}`
+        `${mimeType}:${fileName}:${proxyUrl}`
       );
       e.dataTransfer.effectAllowed = "copy";
     },
-    [photoBlobs]
+    [photos, photoBlobs]
   );
 
   const handleDragAllStart = useCallback(
@@ -415,16 +419,18 @@ export function CraigslistTool() {
         const file = new File([blob], fileName, { type: blob.type || "image/jpeg" });
         e.dataTransfer.items.add(file);
       }
-      // DownloadURL only supports a single file, so for "drag all" we use the
-      // first photo as the representative — Chrome will still deliver it as a
-      // real file drop to another browser window.
-      const firstBlob = photosToUse[0] && photoBlobs[photosToUse[0].id];
-      if (firstBlob) {
+
+      // DownloadURL only supports a single file, so for the "drag all" handle
+      // we use the first photo as the representative for browser→desktop drags.
+      // Users who want all photos should use the ZIP download instead.
+      const firstPhoto = photosToUse[0];
+      const firstBlob = firstPhoto && photoBlobs[firstPhoto.id];
+      if (firstPhoto && firstBlob) {
         const mimeType = firstBlob.type || "image/jpeg";
-        const blobUrl = URL.createObjectURL(firstBlob);
+        const proxyUrl = `${window.location.origin}/api/proxy-image?url=${encodeURIComponent(firstPhoto.url)}`;
         e.dataTransfer.setData(
           "DownloadURL",
-          `${mimeType}:photo-01.jpg:${blobUrl}`
+          `${mimeType}:photo-01.jpg:${proxyUrl}`
         );
       }
       e.dataTransfer.effectAllowed = "copy";
