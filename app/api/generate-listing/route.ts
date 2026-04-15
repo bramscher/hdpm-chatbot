@@ -96,70 +96,71 @@ function parseDescription(raw: string): { intro: string; bullets: string[]; agre
 /**
  * Format the human-written marketing description from AppFolio into
  * Craigslist-compatible HTML with HDPM branding and standard blocks.
- * All copy is verbatim from AppFolio — only HTML structure is added.
+ *
+ * Craigslist's posting sanitizer strips tables, divs, spans, hr, img, and
+ * every style= / class= attribute — anything outside the allowlist is gone.
+ * Allowlist we actually use: h2, p, b, i, u, br, ul, ol, li, a, small,
+ * blockquote. h2 renders as visually distinct bold, blockquote gives an
+ * indented stats block, and ul bullets render cleanly.
  */
 function formatListing(unit: UnitInput, rentlyEnabled: boolean, rentlyUrl: string): string {
   const rentlyBlock = rentlyEnabled
     ? `
-<hr>
-<h2 style="text-align:center; color:#2c4a29;">🔑 Tour On Your Schedule</h2>
-<p style="text-align:center;">No office visit or key pickup required.<br>Self-guided tours available <b>7 days a week</b> including evenings and weekends.</p>
-<p style="text-align:center;"><a href="${rentlyUrl}">Schedule Your Rently Tour →</a></p>
+<h2>Tour On Your Schedule</h2>
+<p>No office visit or key pickup required. Self-guided tours available <b>7 days a week</b> including evenings and weekends.</p>
+<p><b><a href="${rentlyUrl}">Schedule Your Rently Tour</a></b></p>
 `
     : '';
 
   const { intro, bullets, agreementType } = parseDescription(unit.marketing_description);
 
-  // Build the "About This Home" section from intro paragraph(s)
   const introHtml = intro
-    ? `<h2 style="color:#2c4a29;">About This Home</h2>
+    ? `<h2>About This Home</h2>
 <p>${intro.replace(/\n/g, '<br>')}</p>`
     : '';
 
-  // Build the "Features & Amenities" bullet list
   const bulletsHtml = bullets.length > 0
-    ? `<h2 style="color:#2c4a29;">Features &amp; Amenities</h2>
+    ? `<h2>Features &amp; Amenities</h2>
 <ul>
 ${bullets.map((b) => `<li>${b}</li>`).join('\n')}
 </ul>`
     : '';
 
-  return `<table style="width:100%; border:1px solid #ddd; border-collapse:collapse;">
-<tr>
-<td style="padding:8px; text-align:center; border:1px solid #ddd;"><b>Rent</b><br>$${unit.rent.toLocaleString()}/mo</td>
-<td style="padding:8px; text-align:center; border:1px solid #ddd;"><b>Beds</b><br>${unit.bedrooms}</td>
-<td style="padding:8px; text-align:center; border:1px solid #ddd;"><b>Baths</b><br>${unit.bathrooms}</td>
-${unit.sqft ? `<td style="padding:8px; text-align:center; border:1px solid #ddd;"><b>Sq Ft</b><br>${unit.sqft.toLocaleString()}</td>` : ''}
-<td style="padding:8px; text-align:center; border:1px solid #ddd;"><b>Available</b><br>${unit.available_date || 'Contact us'}</td>
-</tr>
-</table>
+  // Stats block as an indented blockquote — survives the sanitizer and gives
+  // a clean visual offset since we can't use tables.
+  const statsLines = [
+    `<b>Rent:</b> $${unit.rent.toLocaleString()}/mo`,
+    `<b>Bedrooms:</b> ${unit.bedrooms}`,
+    `<b>Bathrooms:</b> ${unit.bathrooms}`,
+    unit.sqft ? `<b>Square Feet:</b> ${unit.sqft.toLocaleString()}` : null,
+    `<b>Available:</b> ${unit.available_date || 'Contact us'}`,
+  ].filter(Boolean);
 
-${introHtml ? `<hr>\n${introHtml}\n` : ''}
-${bulletsHtml ? `<hr>\n${bulletsHtml}\n` : ''}
-<hr>
-<h2 style="text-align:center; color:#2c4a29;">Ready to Make This Home Yours?</h2>
-<p style="text-align:center; font-size:18px; padding:12px; border:2px solid #2c4a29; background-color:#f0f7ef;"><a href="https://www.rentzap.com/apply/${unit.appfolio_unit_id}" style="color:#2c4a29;"><b>✅ Apply Online Now →</b></a></p>
+  return `<h2>Quick Facts</h2>
+<blockquote>
+${statsLines.join('<br>\n')}
+</blockquote>
 
-<hr>
-<h2 style="text-align:center; color:#2c4a29;">📞 Questions? We're Available 24/7</h2>
-<p style="text-align:center;">Our AI leasing agent Leesa is ready to help any time — no office hours, no waiting.</p>
-<p style="text-align:center;">
-<b>Call or text:</b> ${AI_LEASING_PHONE}<br>
-<b>Chat online:</b> <a href="https://www.highdesertpm.com">www.highdesertpm.com</a>
-</p>
+${introHtml}
+
+${bulletsHtml}
+
+<h2>Ready to Make This Home Yours?</h2>
+<p><b><a href="https://www.rentzap.com/apply/${unit.appfolio_unit_id}">Apply Online Now</a></b></p>
+
+<h2>Questions? We're Available 24/7</h2>
+<p>Our AI leasing agent Leesa is ready to help any time — no office hours, no waiting.</p>
+<p><b>Call or text:</b> ${AI_LEASING_PHONE}<br>
+<b>Chat online:</b> <a href="https://www.highdesertpm.com">www.highdesertpm.com</a></p>
 ${rentlyBlock}
-<hr>
-<p style="text-align:center; font-size:12px; color:#888;">
-${agreementType}<br><br>
+<p><small>${agreementType}<br>
 Availability date is approximate, in case of unforeseen circumstances.<br>
-Security deposit listed is the base amount. Deposits are adjusted, if necessary, depending on your application screening.<br><br>
-All information is deemed accurate and reliable but should be independently verified.
-</p>
-<p style="text-align:center; font-size:12px; color:#888;">
-<b>High Desert Property Management</b><br>
-1515 SW Reindeer Ave · Redmond, Oregon 97756<br>
-<a href="https://www.highdesertpm.com">www.highdesertpm.com</a>
-</p>`;
+Security deposit listed is the base amount. Deposits are adjusted, if necessary, depending on your application screening.<br>
+All information is deemed accurate and reliable but should be independently verified.</small></p>
+
+<p><small><b>High Desert Property Management</b><br>
+1515 SW Reindeer Ave &middot; Redmond, Oregon 97756<br>
+<a href="https://www.highdesertpm.com">www.highdesertpm.com</a></small></p>`;
 }
 
 export async function POST(req: NextRequest) {
