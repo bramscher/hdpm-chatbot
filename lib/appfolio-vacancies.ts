@@ -172,18 +172,49 @@ export async function fetchVacantUnits(): Promise<VacantUnit[]> {
     if (pageNumber > 50) break;
   }
 
+  // Fetch tenants to find "on notice" units — in AppFolio's v0 API, Status="notice"
+  // lives on the tenant record, not the unit. These units are still technically
+  // occupied but AppFolio is already syndicating them to Zillow/Zumper/Trulia,
+  // so they're the ones we want to post to Craigslist too.
+  const allTenants: V0Tenant[] = [];
+  pageNumber = 1;
+  while (true) {
+    const res = await v0Fetch<V0Tenant>(
+      '/tenants',
+      {
+        'filters[LastUpdatedAtFrom]': '2000-01-01T00:00:00Z',
+        'page[number]': String(pageNumber),
+        'page[size]': '1000',
+      },
+      auth,
+      developerId
+    );
+    allTenants.push(...(res.data || []));
+    if ((res.data || []).length < 1000 || !res.next_page_path) break;
+    pageNumber++;
+    if (pageNumber > 10) break;
+  }
+
+  // Map of unitId -> earliest upcoming move-out date for tenants currently on notice
+  const noticeUnitMoveOut = new Map<string, string>();
+  for (const t of allTenants) {
+    if (t.HiddenAt) continue;
+    if ((t.Status || '').toLowerCase() !== 'notice') continue;
+    if (!t.UnitId || !t.MoveOutOn) continue;
+    const existing = noticeUnitMoveOut.get(t.UnitId);
+    if (!existing || t.MoveOutOn < existing) {
+      noticeUnitMoveOut.set(t.UnitId, t.MoveOutOn);
+    }
+  }
+
   // Filter to vacant/available units
   const vacantUnits: VacantUnit[] = [];
 
   for (const unit of allUnits) {
     const status = (unit.Status || '').toLowerCase();
-    // Include "notice" units — tenant has given notice, AppFolio is already
-    // syndicating them to Zillow/Zumper/Trulia, so they're what we want on Craigslist.
-    const isMarketable =
-      status.includes('vacant') ||
-      status.includes('available') ||
-      status.includes('notice');
-    if (!isMarketable) continue;
+    const isVacant = status.includes('vacant') || status.includes('available');
+    const isOnNotice = noticeUnitMoveOut.has(unit.Id);
+    if (!isVacant && !isOnNotice) continue;
 
     // Only include units AppFolio is actively marketing. RentReady=false means
     // the unit isn't pushed to the syndication feed, so no point in Craigslist.
@@ -214,7 +245,7 @@ export async function fetchVacantUnits(): Promise<VacantUnit[]> {
       bathrooms: parseNumber(unit.Bathrooms),
       rent,
       sqft: Math.round(parseNumber(unit.SquareFeet)),
-      available_date: unit.AvailableOn || '',
+      available_date: unit.AvailableOn || noticeUnitMoveOut.get(unit.Id) || '',
       unit_type: mapUnitType(property?.PropertyType || ''),
       amenities: unit.AppliancesIncluded || [],
       marketing_description: unit.MarketingDescription || '',
