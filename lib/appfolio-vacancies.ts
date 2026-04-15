@@ -229,7 +229,7 @@ export async function fetchVacantUnits(): Promise<VacantUnit[]> {
     const unitSuffix = unit.Name && unit.Name !== address ? ` ${unit.Name}` : '';
     const fullAddress = `${address}${unitSuffix}`.trim();
 
-    const rent = parseNumber(unit.ListedRent) || parseNumber(unit.MarketRent);
+    const rent = Math.round(parseNumber(unit.ListedRent) || parseNumber(unit.MarketRent));
 
     const status = (unit.Status || '').toLowerCase();
     const isVacant = status.includes('vacant') || status.includes('available');
