@@ -33,6 +33,14 @@ interface V0Property {
   HiddenAt?: string | null;
 }
 
+interface V0Tenant {
+  Id: string;
+  UnitId?: string;
+  Status?: string;
+  MoveOutOn?: string;
+  HiddenAt?: string | null;
+}
+
 interface V0ListResponse<T> {
   data: T[];
   next_page_path?: string | null;
@@ -169,8 +177,17 @@ export async function fetchVacantUnits(): Promise<VacantUnit[]> {
 
   for (const unit of allUnits) {
     const status = (unit.Status || '').toLowerCase();
-    const isVacant = status.includes('vacant') || status.includes('available');
-    if (!isVacant) continue;
+    // Include "notice" units — tenant has given notice, AppFolio is already
+    // syndicating them to Zillow/Zumper/Trulia, so they're what we want on Craigslist.
+    const isMarketable =
+      status.includes('vacant') ||
+      status.includes('available') ||
+      status.includes('notice');
+    if (!isMarketable) continue;
+
+    // Only include units AppFolio is actively marketing. RentReady=false means
+    // the unit isn't pushed to the syndication feed, so no point in Craigslist.
+    if (unit.RentReady === false) continue;
 
     const property = unit.PropertyId ? propertyMap.get(unit.PropertyId) : null;
 
