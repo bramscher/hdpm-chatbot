@@ -387,8 +387,16 @@ export function CraigslistTool() {
       if (!blob) return;
 
       const fileName = `photo-${String(index + 1).padStart(2, "0")}.jpg`;
-      const file = new File([blob], fileName, { type: blob.type || "image/jpeg" });
+      const mimeType = blob.type || "image/jpeg";
+      const file = new File([blob], fileName, { type: mimeType });
       e.dataTransfer.items.add(file);
+      // Chrome/Edge: DownloadURL lets us drag the file OUT to another browser
+      // window or native app as if it were a file download. Safari ignores it.
+      const blobUrl = URL.createObjectURL(blob);
+      e.dataTransfer.setData(
+        "DownloadURL",
+        `${mimeType}:${fileName}:${blobUrl}`
+      );
       e.dataTransfer.effectAllowed = "copy";
     },
     [photoBlobs]
@@ -406,6 +414,18 @@ export function CraigslistTool() {
         const fileName = `photo-${String(i + 1).padStart(2, "0")}.jpg`;
         const file = new File([blob], fileName, { type: blob.type || "image/jpeg" });
         e.dataTransfer.items.add(file);
+      }
+      // DownloadURL only supports a single file, so for "drag all" we use the
+      // first photo as the representative — Chrome will still deliver it as a
+      // real file drop to another browser window.
+      const firstBlob = photosToUse[0] && photoBlobs[photosToUse[0].id];
+      if (firstBlob) {
+        const mimeType = firstBlob.type || "image/jpeg";
+        const blobUrl = URL.createObjectURL(firstBlob);
+        e.dataTransfer.setData(
+          "DownloadURL",
+          `${mimeType}:photo-01.jpg:${blobUrl}`
+        );
       }
       e.dataTransfer.effectAllowed = "copy";
     },
