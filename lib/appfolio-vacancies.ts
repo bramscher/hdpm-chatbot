@@ -9,6 +9,7 @@ interface V0Unit {
   ListedRent?: number | string;
   MarketRent?: number | string;
   RentReady?: boolean;
+  PostedToWebsite?: boolean;
   AvailableOn?: string;
   MarketingDescription?: string;
   AppliancesIncluded?: string[];
@@ -235,22 +236,19 @@ export async function fetchVacantUnits(): Promise<VacantUnit[]> {
     const isVacant = status.includes('vacant') || status.includes('available');
     const isOnNotice = noticeUnitMoveOut.has(unit.Id);
 
-    // Classify readiness by AppFolio's own marketing signal: if a unit is
-    // RentReady and has a rent set, AppFolio is pushing it to the syndication
-    // feed (Zillow/Zumper/Trulia) — that's what "marketed elsewhere" means.
-    // The unit.Status field is unreliable for occupancy (often stays "Occupied"
-    // through the notice period), so we don't require it.
+    // Classify readiness by AppFolio's vacancy listing "Website: Posted" flag.
+    // When a property manager posts a vacancy to the website in AppFolio,
+    // PostedToWebsite becomes true — that's the authoritative signal that
+    // this unit is actively marketed and ready for Craigslist posting.
     let readyForPosting = false;
     let statusReason = '';
-    if (unit.RentReady === false) {
-      statusReason = 'Not rent-ready';
-    } else if (!rent || rent <= 0) {
-      statusReason = 'No rent set';
+    if (unit.PostedToWebsite !== true) {
+      statusReason = 'Not posted to website';
     } else {
       readyForPosting = true;
       if (isOnNotice) statusReason = 'On notice';
       else if (isVacant) statusReason = 'Vacant';
-      else statusReason = 'Rent-ready';
+      else statusReason = 'Posted';
     }
 
     units.push({

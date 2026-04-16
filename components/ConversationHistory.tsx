@@ -55,11 +55,7 @@ function formatDate(dateString: string): string {
   } else if (days < 7) {
     return date.toLocaleDateString('en-US', { weekday: 'short' });
   } else {
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
-    });
+    return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
   }
 }
 

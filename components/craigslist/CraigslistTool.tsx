@@ -473,11 +473,8 @@ export function CraigslistTool() {
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "Contact for date";
     try {
-      return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
+      const d = new Date(dateStr + "T00:00:00");
+      return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
     } catch {
       return dateStr;
     }
@@ -485,12 +482,8 @@ export function CraigslistTool() {
 
   const formatTimestamp = (ts: string) => {
     try {
-      return new Date(ts).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-      });
+      const d = new Date(ts);
+      return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()} ${d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
     } catch {
       return ts;
     }
@@ -773,7 +766,7 @@ export function CraigslistTool() {
                         disabled={!isReady}
                         size="sm"
                         className="bg-terra-600 hover:bg-terra-700 text-white flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
-                        title={isReady ? undefined : "Unit is not marked ready in AppFolio"}
+                        title={isReady ? undefined : "Unit is not posted to website in AppFolio"}
                       >
                         <Sparkles className="h-3.5 w-3.5 mr-1.5" />
                         Format for HDPM Craigslist

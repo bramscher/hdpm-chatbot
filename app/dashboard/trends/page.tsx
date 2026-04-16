@@ -85,7 +85,7 @@ const LABEL_STYLE = { fontWeight: 600, color: "#111827" };
 
 function formatDate(dateStr: string) {
   const d = new Date(dateStr + "T12:00:00");
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
 }
 
 /** Detect whether data spans multiple calendar years */
@@ -99,8 +99,8 @@ function isMultiYear(data: TrendPoint[]): boolean {
 /** Format tick: include 'YY when data spans multiple years */
 function tickFormat(dateStr: string, multiYear: boolean) {
   const d = new Date(dateStr + "T12:00:00");
-  const base = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  if (multiYear) return `${base} '${String(d.getFullYear()).slice(2)}`;
+  const base = `${d.getMonth() + 1}/${d.getDate()}`;
+  if (multiYear) return `${base}/${d.getFullYear()}`;
   return base;
 }
 
@@ -132,7 +132,7 @@ const YEAR_LABEL_STYLE = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function tooltipLabel(label: any) {
   const d = new Date(String(label) + "T12:00:00");
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
 }
 
 // ============================================
@@ -808,7 +808,7 @@ function computeTargetDate(data: TrendPoint[]): string {
   const targetDate = new Date();
   targetDate.setMonth(targetDate.getMonth() + monthsToGoal);
 
-  return `On track to reach 1,500 doors by ${targetDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}. Adjust the growth rate assumption if acquisition pace changes.`;
+  return `On track to reach 1,500 doors by ${targetDate.getMonth() + 1}/${targetDate.getFullYear()}. Adjust the growth rate assumption if acquisition pace changes.`;
 }
 
 function NetDoorsChart({ data }: { data: TrendPoint[] }) {

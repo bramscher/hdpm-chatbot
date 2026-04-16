@@ -81,12 +81,8 @@ function fmt(amount: number): string {
 
 function fmtDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "—";
-  const date = new Date(dateStr + "T00:00:00");
-  return date.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  const d = new Date(dateStr + "T00:00:00");
+  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
 }
 
 // ============================================

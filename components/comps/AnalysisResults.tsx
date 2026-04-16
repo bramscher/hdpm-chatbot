@@ -99,11 +99,7 @@ function CompRow({ comp, index }: { comp: RentalComp; index: number }) {
       </td>
       <td className="px-3 py-2 text-xs text-charcoal-400 whitespace-nowrap">
         {comp.comp_date
-          ? new Date(comp.comp_date + "T00:00:00").toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              year: "2-digit",
-            })
+          ? (() => { const d = new Date(comp.comp_date + "T00:00:00"); return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`; })()
           : "--"}
       </td>
     </tr>

@@ -28,7 +28,7 @@ const COLUMNS: { key: CompsSortField; label: string; className?: string }[] = [
 function formatDate(dateStr: string): string {
   if (!dateStr) return "—";
   const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
+  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
 }
 
 export function CompsTable({ comps, loading, onDelete }: CompsTableProps) {
