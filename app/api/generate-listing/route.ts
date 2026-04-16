@@ -109,6 +109,7 @@ function formatListing(unit: UnitInput, rentlyEnabled: boolean, rentlyUrl: strin
 <h2>Tour On Your Schedule</h2>
 <p>No office visit or key pickup required. Self-guided tours available <b>7 days a week</b> including evenings and weekends.</p>
 <p><b><a href="${rentlyUrl}">Schedule Your Rently Tour</a></b></p>
+<p>${rentlyUrl}</p>
 `
     : '';
 
@@ -147,11 +148,13 @@ ${bulletsHtml}
 
 <h2>Ready to Make This Home Yours?</h2>
 <p><b><a href="https://www.rentzap.com/apply/${unit.appfolio_unit_id}">Apply Online Now</a></b></p>
+<p>https://www.rentzap.com/apply/${unit.appfolio_unit_id}</p>
 
 <h2>Questions? We're Available 24/7</h2>
 <p>Our AI leasing agent Leesa is ready to help any time — no office hours, no waiting.</p>
-<p><b>Call or text:</b> ${AI_LEASING_PHONE}<br>
-<b>Chat online:</b> <a href="https://www.highdesertpm.com">www.highdesertpm.com</a></p>
+<p><b>Call or text Leesa:</b> ${AI_LEASING_PHONE}</p>
+<p><b>Visit Website:</b> <a href="https://www.highdesertpm.com">www.highdesertpm.com</a></p>
+<p>https://www.highdesertpm.com</p>
 ${rentlyBlock}
 <p><small>${agreementType}<br>
 Availability date is approximate, in case of unforeseen circumstances.<br>

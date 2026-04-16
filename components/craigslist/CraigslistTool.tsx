@@ -983,6 +983,19 @@ export function CraigslistTool() {
             </div>
           </div>
 
+          {/* ── Craigslist posting reminder ── */}
+          <div className="glass rounded-xl px-5 py-3.5">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-xs font-semibold text-charcoal-700">Craigslist Posting Reminder</p>
+                <p className="text-xs text-charcoal-500 mt-1">
+                  To enable the <b>&quot;call now&quot;</b> button on your listing, enter Leesa&apos;s number <b>(541) 406-6409</b> in the <b>phone</b> field on the Craigslist posting form and check <b>&quot;show my phone number&quot;</b>, <b>&quot;calls ok&quot;</b>, and <b>&quot;text ok&quot;</b>.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* ── Photos for Craigslist upload ── */}
           <div className="glass rounded-xl overflow-hidden">
             <button

@@ -128,74 +128,43 @@ export async function fetchVacantUnits(): Promise<VacantUnit[]> {
   }
 
   const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+  const devId = developerId;
 
-  // Fetch all properties (paginated)
-  const allProperties: V0Property[] = [];
-  let pageNumber = 1;
-  while (true) {
-    const res = await v0Fetch<V0Property>(
-      '/properties',
-      {
-        'filters[LastUpdatedAtFrom]': '1970-01-01T00:00:00Z',
-        'page[number]': String(pageNumber),
-        'page[size]': '1000',
-      },
-      auth,
-      developerId
-    );
-    allProperties.push(...(res.data || []));
-    if ((res.data || []).length < 1000 || !res.next_page_path) break;
-    pageNumber++;
-    if (pageNumber > 10) break;
+  // Helper: paginate through an AppFolio v0 endpoint
+  async function fetchAll<T>(
+    path: string,
+    filters: Record<string, string>,
+    pageSize: number,
+    maxPages: number
+  ): Promise<T[]> {
+    const all: T[] = [];
+    let page = 1;
+    while (true) {
+      const res = await v0Fetch<T>(
+        path,
+        { ...filters, 'page[number]': String(page), 'page[size]': String(pageSize) },
+        auth,
+        devId
+      );
+      all.push(...(res.data || []));
+      if ((res.data || []).length < pageSize || !res.next_page_path) break;
+      page++;
+      if (page > maxPages) break;
+    }
+    return all;
   }
+
+  // Fetch properties, units, and tenants in parallel
+  const [allProperties, allUnits, allTenants] = await Promise.all([
+    fetchAll<V0Property>('/properties', { 'filters[LastUpdatedAtFrom]': '1970-01-01T00:00:00Z' }, 1000, 10),
+    fetchAll<V0Unit>('/units', { 'filters[LastUpdatedAtFrom]': '2000-01-01T00:00:00Z' }, 1000, 10),
+    fetchAll<V0Tenant>('/tenants', { 'filters[LastUpdatedAtFrom]': '2000-01-01T00:00:00Z' }, 1000, 10),
+  ]);
 
   // Build property lookup map (exclude hidden)
   const propertyMap = new Map<string, V0Property>();
   for (const p of allProperties) {
     if (!p.HiddenAt) propertyMap.set(p.Id, p);
-  }
-
-  // Fetch all units (paginated)
-  const allUnits: V0Unit[] = [];
-  pageNumber = 1;
-  while (true) {
-    const res = await v0Fetch<V0Unit>(
-      '/units',
-      {
-        'filters[LastUpdatedAtFrom]': '2000-01-01T00:00:00Z',
-        'page[number]': String(pageNumber),
-        'page[size]': '200',
-      },
-      auth,
-      developerId
-    );
-    allUnits.push(...(res.data || []));
-    if ((res.data || []).length < 200 || !res.next_page_path) break;
-    pageNumber++;
-    if (pageNumber > 50) break;
-  }
-
-  // Fetch tenants to find "on notice" units — in AppFolio's v0 API, Status="notice"
-  // lives on the tenant record, not the unit. These units are still technically
-  // occupied but AppFolio is already syndicating them to Zillow/Zumper/Trulia,
-  // so they're the ones we want to post to Craigslist too.
-  const allTenants: V0Tenant[] = [];
-  pageNumber = 1;
-  while (true) {
-    const res = await v0Fetch<V0Tenant>(
-      '/tenants',
-      {
-        'filters[LastUpdatedAtFrom]': '2000-01-01T00:00:00Z',
-        'page[number]': String(pageNumber),
-        'page[size]': '1000',
-      },
-      auth,
-      developerId
-    );
-    allTenants.push(...(res.data || []));
-    if ((res.data || []).length < 1000 || !res.next_page_path) break;
-    pageNumber++;
-    if (pageNumber > 10) break;
   }
 
   // Map of unitId -> earliest upcoming move-out date for tenants currently on notice
