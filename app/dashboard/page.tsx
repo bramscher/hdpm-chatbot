@@ -356,7 +356,7 @@ const KPI_CARDS: KpiCardConfig[] = [
     iconColor: "text-orange-600",
     sparkColor: "#ea580c",
     sparkFill: "#fed7aa",
-    dataTag: "estimated",
+    dataTag: "live",
     formatPrimary: (d) => `${(d as MaintenanceCostData).rate}%`,
     formatSecondary: (d) => {
       const data = d as MaintenanceCostData;
@@ -386,7 +386,7 @@ const KPI_CARDS: KpiCardConfig[] = [
     iconColor: "text-cyan-600",
     sparkColor: "#0891b2",
     sparkFill: "#a5f3fc",
-    dataTag: "mock",
+    dataTag: "live",
     formatPrimary: (d) => `${(d as DaysToLeaseData).avgDays} days`,
     formatSecondary: (d) => {
       const data = d as DaysToLeaseData;
@@ -935,9 +935,10 @@ export default function DashboardPage() {
             <AlertCircle className="w-4 h-4 text-charcoal-300 mt-0.5 flex-shrink-0" />
             <div className="text-xs text-charcoal-400 leading-relaxed">
               <strong className="text-charcoal-500">Data sources:</strong>{" "}
-              Delinquency, Vacancy, Work Orders, Notices, and Net Doors pull live from AppFolio v0 API.
-              Insurance, Owner Retention, Maintenance Cost, Days to Lease, and Lease Renewal show
-              placeholder data pending API integration.
+              All tiles pull live from AppFolio v0 except Insurance Compliance, which shows
+              placeholder data — AppFolio does not expose renter&apos;s insurance status, so this
+              KPI is pending an out-of-band tracking source. Leasing Funnel response time is also
+              unavailable from AppFolio and renders &ldquo;data pending&rdquo;; funnel stages themselves are live.
               Sparklines and trend charts populate as daily snapshots accumulate.
             </div>
           </div>

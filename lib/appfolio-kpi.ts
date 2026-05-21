@@ -21,6 +21,8 @@
  *   /showings            — 0 results currently, time-to-contact unavailable
  */
 
+import { getSupabaseAdmin } from './supabase';
+
 const APPFOLIO_V0_BASE = 'https://api.appfolio.com/api/v0';
 
 // ============================================
@@ -178,11 +180,30 @@ interface V0RecurringCharge {
   LastUpdatedAt: string;
 }
 
+interface V0BillLineItem {
+  Id: string;
+  Amount: string;
+  Description?: string;
+  GlAccountId?: string;
+  PropertyId?: string;
+  UnitId?: string;
+}
+
 interface V0Bill {
   Id: string;
   TotalAmount: string;
   InvoiceDate: string;
   LastUpdatedAt: string;
+  LineItems?: V0BillLineItem[];
+}
+
+interface V0GlAccount {
+  Id: string;
+  Name?: string;
+  AccountName?: string;
+  Number?: string;
+  AccountType?: string;
+  LastUpdatedAt?: string;
 }
 
 interface V0WorkOrder {
@@ -198,7 +219,9 @@ interface V0Tenant {
   PropertyId?: string;
   UnitId?: string;
   Status?: string;
+  MoveInOn?: string;
   MoveOutOn?: string;
+  LeaseSignedDate?: string;
   HiddenAt?: string | null;
   LastUpdatedAt?: string;
 }
@@ -422,18 +445,32 @@ export interface InsuranceKpi {
 }
 
 /**
- * TODO: AppFolio v0 API does not expose renter's insurance status.
- * The /occupancies endpoint returns 404 in v0.
- * Returning mock data so the dashboard renders.
- * Replace with real API call if AppFolio adds insurance fields to /tenants or /leases.
+ * MOCK — renter's insurance status is not exposed by AppFolio v0.
+ *
+ * Probed 2026-05-20:
+ *   - /insurance_policies, /renter_insurance_policies, /renters_insurance,
+ *     /tenant_insurance, /occupancies all return 404.
+ *   - Tenant.OccupancyCustomFields is null across the whole portfolio
+ *     (0/824 current primary tenants).
+ *   - Property.CustomFields holds only "Annual Accounting Fee".
+ *   - Tenant.Tags includes sparse "RBP" / "RBP - Ins. Only" entries
+ *     (5 total), insufficient as a portfolio-wide compliance signal.
+ *   - AppFolio Insurance Services income GL accounts (00000000-13,
+ *     00000000-14) exist in the chart of accounts but have ZERO activity:
+ *     0 recurring_charges and 0 journal_entries reference them.
+ *     HDPM is not enrolled in AppFolio's renter insurance partner program,
+ *     so the "GL proxy" approach yields no usable signal.
+ *
+ * Real paths forward, when product is ready: Supabase-backed tracker
+ * (manual entry or CSV import of compliant tenants) + a small entry UI,
+ * or drop the tile. See scripts/probe-insurance.js and
+ * scripts/probe-insurance-gl.js for the investigation.
  */
 export async function fetchInsuranceKpi(): Promise<InsuranceKpi> {
   const config = getKpiConfig();
   if (!config) {
     return { rate: 0, compliantCount: 0, totalCount: 0 };
   }
-
-  // TODO: Replace with real endpoint when available
   return {
     rate: 78.5,
     compliantCount: 112,
@@ -500,8 +537,9 @@ export interface MaintenanceCostKpi {
 
 /**
  * Rent roll from /recurring_charges (active monthly charges).
- * Vendor spend from /bills (last 30 days total — includes all vendor bills,
- * not just maintenance. GL account filtering not available in v0).
+ * Vendor spend from /bills line items filtered to maintenance GL accounts:
+ * ExpenseGlAccount with account number starting "6" (6100 Maintenance/Repairs,
+ * 6200 Cleaning, 6300 Landscaping, 6400 Pest Control, 6500 Keys/Locks).
  */
 export async function fetchMaintenanceCostKpi(): Promise<MaintenanceCostKpi> {
   const config = getKpiConfig();
@@ -512,7 +550,7 @@ export async function fetchMaintenanceCostKpi(): Promise<MaintenanceCostKpi> {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const [recurringCharges, bills] = await Promise.all([
+  const [recurringCharges, bills, glAccounts] = await Promise.all([
     v0FetchAll<V0RecurringCharge>(
       '/recurring_charges',
       { 'filters[LastUpdatedAtFrom]': '2024-01-01T00:00:00Z' },
@@ -523,6 +561,7 @@ export async function fetchMaintenanceCostKpi(): Promise<MaintenanceCostKpi> {
       { 'filters[LastUpdatedAtFrom]': thirtyDaysAgo.toISOString() },
       config
     ),
+    v0FetchAll<V0GlAccount>('/gl_accounts', {}, config),
   ]);
 
   // Monthly rent roll: sum of active monthly recurring charges
@@ -535,12 +574,22 @@ export async function fetchMaintenanceCostKpi(): Promise<MaintenanceCostKpi> {
     (sum, c) => sum + parseFloat(c.Amount || '0'), 0
   );
 
-  // Vendor spend: all bills in last 30 days
-  // Note: includes all vendor bills, not just maintenance-specific.
-  // GL account endpoint returned 0 results so we can't filter by category.
-  const maintenanceDollars = bills.reduce(
-    (sum, b) => sum + parseFloat(b.TotalAmount || '0'), 0
+  // Maintenance GL accounts: 6xxx expense accounts (chart-of-accounts convention).
+  const maintenanceGlIds = new Set(
+    glAccounts
+      .filter((a) => a.AccountType === 'ExpenseGlAccount' && (a.Number || '').startsWith('6'))
+      .map((a) => a.Id)
   );
+
+  // Sum line-item amounts whose GlAccountId is in the maintenance set.
+  let maintenanceDollars = 0;
+  for (const bill of bills) {
+    for (const li of bill.LineItems || []) {
+      if (li.GlAccountId && maintenanceGlIds.has(li.GlAccountId)) {
+        maintenanceDollars += parseFloat(li.Amount || '0');
+      }
+    }
+  }
 
   const rate = grossRentDollars > 0
     ? Math.round((maintenanceDollars / grossRentDollars) * 1000) / 10
@@ -565,10 +614,12 @@ export interface DaysToLeaseKpi {
 }
 
 /**
- * TODO: Requires tracking unit status transitions (vacant → occupied)
- * over time. The v0 /units endpoint has Status and AvailableOn fields,
- * and /leases has SignedOn. Could compute by matching lease sign dates
- * against unit available dates. Returning mock data for now.
+ * Days from prior tenant's MoveOutOn → new tenant's lease sign date,
+ * averaged across tenants who signed in the last 90 days. Pulls 365 days
+ * of /tenants so we can find each new tenant's predecessor for the same UnitId.
+ *
+ * Units with no prior tenancy in the lookback window are skipped — we don't
+ * pull /units here for AvailableOn, so brand-new units aren't counted.
  */
 export async function fetchDaysToLeaseKpi(): Promise<DaysToLeaseKpi> {
   const config = getKpiConfig();
@@ -576,12 +627,60 @@ export async function fetchDaysToLeaseKpi(): Promise<DaysToLeaseKpi> {
     return { avgDays: 0, fastest: 0, slowest: 0, unitsLeased: 0 };
   }
 
-  // TODO: Replace with real computation from /units + /leases
+  const now = new Date();
+  const ninetyDaysAgo = new Date(now);
+  ninetyDaysAgo.setDate(now.getDate() - 90);
+  const yearAgo = new Date(now);
+  yearAgo.setDate(now.getDate() - 365);
+
+  const tenants = await v0FetchAll<V0Tenant>(
+    '/tenants',
+    { 'filters[LastUpdatedAtFrom]': yearAgo.toISOString() },
+    config
+  );
+
+  // Index prior move-outs by UnitId (sorted ascending so we can binary-search by date).
+  const moveOutsByUnit = new Map<string, string[]>();
+  for (const t of tenants) {
+    if (t.HiddenAt || !t.UnitId || !t.MoveOutOn) continue;
+    const arr = moveOutsByUnit.get(t.UnitId) ?? [];
+    arr.push(t.MoveOutOn);
+    moveOutsByUnit.set(t.UnitId, arr);
+  }
+  for (const arr of moveOutsByUnit.values()) arr.sort();
+
+  const deltas: number[] = [];
+  for (const t of tenants) {
+    if (t.HiddenAt || !t.UnitId) continue;
+    const signed = t.LeaseSignedDate || t.MoveInOn;
+    if (!signed) continue;
+    const signedDate = new Date(signed);
+    if (signedDate < ninetyDaysAgo || signedDate > now) continue;
+
+    const priorMoveOuts = moveOutsByUnit.get(t.UnitId);
+    if (!priorMoveOuts) continue;
+    // Most recent MoveOutOn strictly before this tenant's signed date.
+    let prior: string | undefined;
+    for (let i = priorMoveOuts.length - 1; i >= 0; i--) {
+      if (priorMoveOuts[i] < signed) { prior = priorMoveOuts[i]; break; }
+    }
+    if (!prior) continue;
+
+    const days = Math.round((signedDate.getTime() - new Date(prior).getTime()) / 86400000);
+    if (days < 0 || days > 365) continue; // drop outliers / data errors
+    deltas.push(days);
+  }
+
+  if (deltas.length === 0) {
+    return { avgDays: 0, fastest: 0, slowest: 0, unitsLeased: 0 };
+  }
+
+  const sum = deltas.reduce((a, b) => a + b, 0);
   return {
-    avgDays: 18.4,
-    fastest: 3,
-    slowest: 42,
-    unitsLeased: 12,
+    avgDays: Math.round((sum / deltas.length) * 10) / 10,
+    fastest: Math.min(...deltas),
+    slowest: Math.max(...deltas),
+    unitsLeased: deltas.length,
   };
 }
 
@@ -672,13 +771,35 @@ export async function fetchNetDoorsKpi(): Promise<NetDoorsKpi> {
   const currentDoors = units.filter((u) => !u.HiddenAt).length;
   const currentProperties = properties.filter((p) => !p.HiddenAt).length;
 
-  // Net this month is computed from snapshot delta — on first run, default to 0.
-  // The cron job captures daily snapshots; month-over-month diff is computed client-side.
-  // TODO: Compare against last month's snapshot for netThisMonth
+  // netThisMonth = currentDoors − earliest net_doors snapshot of this calendar month (UTC).
+  // If no snapshot exists yet for the current month, the delta is 0 by definition.
+  let netThisMonth = 0;
+  try {
+    const now = new Date();
+    const startOfMonth = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)
+    );
+    const supabase = getSupabaseAdmin();
+    const { data } = await supabase
+      .from('kpi_snapshots')
+      .select('value')
+      .eq('kpi_name', 'net_doors')
+      .gte('captured_at', startOfMonth.toISOString())
+      .order('captured_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    const baseline = (data?.value as { currentDoors?: number } | null)?.currentDoors;
+    if (typeof baseline === 'number') {
+      netThisMonth = currentDoors - baseline;
+    }
+  } catch (e) {
+    console.warn('[KPI] net_doors month baseline lookup failed:', e);
+  }
+
   return {
     currentDoors,
     currentProperties,
-    netThisMonth: 0,
+    netThisMonth,
   };
 }
 
@@ -991,10 +1112,19 @@ export async function fetchLeasingFunnelKpi(): Promise<LeasingFunnelKpi> {
     ? Math.round((totalDays / countWithDates) * 10) / 10
     : 0;
 
-  // Time to first contact:
-  // Showings endpoint returns 0 results. Communications not available in v0 API.
-  // TODO: If AppFolio adds /showings data or /communications endpoint, use it here.
-  // RESPONSE_BUCKETS defined above for future use.
+  // Time to first contact — UNAVAILABLE from AppFolio v0 for this portfolio.
+  //
+  // Probed 2026-05-20:
+  //   /showings  → returns 200 but 0 rows (HDPM doesn't log showings here)
+  //   /communications, /messages, /conversations, /lead_contacts,
+  //   /lead_communications, /lead_notes, /tour_requests, /leasing_activities,
+  //   /lead_activities, /inquiries — all 404
+  //   Lead.LastUpdatedAt is unreliable as a first-response proxy: median
+  //   gap to CreatedAt is ~670 days because updates fire on later status
+  //   changes (apply, inactive), not first contact.
+  //
+  // To make this live, capture inbound lead timestamps + first staff
+  // touch in Supabase (webhook or manual button) and read from there.
   void RESPONSE_BUCKETS;
 
   return {
