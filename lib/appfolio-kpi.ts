@@ -968,26 +968,15 @@ export async function fetchGuestCardKpi(): Promise<GuestCardKpi> {
 // KPI 12: Leasing Funnel + Time to First Contact
 // ============================================
 
-// TODO: Actual AppFolio lead statuses are "active" / "inactive" only.
-// Funnel stages are derived by cross-referencing leads → rental_applications.
-const LEAD_STATUS_MAP = {
-  APPLICATION: ['Applied', 'Application Submitted'],
-  APPROVED: ['Approved', 'Approval Pending'],
-  LEASED: ['Leased', 'Lease Signed', 'Move-In Scheduled'],
-  LOST: ['Cancelled', 'Lost', 'Denied', 'Withdrawn'],
-} as const;
-
-const RENTAL_APP_STATUS_MAP = {
-  APPROVED: ['approved'],
-  PENDING: ['decision_pending'],
-  DENIED: ['denied', 'cancelled'],
-} as const;
-
-const RESPONSE_BUCKETS = {
-  UNDER_1_HOUR: 1,
-  UNDER_24_HOURS: 24,
-  OVER_24_HOURS: Infinity,
-} as const;
+// AppFolio lead Status values seen in the wild:
+//   active, inactive, applied_review, applied_canceled, applied_denied, converted
+// "converted" is set when the lead becomes a tenant (lease executed).
+const LEAD_APPLIED_STATUSES = new Set([
+  'applied_review',
+  'applied_canceled',
+  'applied_denied',
+  'converted',
+]);
 
 export interface LeasingFunnelKpi {
   period: string;
@@ -1049,44 +1038,40 @@ export async function fetchLeasingFunnelKpi(): Promise<LeasingFunnelKpi> {
     ),
   ]);
 
-  // Filter leads created in last 90 days
+  // Anchor every stage on the same cohort (leads created in last 90 days),
+  // so the funnel is monotonically narrowing rather than four independent metrics.
   const recentLeads = leads.filter((l) => new Date(l.CreatedAt) >= sinceDate);
 
-  // Stage 1: Guest Cards = all recent leads
+  const approvedAppIds = new Set(
+    rentalApps.filter((a) => a.Status === 'approved').map((a) => a.Id)
+  );
+  const rentalAppById = new Map(rentalApps.map((a) => [a.Id, a]));
+
+  // Stage 1: Guest Cards = recent leads.
   const guestCards = recentLeads.length;
 
-  // Stage 2: Applications = leads that have a RentalApplicationId
-  const leadsWithApp = recentLeads.filter((l) => l.RentalApplicationId);
-  const applications = leadsWithApp.length;
+  // Stage 2: Applications = lead reached the application stage. AppFolio sets
+  // Status to applied_review/applied_canceled/applied_denied/converted once an
+  // application is submitted; we also count any lead with a linked rental_app
+  // in case the status flag lags the linkage.
+  const isApplication = (l: V0Lead) =>
+    !!l.RentalApplicationId || LEAD_APPLIED_STATUSES.has(l.Status);
+  const applications = recentLeads.filter(isApplication).length;
 
-  // Build a set of approved application IDs
-  const approvedAppIds = new Set(
-    rentalApps
-      .filter((a) => RENTAL_APP_STATUS_MAP.APPROVED.includes(a.Status as 'approved'))
-      .map((a) => a.Id)
-  );
+  // Stage 3: Approvals = the linked rental_app is approved, or the lead has
+  // already converted (which implies approval).
+  const isApproval = (l: V0Lead) =>
+    l.Status === 'converted' ||
+    (l.RentalApplicationId != null && approvedAppIds.has(l.RentalApplicationId));
+  const approvals = recentLeads.filter(isApproval).length;
 
-  // Stage 3: Approvals = leads whose application was approved
-  const approvals = leadsWithApp.filter(
-    (l) => l.RentalApplicationId && approvedAppIds.has(l.RentalApplicationId)
-  ).length;
+  // Stage 4: Move-Ins = lead Status is 'converted' (AppFolio's authoritative
+  // signal that the applicant became a tenant). Always a subset of approvals
+  // by construction.
+  const moveIns = recentLeads.filter((l) => l.Status === 'converted').length;
 
-  // Stage 4: Move-ins — check lead status or use LEAD_STATUS_MAP
-  // TODO: AppFolio lead Status is only "active"/"inactive". For now,
-  // estimate move-ins from approved applications with StatusChangedAt > 30 days ago
-  // (assumes approved apps that are old enough have likely moved in).
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  const moveIns = rentalApps.filter((a) => {
-    if (!RENTAL_APP_STATUS_MAP.APPROVED.includes(a.Status as 'approved')) return false;
-    if (!a.StatusChangedAt) return false;
-    return new Date(a.StatusChangedAt) < thirtyDaysAgo;
-  }).length;
-
-  // Conversion rates
   const safeDiv = (num: number, den: number) =>
     den > 0 ? Math.round((num / den) * 1000) / 10 : 0;
-
   const conversionRates = {
     guestCardToApplication: safeDiv(applications, guestCards),
     applicationToApproval: safeDiv(approvals, applications),
@@ -1094,16 +1079,18 @@ export async function fetchLeasingFunnelKpi(): Promise<LeasingFunnelKpi> {
     overallConversion: safeDiv(moveIns, guestCards),
   };
 
-  // Avg days lead to lease: for leads with approved applications
-  // Use time from lead CreatedAt to application StatusChangedAt
+  // Avg days lead → lease for converted leads. Prefer the linked rental_app's
+  // StatusChangedAt; fall back to the lead's LastUpdatedAt as a proxy for the
+  // conversion timestamp.
   let totalDays = 0;
   let countWithDates = 0;
-  for (const lead of leadsWithApp) {
-    if (!lead.RentalApplicationId || !approvedAppIds.has(lead.RentalApplicationId)) continue;
-    const app = rentalApps.find((a) => a.Id === lead.RentalApplicationId);
-    if (!app?.StatusChangedAt) continue;
-    const days = (new Date(app.StatusChangedAt).getTime() - new Date(lead.CreatedAt).getTime()) / (1000 * 60 * 60 * 24);
-    if (days >= 0) {
+  for (const lead of recentLeads) {
+    if (lead.Status !== 'converted') continue;
+    const app = lead.RentalApplicationId ? rentalAppById.get(lead.RentalApplicationId) : null;
+    const endIso = app?.StatusChangedAt ?? lead.LastUpdatedAt;
+    if (!endIso) continue;
+    const days = (new Date(endIso).getTime() - new Date(lead.CreatedAt).getTime()) / 86400000;
+    if (days >= 0 && days <= 180) {
       totalDays += days;
       countWithDates++;
     }
@@ -1125,7 +1112,6 @@ export async function fetchLeasingFunnelKpi(): Promise<LeasingFunnelKpi> {
   //
   // To make this live, capture inbound lead timestamps + first staff
   // touch in Supabase (webhook or manual button) and read from there.
-  void RESPONSE_BUCKETS;
 
   return {
     period: 'last_90_days',
@@ -1180,6 +1166,3 @@ export async function fetchManagementFeesKpi(): Promise<ManagementFeesKpi> {
 
   return { feeCount, totalProperties: active.length };
 }
-
-// Re-export status maps for use in webhook handler
-export { LEAD_STATUS_MAP, RENTAL_APP_STATUS_MAP, RESPONSE_BUCKETS };
