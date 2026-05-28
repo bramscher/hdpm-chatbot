@@ -62,12 +62,16 @@ export async function POST(
           resident_name,
           inspection_properties (
             id,
+            name,
             address_1,
+            address_2,
             city,
             state,
             zip,
             latitude,
-            longitude
+            longitude,
+            appfolio_property_id,
+            owner_name
           )
         )
       `)
@@ -104,7 +108,7 @@ export async function POST(
       const insp = stop.inspections;
       const prop = insp?.inspection_properties;
       const address = prop ? `${prop.address_1}, ${prop.city}, ${prop.state} ${prop.zip}` : 'Unknown';
-      const unit = insp?.unit_name ? ` - ${insp.unit_name}` : '';
+      const unit = insp?.unit_name ? ` - ${insp.unit_name}` : prop?.address_2 ? ` - ${prop.address_2}` : '';
       const type = insp?.inspection_type || 'Inspection';
       const resident = insp?.resident_name || null;
       const priority = insp?.priority || 'normal';
@@ -113,6 +117,8 @@ export async function POST(
       const serviceMin = stop.service_minutes || 30;
       const lat = prop?.latitude || null;
       const lng = prop?.longitude || null;
+      const propertyCode = prop?.appfolio_property_id || prop?.name || null;
+      const ownerName = prop?.owner_name || null;
 
       // Estimated arrival = start time + cumulative drive + cumulative service so far
       runningMinutes += driveMin;
@@ -147,6 +153,8 @@ export async function POST(
         lat,
         lng,
         mapsLink,
+        propertyCode,
+        ownerName,
       };
     });
 
@@ -190,11 +198,16 @@ export async function POST(
         : '';
       const overdue = s.dueDate && new Date(s.dueDate + 'T12:00:00') < new Date();
 
+      const propertyMeta = [s.propertyCode, s.ownerName ? `Owner: ${s.ownerName}` : null]
+        .filter(Boolean)
+        .join(' &middot; ');
+
       return `<tr>
         <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;font-weight:700;color:#6b7280;vertical-align:top;width:30px;">${s.index}</td>
         <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;vertical-align:top;">
           <a href="${s.mapsLink}" style="color:#2563eb;text-decoration:none;font-weight:600;">${s.address}</a>${s.unit ? `<br/><span style="color:#6b7280;font-size:12px;">${s.unit}</span>` : ''}
-          ${s.resident ? `<br/><span style="color:#6b7280;font-size:12px;">Resident: ${s.resident}</span>` : ''}
+          ${propertyMeta ? `<br/><span style="color:#6b7280;font-size:12px;">${propertyMeta}</span>` : ''}
+          ${s.resident ? `<br/><span style="color:#6b7280;font-size:12px;">Tenant: ${s.resident}</span>` : ''}
           <br/><span style="font-size:12px;">${s.type} ${priorityBadge(s.priority)}${dueDateStr ? ` &middot; Due: <span style="${overdue ? 'color:#dc2626;font-weight:600;' : ''}">${dueDateStr}</span>` : ''}</span>
         </td>
         <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;vertical-align:top;white-space:nowrap;font-size:13px;">
@@ -254,6 +267,14 @@ export async function POST(
         type: 'required',
       });
     }
+    // Always cc the operations admin (Craig) as a required attendee on every route.
+    const opsAdminEmail = 'craigbramscher@gmail.com';
+    if (inspectorEmail?.toLowerCase() !== opsAdminEmail) {
+      attendees.push({
+        emailAddress: { address: opsAdminEmail, name: 'Craig Bramscher' },
+        type: 'required',
+      });
+    }
     attendees.push({
       emailAddress: { address: 'operations@highdesertpm.com', name: 'Operations' },
       type: 'optional',
@@ -281,6 +302,14 @@ export async function POST(
       isReminderOn: true,
       reminderMinutesBeforeStart: 30,
     };
+
+    // ── Dry-run escape hatch ──
+    // Set INSPECTION_CALENDAR_DRYRUN=1 to skip the Graph POST and return the
+    // generated event JSON instead. Useful for verifying body + attendees before
+    // sending real invitations.
+    if (process.env.INSPECTION_CALENDAR_DRYRUN === '1') {
+      return NextResponse.json({ success: true, dryRun: true, event });
+    }
 
     // ── Call Microsoft Graph API ──
     const graphRes = await fetch('https://graph.microsoft.com/v1.0/me/events', {

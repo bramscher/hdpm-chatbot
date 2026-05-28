@@ -476,6 +476,16 @@ export function InspectionDashboard() {
             {syncing ? "Syncing..." : "Sync from Property Meld"}
           </button>
           <Link
+            href="/maintenance/inspections/candidates"
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+              "bg-blue-500 text-white hover:bg-blue-600"
+            )}
+          >
+            <ClipboardCheck className="w-4 h-4" />
+            AppFolio Candidates
+          </Link>
+          <Link
             href="/maintenance/inspections/import"
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",

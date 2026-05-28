@@ -376,6 +376,21 @@ export default function InspectionImportPage() {
             </p>
           </div>
 
+          {/* ── Legacy notice ── */}
+          <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+            <strong>Tip:</strong> The primary inspection flow now pulls directly from AppFolio.
+            Use{" "}
+            <Link
+              href="/maintenance/inspections/candidates"
+              className="underline font-semibold hover:text-blue-700"
+            >
+              AppFolio Candidates
+            </Link>{" "}
+            for properties flagged with "Use Custom Inspection Date" — recently inspected
+            units are skipped automatically. This XLSX import is still available for one-off
+            uploads.
+          </div>
+
           {/* ── Step Indicators ── */}
           <div className="flex items-center gap-2">
             {[1, 2, 3].map((s) => (

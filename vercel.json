@@ -17,6 +17,10 @@
       "schedule": "0 * * * *"
     },
     {
+      "path": "/api/inspections/candidates/sync",
+      "schedule": "30 9 * * *"
+    },
+    {
       "path": "/api/kpi/cron",
       "schedule": "0 14 * * *"
     }

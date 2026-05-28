@@ -1,0 +1,248 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { getSupabaseAdmin } from '@/lib/supabase';
+import { buildRoutePlans } from '@/lib/route-engine';
+import type { GeoInspection } from '@/types/routes';
+
+interface ScheduleRequest {
+  date_range_start: string;
+  date_range_end: string;
+  assigned_to?: string;
+  max_stops_per_route?: number;
+  candidate_ids?: string[]; // optional manual pick; otherwise use all eligible
+}
+
+/**
+ * POST /api/inspections/candidates/schedule
+ *
+ * Materializes eligible candidates into inspections rows, runs the proximity-
+ * grouped route engine across the supplied date range, persists route_plans +
+ * route_stops, and flips the candidates' candidate_status to 'scheduled'.
+ *
+ * Eligible = `candidate_status='eligible'` AND latitude/longitude present.
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const session = await getServerSession();
+    if (!session?.user?.email?.endsWith('@highdesertpm.com')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = (await request.json()) as ScheduleRequest;
+    const { date_range_start, date_range_end, assigned_to, max_stops_per_route, candidate_ids } = body;
+
+    if (!date_range_start || !date_range_end) {
+      return NextResponse.json(
+        { error: 'date_range_start and date_range_end are required' },
+        { status: 400 }
+      );
+    }
+
+    // Enforce 7-day lead time for tenant notice (matches /api/inspections/routes)
+    const minRouteDate = new Date();
+    minRouteDate.setDate(minRouteDate.getDate() + 7);
+    const minDateStr = minRouteDate.toISOString().split('T')[0];
+    if (date_range_start < minDateStr) {
+      return NextResponse.json(
+        { error: 'Routes must be scheduled at least 7 days in advance to allow time for tenant notices.' },
+        { status: 400 }
+      );
+    }
+
+    const supabase = getSupabaseAdmin();
+
+    // Step 1: Load eligible candidates with coordinates
+    let candQuery = supabase
+      .from('inspection_properties')
+      .select('id, address_1, address_2, city, state, zip, latitude, longitude, name, owner_name, appfolio_property_id, appfolio_unit_id, last_inspection_date, candidate_status')
+      .eq('candidate_status', 'eligible')
+      .eq('uses_custom_inspection_date', true)
+      .not('latitude', 'is', null)
+      .not('longitude', 'is', null);
+
+    if (candidate_ids && candidate_ids.length > 0) {
+      candQuery = candQuery.in('id', candidate_ids);
+    }
+
+    const { data: candidates, error: candErr } = await candQuery;
+    if (candErr) {
+      console.error('[candidates/schedule] load error:', candErr);
+      return NextResponse.json({ error: candErr.message }, { status: 500 });
+    }
+    if (!candidates || candidates.length === 0) {
+      return NextResponse.json({ routes: [], scheduled_count: 0, message: 'No eligible candidates with coordinates' });
+    }
+
+    // Step 2: Pull active tenants per unit so we can stamp resident_name on the inspection row
+    // and surface it in the notice + calendar event.
+    const unitIds = candidates.map((c) => c.appfolio_unit_id).filter(Boolean) as string[];
+
+    const residentByUnit = new Map<string, string>();
+    if (unitIds.length > 0) {
+      // Tenants are not stored locally; the canonical resident name comes from AppFolio
+      // when we sync. For now we leave resident_name null on insert; the existing
+      // notice flow already calls Property Meld to look it up. If you want to denormalize
+      // resident names, add a column on inspection_properties during sync and read it here.
+    }
+
+    // Step 3: Create one inspections row per candidate
+    const today = new Date();
+    const inspectionRows = candidates.map((c) => {
+      const base: Record<string, unknown> = {
+        property_id: c.id,
+        inspection_type: 'routine',
+        status: 'queued',
+        priority: 'normal',
+        priority_score: 50,
+        estimated_duration_minutes: 30,
+        occupancy_status: 'occupied',
+      };
+
+      // due_date = last_inspection_date + 6 months, or today if never inspected
+      if (c.last_inspection_date) {
+        const due = new Date(c.last_inspection_date);
+        due.setMonth(due.getMonth() + 6);
+        base.due_date = due.toISOString().split('T')[0];
+        base.last_inspection_date = c.last_inspection_date;
+      } else {
+        base.due_date = today.toISOString().split('T')[0];
+      }
+
+      return base;
+    });
+
+    const { data: insertedInspections, error: insErr } = await supabase
+      .from('inspections')
+      .insert(inspectionRows)
+      .select('id, property_id, due_date, priority, status');
+
+    if (insErr || !insertedInspections) {
+      console.error('[candidates/schedule] insert inspections error:', insErr);
+      return NextResponse.json({ error: insErr?.message || 'Failed to create inspections' }, { status: 500 });
+    }
+
+    // Step 4: Map inserted inspections into GeoInspection records for the route engine
+    const candidateById = new Map(candidates.map((c) => [c.id, c]));
+    const geoInspections: GeoInspection[] = insertedInspections.map((insp) => {
+      const c = candidateById.get(insp.property_id)!;
+      const dueDate = insp.due_date ? new Date(insp.due_date) : null;
+      const daysOverdue = dueDate
+        ? Math.max(0, Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)))
+        : 0;
+
+      return {
+        inspection_id: insp.id,
+        property_id: insp.property_id,
+        address: `${c.address_1}, ${c.city}, ${c.state} ${c.zip}`,
+        unit_name: c.address_2,
+        city: c.city,
+        lat: c.latitude as number,
+        lng: c.longitude as number,
+        due_date: insp.due_date,
+        priority: 'normal',
+        service_minutes: 30,
+        days_overdue: daysOverdue,
+      };
+    });
+
+    // Step 5: Build proposed routes across the date range
+    const result = buildRoutePlans(geoInspections, {
+      date_range_start,
+      date_range_end,
+      assigned_to: assigned_to || session.user?.email || 'unassigned',
+      max_stops_per_route: max_stops_per_route ?? 10,
+    });
+
+    if (result.routes.length === 0) {
+      // Rollback the inspections we just created — no routes were producible
+      await supabase
+        .from('inspections')
+        .delete()
+        .in('id', insertedInspections.map((i) => i.id));
+      return NextResponse.json({
+        routes: [],
+        scheduled_count: 0,
+        excluded_count: result.excluded.length,
+        message: 'No routes produced (all candidates excluded — verify geocoding)',
+      });
+    }
+
+    // Step 6: Persist route_plans + route_stops, collect scheduled inspection IDs
+    const createdRoutes: Array<{ id: string; route_date: string; total_stops: number }> = [];
+    const scheduledInspectionIds: string[] = [];
+    const scheduledPropertyIds = new Set<string>();
+
+    for (const proposed of result.routes) {
+      const { data: routePlan, error: planErr } = await supabase
+        .from('route_plans')
+        .insert({
+          route_date: proposed.route_date,
+          assigned_to: proposed.assigned_to || session.user?.email || 'unassigned',
+          status: 'draft',
+          total_drive_minutes: Math.round(proposed.total_drive_minutes || 0),
+          total_service_minutes: Math.round(proposed.total_service_minutes || 0),
+          total_stops: Math.round(proposed.stop_count || 0),
+          notes: proposed.name,
+        })
+        .select('id, route_date, total_stops')
+        .single();
+
+      if (planErr || !routePlan) {
+        console.error('[candidates/schedule] insert route_plan error:', planErr);
+        return NextResponse.json({ error: planErr?.message || 'Failed to save route plan' }, { status: 500 });
+      }
+
+      const stopsToInsert = proposed.stops.map((stop) => ({
+        route_plan_id: routePlan.id,
+        inspection_id: stop.inspection_id,
+        stop_order: stop.stop_order,
+        travel_minutes_from_previous: Math.round(stop.drive_minutes_from_prev || 0),
+        service_minutes: Math.round(stop.service_minutes || 30),
+      }));
+
+      const { error: stopsErr } = await supabase.from('route_stops').insert(stopsToInsert);
+      if (stopsErr) {
+        console.error('[candidates/schedule] insert route_stops error:', stopsErr);
+        return NextResponse.json({ error: stopsErr.message }, { status: 500 });
+      }
+
+      // Update the inspections with route_plan_id + scheduled status + target_date
+      const inspIds = proposed.stops.map((s) => s.inspection_id);
+      await supabase
+        .from('inspections')
+        .update({
+          route_plan_id: routePlan.id,
+          target_date: proposed.route_date,
+          status: 'scheduled',
+          assigned_to: proposed.assigned_to || session.user?.email || 'unassigned',
+        })
+        .in('id', inspIds);
+
+      scheduledInspectionIds.push(...inspIds);
+      for (const stop of proposed.stops) {
+        scheduledPropertyIds.add(stop.property_id);
+      }
+
+      createdRoutes.push({ id: routePlan.id, route_date: routePlan.route_date, total_stops: routePlan.total_stops });
+    }
+
+    // Step 7: Flip candidate_status to 'scheduled' for properties whose inspections made it onto a route
+    if (scheduledPropertyIds.size > 0) {
+      await supabase
+        .from('inspection_properties')
+        .update({ candidate_status: 'scheduled' })
+        .in('id', [...scheduledPropertyIds]);
+    }
+
+    return NextResponse.json({
+      routes: createdRoutes,
+      scheduled_count: scheduledInspectionIds.length,
+      excluded_count: result.excluded.length,
+      excluded: result.excluded,
+    });
+  } catch (error) {
+    console.error('[candidates/schedule] error:', error);
+    const message = error instanceof Error ? error.message : 'Failed to schedule candidates';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

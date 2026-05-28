@@ -1041,3 +1041,108 @@ export async function fetchAppFolioUnits(): Promise<AppFolioUnit[]> {
   console.log(`[AppFolio] Total units fetched: ${allUnits.length}`);
   return allUnits;
 }
+
+// ============================================
+// Public: Fetch Properties with CustomValues (Use Custom Inspection Date / Owner Name)
+// ============================================
+
+interface V0PropertyWithCustomValues extends V0Property {
+  CustomValues?: Array<{ Name: string; Value: string }>;
+}
+
+export interface AppFolioPropertyWithCustomFields {
+  appfolioPropertyId: string;
+  name: string | null;
+  address1: string | null;
+  address2: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  ownerName: string | null;
+  useCustomInspectionDate: boolean;
+  hidden: boolean;
+  customValueNames: string[];
+}
+
+const TRUTHY_CUSTOM_VALUES = new Set(['yes', 'true', '1', 'y', 'checked', 'on']);
+
+function isTruthyCustomValue(value: string | undefined | null): boolean {
+  if (!value) return false;
+  return TRUTHY_CUSTOM_VALUES.has(value.trim().toLowerCase());
+}
+
+const INSPECTION_FLAG_NAMES = [
+  'Use Custom Inspection Date',
+  'Custom Inspection Date',
+  'Use Custom Inspection Schedule',
+];
+
+const OWNER_NAME_FIELD_NAMES = ['Owner Name', 'Owner', 'Property Owner'];
+
+function findCustomValue(
+  values: Array<{ Name: string; Value: string }> | undefined,
+  candidates: string[]
+): { Name: string; Value: string } | undefined {
+  if (!values) return undefined;
+  for (const candidate of candidates) {
+    const match = values.find((cv) => cv.Name === candidate);
+    if (match) return match;
+  }
+  return undefined;
+}
+
+export async function fetchAppFolioPropertiesWithCustomFields(): Promise<
+  AppFolioPropertyWithCustomFields[]
+> {
+  const config = getConfig();
+  if (!config) return [];
+
+  const { clientId, clientSecret, developerId } = config;
+  const allProperties: V0PropertyWithCustomValues[] = [];
+  let pageNumber = 1;
+  const pageSize = 1000;
+
+  while (true) {
+    console.log(`[AppFolio] Fetching properties (with CustomValues) page ${pageNumber}...`);
+    const res = await v0Fetch<V0PropertyWithCustomValues>(
+      '/properties',
+      {
+        'filters[LastUpdatedAtFrom]': '1970-01-01T00:00:00Z',
+        'page[number]': String(pageNumber),
+        'page[size]': String(pageSize),
+      },
+      clientId,
+      clientSecret,
+      developerId
+    );
+
+    const props = res.data || [];
+    allProperties.push(...props);
+    console.log(`[AppFolio] Page ${pageNumber}: ${props.length} properties`);
+
+    if (props.length < pageSize || !res.next_page_path) break;
+    pageNumber++;
+    if (pageNumber > 10) {
+      console.warn('[AppFolio] Hit max property page limit (10), stopping');
+      break;
+    }
+  }
+
+  return allProperties.map((p) => {
+    const inspectionFlag = findCustomValue(p.CustomValues, INSPECTION_FLAG_NAMES);
+    const ownerField = findCustomValue(p.CustomValues, OWNER_NAME_FIELD_NAMES);
+    return {
+      appfolioPropertyId: p.Id,
+      name: p.Name || null,
+      address1: p.Address1 || null,
+      address2: p.Address2 || null,
+      city: p.City || null,
+      state: p.State || null,
+      zip: p.Zip || null,
+      ownerName: ownerField?.Value?.trim() || null,
+      useCustomInspectionDate: isTruthyCustomValue(inspectionFlag?.Value),
+      hidden: Boolean(p.HiddenAt),
+      customValueNames: (p.CustomValues || []).map((cv) => cv.Name),
+    };
+  });
+}
